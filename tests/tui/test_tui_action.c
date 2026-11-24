@@ -76,9 +76,11 @@ Test(tui_action, phase_three_reference_commands_map_to_shared_intents)
     cr_assert_str_eq(action.notes, "AD");
     cr_assert_str_eq(action.role, "N");
 
-    request = parse_request("driver new");
+    request = parse_request("driver new --short AD --notes N");
     cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
     cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_DRIVER_CREATE_FORM);
+    cr_assert_str_eq(action.notes, "AD");
+    cr_assert_str_eq(action.role, "N");
 
     request = parse_request("driver show 7");
     cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
@@ -109,6 +111,12 @@ Test(tui_action, phase_three_reference_commands_map_to_shared_intents)
     cr_assert_str_eq(action.value, "2026");
     cr_assert_str_eq(action.start, "2026-01-01");
 
+    request = parse_request("season new --start 2026-01-01 --notes N");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_SEASON_CREATE_FORM);
+    cr_assert_str_eq(action.start, "2026-01-01");
+    cr_assert_str_eq(action.notes, "N");
+
     request = parse_request("season select 2026");
     cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
     cr_assert_eq(action.kind, APL_TUI_ACTION_SEASON_SELECT_TARGET);
@@ -118,6 +126,12 @@ Test(tui_action, phase_three_reference_commands_map_to_shared_intents)
     cr_assert_eq(action.kind, APL_TUI_ACTION_CREATE_CAR_DIRECT);
     cr_assert_str_eq(action.value, "SF-26");
     cr_assert_str_eq(action.notes, "C1");
+
+    request = parse_request("car new --chassis C1 --notes N");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_CAR_CREATE_FORM);
+    cr_assert_str_eq(action.notes, "C1");
+    cr_assert_str_eq(action.role, "N");
 
     request = parse_request("car show SF-26");
     cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);

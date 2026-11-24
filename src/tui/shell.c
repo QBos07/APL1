@@ -2650,7 +2650,7 @@ static void execute_command_line(shell_state *const state)
         set_status(state, "People: drivers associated with the active team.");
         return;
     case APL_TUI_ACTION_OPEN_DRIVER_CREATE_FORM:
-        open_driver_dialog(state, false, "", "", "");
+        open_driver_dialog(state, false, action.value, action.notes, action.role);
         return;
     case APL_TUI_ACTION_CREATE_DRIVER_DIRECT:
         if (!perform_driver_create(state, action.value, action.notes, action.role, &error)) {
@@ -2773,7 +2773,7 @@ static void execute_command_line(shell_state *const state)
                              "Select an active team before creating a season.");
             return;
         }
-        open_season_dialog(state, false, "", "", "", "");
+        open_season_dialog(state, false, action.value, action.start, action.end, action.notes);
         return;
     case APL_TUI_ACTION_CREATE_SEASON_DIRECT:
         if (active_team_id(state) == 0) {
@@ -2812,7 +2812,7 @@ static void execute_command_line(shell_state *const state)
                              "Select an active team before creating a car.");
             return;
         }
-        open_car_dialog(state, false, "", "", "");
+        open_car_dialog(state, false, action.value, action.notes, action.role);
         return;
     case APL_TUI_ACTION_CREATE_CAR_DIRECT:
         if (active_team_id(state) == 0) {

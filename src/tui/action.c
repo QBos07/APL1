@@ -79,17 +79,23 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
         return APL_OK;
     case APL_TUI_COMMAND_DRIVER_NEW: {
         const char *const name = apl_tui_command_option_value(request, "name");
+        const char *const short_name = apl_tui_command_option_value(request, "short");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
         if (name == nullptr || name[0] == '\0') {
             out_action->kind = APL_TUI_ACTION_OPEN_DRIVER_CREATE_FORM;
+            if (short_name != nullptr) {
+                (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", short_name);
+            }
+            if (notes != nullptr) {
+                (void)snprintf(out_action->role, sizeof(out_action->role), "%s", notes);
+            }
             return APL_OK;
         }
         out_action->kind = APL_TUI_ACTION_CREATE_DRIVER_DIRECT;
         (void)snprintf(out_action->value, sizeof(out_action->value), "%s", name);
-        const char *const short_name = apl_tui_command_option_value(request, "short");
         if (short_name != nullptr) {
             (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", short_name);
         }
-        const char *const notes = apl_tui_command_option_value(request, "notes");
         if (notes != nullptr) {
             (void)snprintf(out_action->role, sizeof(out_action->role), "%s", notes);
         }
@@ -161,15 +167,24 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
         return APL_OK;
     case APL_TUI_COMMAND_SEASON_NEW: {
         const char *const label = apl_tui_command_option_value(request, "label");
+        const char *const start = apl_tui_command_option_value(request, "start");
+        const char *const end = apl_tui_command_option_value(request, "end");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
         if (label == nullptr || label[0] == '\0') {
             out_action->kind = APL_TUI_ACTION_OPEN_SEASON_CREATE_FORM;
+            if (start != nullptr) {
+                (void)snprintf(out_action->start, sizeof(out_action->start), "%s", start);
+            }
+            if (end != nullptr) {
+                (void)snprintf(out_action->end, sizeof(out_action->end), "%s", end);
+            }
+            if (notes != nullptr) {
+                (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", notes);
+            }
             return APL_OK;
         }
         out_action->kind = APL_TUI_ACTION_CREATE_SEASON_DIRECT;
         (void)snprintf(out_action->value, sizeof(out_action->value), "%s", label);
-        const char *const start = apl_tui_command_option_value(request, "start");
-        const char *const end = apl_tui_command_option_value(request, "end");
-        const char *const notes = apl_tui_command_option_value(request, "notes");
         if (start != nullptr) {
             (void)snprintf(out_action->start, sizeof(out_action->start), "%s", start);
         }
@@ -190,14 +205,20 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
         return APL_OK;
     case APL_TUI_COMMAND_CAR_NEW: {
         const char *const label = apl_tui_command_option_value(request, "label");
+        const char *const chassis = apl_tui_command_option_value(request, "chassis");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
         if (label == nullptr || label[0] == '\0') {
             out_action->kind = APL_TUI_ACTION_OPEN_CAR_CREATE_FORM;
+            if (chassis != nullptr) {
+                (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", chassis);
+            }
+            if (notes != nullptr) {
+                (void)snprintf(out_action->role, sizeof(out_action->role), "%s", notes);
+            }
             return APL_OK;
         }
         out_action->kind = APL_TUI_ACTION_CREATE_CAR_DIRECT;
         (void)snprintf(out_action->value, sizeof(out_action->value), "%s", label);
-        const char *const chassis = apl_tui_command_option_value(request, "chassis");
-        const char *const notes = apl_tui_command_option_value(request, "notes");
         if (chassis != nullptr) {
             (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", chassis);
         }
