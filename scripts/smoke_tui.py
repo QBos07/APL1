@@ -64,6 +64,8 @@ class Smoke:
         self.xvfb: subprocess.Popen[bytes] | None = None
         self.xterm: subprocess.Popen[bytes] | None = None
         self.window_id = ""
+        self.cell_width = 0.0
+        self.cell_height = 0.0
 
     # ---------------------------------------------------------------- logging
     def log(self, message: str) -> None:
@@ -199,6 +201,20 @@ class Smoke:
         )
         log.close()
         self.wait_for("xterm window", self._find_window, timeout=10.0)
+        geometry = self.run(
+            ["xdotool", "getwindowgeometry", "--shell", self.window_id],
+            env=self.display_env,
+        )
+        width = height = 0
+        for line in geometry.splitlines():
+            if line.startswith("WIDTH="):
+                width = int(line.split("=", 1)[1])
+            elif line.startswith("HEIGHT="):
+                height = int(line.split("=", 1)[1])
+        if width <= 0 or height <= 0:
+            self.fail(f"could not read the initial xterm geometry: {geometry!r}")
+        self.cell_width = width / 80
+        self.cell_height = height / 24
         time.sleep(0.4)
         self.run(
             ["xdotool", "windowfocus", "--sync", self.window_id],
@@ -235,6 +251,35 @@ class Smoke:
         for key in keys:
             self.run(["xdotool", "key", key], env=self.display_env)
             time.sleep(0.08)
+
+    def click_cell(self, row: int, column: int) -> None:
+        self.run(
+            ["xdotool", "windowfocus", "--sync", self.window_id],
+            env=self.display_env,
+        )
+        geometry = self.run(
+            ["xdotool", "getwindowgeometry", "--shell", self.window_id],
+            env=self.display_env,
+        )
+        x_origin = y_origin = width = height = 0
+        for line in geometry.splitlines():
+            if line.startswith("X="):
+                x_origin = int(line.split("=", 1)[1])
+            elif line.startswith("Y="):
+                y_origin = int(line.split("=", 1)[1])
+            elif line.startswith("WIDTH="):
+                width = int(line.split("=", 1)[1])
+            elif line.startswith("HEIGHT="):
+                height = int(line.split("=", 1)[1])
+        if width <= 0 or height <= 0 or self.cell_width <= 0 or self.cell_height <= 0:
+            self.fail(f"could not read xterm geometry for a click: {geometry!r}")
+        x = x_origin + int(self.cell_width * (column + 0.5))
+        y = y_origin + int(self.cell_height * (row + 0.5))
+        self.run(
+            ["xdotool", "mousemove", "--sync", str(x), str(y), "click", "1"],
+            env=self.display_env,
+        )
+        time.sleep(0.15)
 
     def type_text(self, text: str) -> None:
         self.run(
@@ -417,6 +462,18 @@ class Smoke:
         self.log("startup content is present")
         self.resize_and_check_redraw()
         self.log("resize produced a redraw")
+        self.wait_for_content(
+            "window bar labels",
+            ("Overview", "Settings", "Help", "About"),
+        )
+        self.send_keys("m")
+        self.wait_for_content("keyboard menu dropdown", ("Active team overview",))
+        self.send_keys("Escape", "Escape")
+        self.log("opened and closed the window menu by keyboard")
+        self.click_cell(0, 3)
+        self.wait_for_content("mouse menu dropdown", ("Active team overview",))
+        self.send_keys("Escape", "Escape")
+        self.log("opened and closed the window menu by mouse")
 
         self.send_keys("n")
         self.type_text("Ferrari")

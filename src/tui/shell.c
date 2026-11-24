@@ -9,9 +9,12 @@
 #include <time.h>
 
 #include "app/team_service.h"
+#include "app/version.h"
 #include "tui/dialog.h"
+#include "tui/focus.h"
 #include "tui/frame.h"
 #include "tui/list.h"
+#include "tui/menu.h"
 #include "tui/navigation.h"
 
 typedef enum shell_screen {
@@ -58,6 +61,8 @@ typedef struct shell_state {
     apl_team detail;
     shell_form form;
     apl_tui_dialog dialog;
+    apl_tui_menu menu;
+    apl_tui_focus focus;
     shell_pending_action pending;
     int64_t pending_team_id;
     char status[SHELL_STATUS_MAX];
@@ -239,6 +244,15 @@ static void show_error_dialog(shell_state *const state, const apl_error *const e
 {
     set_status_from_error(state, "Operation failed", error);
     apl_tui_dialog_open_error(&state->dialog, "Operation failed", apl_error_message(error));
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    state->pending = SHELL_PENDING_NONE;
+}
+
+static void show_info_dialog(shell_state *const state, const char *const title,
+                             const char *const message)
+{
+    apl_tui_dialog_open_error(&state->dialog, title, message);
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
     state->pending = SHELL_PENDING_NONE;
 }
 
@@ -353,16 +367,75 @@ static void toggle_archived_view(shell_state *const state, apl_error *const erro
                state->include_archived ? "Showing archived teams." : "Hiding archived teams.");
 }
 
-static void switch_section(shell_state *const state, const bool forward)
+static void set_section(shell_state *const state, const apl_tui_section section)
 {
-    state->section =
-        forward ? apl_tui_section_next(state->section) : apl_tui_section_previous(state->section);
-    if (state->section == APL_TUI_SECTION_TEAMS) {
+    state->section = section;
+    if (section == APL_TUI_SECTION_TEAMS) {
         state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
     } else {
         state->screen = SHELL_SCREEN_PLACEHOLDER;
     }
     state->status[0] = '\0';
+}
+
+static void switch_section(shell_state *const state, const bool forward)
+{
+    set_section(state, forward ? apl_tui_section_next(state->section)
+                               : apl_tui_section_previous(state->section));
+}
+
+static void handle_menu_action(shell_state *const state,
+                               const apl_tui_menu_action action)
+{
+    switch (action) {
+    case APL_TUI_MENU_ACTION_OVERVIEW_ACTIVE:
+        set_section(state, APL_TUI_SECTION_OVERVIEW);
+        set_status(state, "Active-team overview is not implemented in this phase.");
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    case APL_TUI_MENU_ACTION_OVERVIEW_ALL:
+        set_section(state, APL_TUI_SECTION_OVERVIEW);
+        set_status(state, "All-teams overview is not implemented in this phase.");
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    case APL_TUI_MENU_ACTION_DATABASE_INFO:
+        set_section(state, APL_TUI_SECTION_SETTINGS);
+        show_info_dialog(
+            state, "Database information",
+            "The SQLite database is chosen at launch with --database or the default data "
+            "directory. Schema upgrades are applied by the migration runner; no settings are "
+            "editable in this phase.");
+        set_status(state, "Database information.");
+        return;
+    case APL_TUI_MENU_ACTION_HELP_KEYBOARD:
+        show_info_dialog(state, "Keyboard and mouse help",
+                         "F10 focuses the window bar. Tab cycles focus. Arrow keys move and "
+                         "Enter activates. Esc closes menus and dialogs. Mouse clicks use the "
+                         "same actions as the keyboard. q quits.");
+        return;
+    case APL_TUI_MENU_ACTION_HELP_COMMANDS:
+        show_info_dialog(state, "Command help",
+                         "Command entry is opened with ':'. Use it for navigation and team "
+                         "actions; commands never execute shell or SQL text.");
+        return;
+    case APL_TUI_MENU_ACTION_ABOUT: {
+        char version[128];
+        apl1_version_info(version, sizeof(version));
+        show_info_dialog(state, "About apl1",
+                         "apl1 is a local, user-maintained Formula 1 team management database. "
+                         "It does not generate schedules, results, or missing facts.");
+        set_status(state, "%s", version);
+        return;
+    }
+    case APL_TUI_MENU_ACTION_VERSION: {
+        char version[128];
+        apl1_version_info(version, sizeof(version));
+        show_info_dialog(state, "Version information", version);
+        return;
+    }
+    case APL_TUI_MENU_ACTION_NONE:
+        break;
+    }
 }
 
 static void append_utf8(char *const buffer, const size_t capacity, const char *const text)
@@ -391,20 +464,63 @@ static void backspace_utf8(char *const buffer)
     buffer[length] = '\0';
 }
 
-static void draw_header(shell_state *const state)
+static void draw_window_bar(shell_state *const state)
 {
     struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_WINDOW);
     if (plane == nullptr) {
         return;
     }
-    const char *const active =
-        active_status_has_team(state->active_status) ? state->active_team.name : "(none)";
-    char line[256];
-    (void)snprintf(line, sizeof(line), "apl1  |  %s  |  Active: %s",
-                   apl_tui_section_label(state->section), active);
-    apl_tui_frame_set_styles(plane, NCSTYLE_BOLD);
-    apl_tui_frame_draw_line(plane, 0, line);
+    for (size_t index = 0; index < APL_TUI_MENU_GROUP_COUNT; ++index) {
+        const apl_tui_menu_group group = (apl_tui_menu_group)index;
+        const bool focused = state->focus.region == APL_TUI_FOCUS_WINDOW &&
+                             (state->menu.open ? state->menu.group == group
+                                               : state->menu.group_focus == group);
+        apl_tui_frame_set_styles(plane, focused ? NCSTYLE_BOLD : 0);
+        apl_tui_frame_draw_text(plane, 0, (int)apl_tui_menu_heading_offset(group),
+                                apl_tui_menu_group_label(group));
+    }
     apl_tui_frame_set_styles(plane, 0);
+}
+
+static void draw_menu_popup(shell_state *const state)
+{
+    if (!state->menu.open) {
+        return;
+    }
+    struct ncplane *const popup = apl_tui_frame_popup(&state->frame);
+    if (popup == nullptr) {
+        return;
+    }
+    unsigned rows = 0;
+    unsigned cols = 0;
+    ncplane_dim_yx(popup, &rows, &cols);
+    if (rows < 3 || cols < 4) {
+        return;
+    }
+
+    for (unsigned x = 1; x + 1 < cols; ++x) {
+        (void)ncplane_putchar_yx(popup, 0, (int)x, '-');
+        (void)ncplane_putchar_yx(popup, (int)(rows - 1), (int)x, '-');
+    }
+    for (unsigned y = 1; y + 1 < rows; ++y) {
+        (void)ncplane_putchar_yx(popup, (int)y, 0, '|');
+        (void)ncplane_putchar_yx(popup, (int)y, (int)(cols - 1), '|');
+    }
+    (void)ncplane_putchar_yx(popup, 0, 0, '+');
+    (void)ncplane_putchar_yx(popup, 0, (int)(cols - 1), '+');
+    (void)ncplane_putchar_yx(popup, (int)(rows - 1), 0, '+');
+    (void)ncplane_putchar_yx(popup, (int)(rows - 1), (int)(cols - 1), '+');
+
+    const size_t count = apl_tui_menu_item_count(state->menu.group);
+    for (size_t index = 0; index < count && index + 1 < rows - 1; ++index) {
+        const apl_tui_menu_item *const item = apl_tui_menu_item_at(state->menu.group, index);
+        const bool focused = index == state->menu.item_focus;
+        char line[160];
+        (void)snprintf(line, sizeof(line), "%c %s", focused ? '>' : ' ', item->label);
+        apl_tui_frame_set_styles(popup, item->enabled && focused ? NCSTYLE_BOLD : 0);
+        apl_tui_frame_draw_text(popup, (int)(index + 1), 1, line);
+    }
+    apl_tui_frame_set_styles(popup, 0);
 }
 
 static void draw_welcome(shell_state *const state)
@@ -582,7 +698,7 @@ static void draw_dialog(shell_state *const state)
 
 static void draw_screen(shell_state *const state)
 {
-    draw_header(state);
+    draw_window_bar(state);
 
     if (state->section != APL_TUI_SECTION_TEAMS) {
         draw_placeholder(state);
@@ -610,6 +726,8 @@ static void draw_screen(shell_state *const state)
     if (status != nullptr && state->status[0] != '\0') {
         apl_tui_frame_draw_line(status, 0, state->status);
     }
+
+    draw_menu_popup(state);
 
     if (apl_tui_dialog_active(&state->dialog)) {
         draw_dialog(state);
@@ -756,6 +874,46 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
         handle_dialog_mouse(state, input);
         return;
     }
+
+    if (state->menu.open) {
+        const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+        if (layout != nullptr) {
+            const apl_tui_rect popup =
+                apl_tui_menu_popup_rect(&state->menu, layout->rows, layout->cols);
+            if (point_in_rect(popup, input->y, input->x)) {
+                const unsigned row = (unsigned)(input->y - (int)popup.y);
+                if (row >= 1 && row <= apl_tui_menu_item_count(state->menu.group)) {
+                    state->menu.item_focus = row - 1;
+                    const apl_tui_menu_action action = apl_tui_menu_activate(&state->menu);
+                    handle_menu_action(state, action);
+                }
+                return;
+            }
+            if (point_in_rect(layout->window, input->y, input->x)) {
+                const apl_tui_menu_group group =
+                    apl_tui_menu_group_at_column((unsigned)input->x);
+                if (group < APL_TUI_MENU_GROUP_COUNT) {
+                    apl_tui_menu_open(&state->menu, group);
+                }
+                return;
+            }
+        }
+        apl_tui_menu_close(&state->menu);
+        return;
+    }
+
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
+        point_in_rect(layout->window, input->y, input->x)) {
+        const apl_tui_menu_group group = apl_tui_menu_group_at_column((unsigned)input->x);
+        if (group < APL_TUI_MENU_GROUP_COUNT) {
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
+            apl_tui_menu_focus_group(&state->menu, group);
+            apl_tui_menu_open(&state->menu, group);
+        }
+        return;
+    }
+
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return;
     }
@@ -806,6 +964,7 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
     state->pending = SHELL_PENDING_NONE;
     state->pending_team_id = 0;
     apl_tui_dialog_init(&state->dialog);
+    apl_tui_focus_pop(&state->focus);
 
     if (pending == SHELL_PENDING_DISCARD_FORM) {
         if (result == APL_TUI_DIALOG_ACCEPTED) {
@@ -1037,11 +1196,88 @@ static void handle_welcome_input(shell_state *const state, const uint32_t id)
     }
 }
 
+static void handle_window_input(shell_state *const state, const ncinput *const input)
+{
+    const uint32_t id = input->id;
+    if (state->menu.open) {
+        switch (id) {
+        case NCKEY_LEFT:
+            apl_tui_menu_move_group(&state->menu, -1);
+            return;
+        case NCKEY_RIGHT:
+            apl_tui_menu_move_group(&state->menu, 1);
+            return;
+        case NCKEY_UP:
+            apl_tui_menu_move_item(&state->menu, -1);
+            return;
+        case NCKEY_DOWN:
+            apl_tui_menu_move_item(&state->menu, 1);
+            return;
+        case NCKEY_ESC:
+            apl_tui_menu_close(&state->menu);
+            return;
+        case NCKEY_TAB:
+            apl_tui_menu_close(&state->menu);
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+            return;
+        default:
+            break;
+        }
+        if (is_enter_key(id)) {
+            const apl_tui_menu_action action = apl_tui_menu_activate(&state->menu);
+            handle_menu_action(state, action);
+        }
+        return;
+    }
+
+    switch (id) {
+    case NCKEY_LEFT:
+        apl_tui_menu_move_group(&state->menu, -1);
+        return;
+    case NCKEY_RIGHT:
+        apl_tui_menu_move_group(&state->menu, 1);
+        return;
+    case NCKEY_DOWN:
+    case NCKEY_UP:
+        apl_tui_menu_open(&state->menu, state->menu.group_focus);
+        return;
+    case NCKEY_ESC:
+    case NCKEY_TAB:
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id)) {
+        apl_tui_menu_open(&state->menu, state->menu.group_focus);
+    }
+}
+
 static void handle_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
     if (apl_tui_dialog_active(&state->dialog)) {
         handle_dialog_input(state, input);
+        return;
+    }
+    if (id == NCKEY_F10) {
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
+        return;
+    }
+    if ((id == 'm' || id == 'M') &&
+        !(state->section == APL_TUI_SECTION_TEAMS && state->screen == SHELL_SCREEN_TEAM_FORM)) {
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
+        apl_tui_menu_open(&state->menu, state->menu.group_focus);
+        return;
+    }
+    if (state->focus.region == APL_TUI_FOCUS_WINDOW) {
+        handle_window_input(state, input);
+        return;
+    }
+    if (id == NCKEY_TAB &&
+        !(state->section == APL_TUI_SECTION_TEAMS && state->screen == SHELL_SCREEN_TEAM_FORM)) {
+        apl_tui_menu_close(&state->menu);
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
         return;
     }
     if (state->section != APL_TUI_SECTION_TEAMS) {
@@ -1084,6 +1320,8 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
     state->include_archived = false;
     apl_tui_list_init(&state->list, 10);
     apl_tui_dialog_init(&state->dialog);
+    apl_tui_menu_init(&state->menu);
+    apl_tui_focus_init(&state->focus);
 
     apl_status status = detect_any_teams(state, error);
     if (status != APL_OK) {
@@ -1144,6 +1382,7 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
 
     while (!state.quit) {
         apl_tui_frame_set_overlay(&state.frame, apl_tui_dialog_active(&state.dialog));
+        apl_tui_frame_set_popup(&state.frame, false, (apl_tui_rect){});
         status = apl_tui_frame_sync(&state.frame, tui, error);
         if (status != APL_OK) {
             break;
@@ -1151,6 +1390,15 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
 
         if (apl_tui_frame_normal(&state.frame)) {
             const apl_tui_layout *const layout = apl_tui_frame_layout(&state.frame);
+            if (state.menu.open) {
+                apl_tui_frame_set_popup(
+                    &state.frame, true,
+                    apl_tui_menu_popup_rect(&state.menu, layout->rows, layout->cols));
+                status = apl_tui_frame_sync(&state.frame, tui, error);
+                if (status != APL_OK) {
+                    break;
+                }
+            }
             apl_tui_list_set_viewport_rows(&state.list, layout->body.rows);
             apl_tui_frame_begin(&state.frame);
             draw_screen(&state);
