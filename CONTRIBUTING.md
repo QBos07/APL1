@@ -1,8 +1,8 @@
 # Contributing / code conventions
 
-Small-project C conventions matching the existing C23/CMake setup. These are
-descriptive of decisions already in the build; no formatter or style tooling is
-adopted.
+Small-project C conventions matching the existing C23/CMake setup. They cover
+the conventions already used by the code and the optional formatting/static
+checks added during foundation hardening.
 
 ## Build, language, and warnings
 
