@@ -726,10 +726,10 @@ class Smoke:
         self.send_keys("Return")
         self.wait_for_content("command view switch", ("Money is not implemented in this phase.",))
         self.type_text(":")
-        self.type_text("view teams")
+        self.type_text("tl")
         self.send_keys("Return")
         self.wait_for_content("command return to teams", ("Ferrari", "McLaren"))
-        self.log("command navigation switched views without a dialog")
+        self.log("command navigation and the tl shorthand applied the Teams view")
 
         self.type_text(":")
         self.type_text("team create")
@@ -779,6 +779,16 @@ class Smoke:
         self.send_keys("Return")
         self.wait_for_content("version command", ("0.1.0",))
         self.send_keys("Escape")
+
+        self.type_text(":")
+        self.type_text("help")
+        self.send_keys("Return")
+        self.wait_for_content("formatted command help", ("Command help", "Views", "Teams", "(tl)"))
+        help_screen = self.visible_text()
+        if "- team list (tl)" not in help_screen:
+            self.fail("command help lost its explicit line breaks")
+        self.send_keys("Escape")
+        self.log("command help kept headings and one command per line")
 
         self.type_text(":")
         self.type_text("team create")

@@ -133,14 +133,18 @@ Test(tui_command, help_and_completion_come_from_the_registry)
 {
     char registry[APL_TUI_COMMAND_HELP_MAX];
     apl_tui_command_registry_help(registry, sizeof(registry));
-    cr_assert_neq(strstr(registry, "team switch <name-or-id>"), nullptr);
-    cr_assert_neq(strstr(registry, "team create [--name <name>]"), nullptr);
+    cr_assert_neq(strstr(registry, "Views\n"), nullptr);
+    cr_assert_neq(strstr(registry, "Teams\n"), nullptr);
+    cr_assert_neq(strstr(registry, "- team switch <name-or-id>  (ts)"), nullptr);
+    cr_assert_neq(strstr(registry, "team create [--name NAME]"), nullptr);
+    cr_assert_neq(strstr(registry, "(tl)"), nullptr);
 
     const apl_tui_command_spec *const spec = apl_tui_command_lookup("team create");
     char help[APL_TUI_COMMAND_HELP_MAX];
     apl_tui_command_help(spec, help, sizeof(help));
     cr_assert_neq(strstr(help, "Usage: team create"), nullptr);
     cr_assert_neq(strstr(help, "--name <value>"), nullptr);
+    cr_assert_neq(strstr(help, "Alias: tc"), nullptr);
 
     char completion[APL_TUI_COMMAND_SUGGESTION_MAX];
     apl_tui_command_complete("team c", completion, sizeof(completion));

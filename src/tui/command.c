@@ -506,6 +506,9 @@ void apl_tui_command_help(const apl_tui_command_spec *const spec, char *const ou
         build_choice_list(spec, choices, sizeof(choices));
         (void)append_output(out, out_size, "Values: %s\n", choices);
     }
+    if (spec->alias != nullptr && spec->alias[0] != '\0') {
+        (void)append_output(out, out_size, "Alias: %s\n", spec->alias);
+    }
 }
 
 void apl_tui_command_registry_help(char *const out, const size_t out_size)
@@ -514,12 +517,22 @@ void apl_tui_command_registry_help(char *const out, const size_t out_size)
         return;
     }
     out[0] = '\0';
+    (void)append_output(out, out_size, "Commands (open with : then Enter)\n\n");
     (void)append_output(out, out_size,
-                        "Commands (open with :). Quoted names are single values.\n\n");
-    for (size_t index = 0; index < COMMAND_COUNT; ++index) {
-        (void)append_output(out, out_size, "%-46s %s\n", COMMANDS[index].usage,
-                            COMMANDS[index].summary);
-    }
+                        "Views\n"
+                        "- view <view>  (v)\n"
+                        "- overview [active|all]  (ov)\n"
+                        "\n"
+                        "Teams\n"
+                        "- team list  (tl)\n"
+                        "- team switch <name-or-id>  (ts)\n"
+                        "- team create [--name NAME] [--notes NOTES]  (tc)\n"
+                        "\n"
+                        "Other\n"
+                        "- help [command ...]  (h)\n"
+                        "- about  (ab)\n"
+                        "- version  (ver)\n"
+                        "- quit  (q)\n");
 }
 
 void apl_tui_command_complete(const char *const prefix, char *const out, const size_t out_size)

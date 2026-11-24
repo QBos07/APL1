@@ -859,6 +859,42 @@ static void draw_placeholder(shell_state *const state)
     apl_tui_frame_draw_line(body, 5, "No records are generated for this view.");
 }
 
+/** Draw dialog text while preserving explicit newlines and blank lines.
+ *
+ * The regular word wrapper treats newlines as spaces, which turns command help
+ * into an unreadable paragraph. Each logical line is wrapped independently so
+ * headings and grouped entries stay on their own rows. */
+static int draw_dialog_block(struct ncplane *const plane, const int row, const int col,
+                             const unsigned width, const char *const text)
+{
+    if (plane == nullptr || text == nullptr || width == 0) {
+        return 0;
+    }
+    int current = row;
+    const char *cursor = text;
+    while (*cursor != '\0') {
+        const char *const newline = strchr(cursor, '\n');
+        size_t length = (newline != nullptr) ? (size_t)(newline - cursor) : strlen(cursor);
+        if (length > 0) {
+            char line[APL_TUI_DIALOG_MESSAGE_MAX];
+            if (length >= sizeof(line)) {
+                length = sizeof(line) - 1;
+            }
+            memcpy(line, cursor, length);
+            line[length] = '\0';
+            const unsigned used = apl_tui_frame_draw_wrapped(plane, current, col, width, line);
+            current += (used > 0) ? (int)used : 1;
+        } else {
+            ++current;
+        }
+        if (newline == nullptr) {
+            break;
+        }
+        cursor = newline + 1;
+    }
+    return current - row;
+}
+
 static void draw_dialog(shell_state *const state)
 {
     struct ncplane *const overlay = apl_tui_frame_overlay(&state->frame);
@@ -947,9 +983,7 @@ static void draw_dialog(shell_state *const state)
         break;
     }
     case APL_TUI_DIALOG_CONFIRM: {
-        const unsigned message_rows = apl_tui_frame_draw_wrapped(
-            overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
-        (void)message_rows;
+        (void)draw_dialog_block(overlay, 2, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
         apl_tui_theme_apply(&state->theme, overlay,
                             state->dialog.focus == 0 ? APL_TUI_ROLE_SELECTION
                                                      : APL_TUI_ROLE_DIALOG);
@@ -961,9 +995,7 @@ static void draw_dialog(shell_state *const state)
         break;
     }
     case APL_TUI_DIALOG_ERROR: {
-        const unsigned message_rows = apl_tui_frame_draw_wrapped(
-            overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
-        (void)message_rows;
+        (void)draw_dialog_block(overlay, 2, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
         apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_SELECTION);
         apl_tui_frame_draw_text(overlay, button_row, 2, "[ OK ]");
         break;
