@@ -23,20 +23,20 @@ include(CTest)
 if(BUILD_TESTING)
     include(CriterionDependency)
 
-    add_executable(my_tests
+    add_executable(apl1_tests
         tests/test_main.c
     )
 
-    target_include_directories(my_tests PRIVATE src)
+    target_include_directories(apl1_tests PRIVATE src)
 
-    target_link_libraries(my_tests PRIVATE
+    target_link_libraries(apl1_tests PRIVATE
         Criterion::Criterion
         SQLite::SQLite3
     )
 
     add_test(
-        NAME unit_tests
-        COMMAND my_tests
+        NAME apl1_unit_tests
+        COMMAND apl1_tests
     )
 endif()
 
