@@ -389,41 +389,8 @@ apl_status apl_team_service_set_active(apl_app *const app, const int64_t id, apl
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team switch arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    apl_team team = {};
-    apl_status status = apl_team_repository_get(&app->db, id, &team, error);
-    if (status != APL_OK) {
-        return with_context(status, "cannot switch team", error);
-    }
-    if (team.archived) {
-        apl_error_set(error, APL_ERR_NOT_FOUND, "archived teams cannot be active");
-        return APL_ERR_NOT_FOUND;
-    }
-
-    apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
-    if (status != APL_OK) {
-        return with_context(status, "cannot switch team", error);
-    }
-    status = apl_settings_repository_set_active_team_id(&app->db, id, error);
-    if (status == APL_OK) {
-        apl_activity_change change = {};
-        apl_audit_change_text(&change, "active", "false", false, "true", false);
-        char summary[APL_ACTIVITY_SUMMARY_MAX];
-        (void)snprintf(summary, sizeof(summary), "Selected team '%s' as active", team.name);
-        apl_activity_event event = {};
-        event.team_id = id;
-        event.entity_id = id;
-        (void)snprintf(event.action, sizeof(event.action), "team_selected");
-        (void)snprintf(event.entity_type, sizeof(event.entity_type), "team");
-        (void)snprintf(event.summary, sizeof(event.summary), "%s", summary);
-        status = apl_activity_repository_append(&app->db, &event, &change, 1, nullptr, error);
-    }
-    if (status != APL_OK) {
-        const apl_status original = status;
-        rollback_preserving_error(&transaction, original, error);
-        return with_context(original, "cannot switch team", error);
-    }
-    return commit_transaction(&transaction, "cannot switch team", error);
+    return with_context(apl_settings_repository_set_active_team_id(&app->db, id, error),
+                        "cannot switch team", error);
 }
 
 void apl_team_service_free_list(apl_team *const teams)

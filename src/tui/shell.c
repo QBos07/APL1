@@ -148,9 +148,11 @@ static void open_selected_detail(shell_state *state);
 static void open_selected_season(shell_state *state);
 static void open_selected_car(shell_state *state);
 static void open_selected_person(shell_state *state);
+static void open_current_list_record(shell_state *state);
 static void handle_people_list_input(shell_state *state, uint32_t id);
 static void handle_person_detail_input(shell_state *state, uint32_t id);
 static void handle_history_input(shell_state *state, uint32_t id);
+static void handle_input(shell_state *state, const ncinput *input);
 
 static void set_status_level(shell_state *const state, const apl_tui_status_level level,
                              const char *const format, va_list args)
@@ -536,7 +538,6 @@ static const char *history_action_filter_name(const unsigned index)
         "team_created",
         "team_renamed",
         "team_archived",
-        "team_selected",
         "season_created",
         "season_updated",
         "season_archived",
@@ -3238,7 +3239,14 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
     if (index >= count) {
         return;
     }
+    const bool was_selected = index == state->list.selected;
     apl_tui_list_select(&state->list, index);
+    if (was_selected) {
+        state->last_click_team_id = 0;
+        state->last_click_ms = 0;
+        open_current_list_record(state);
+        return;
+    }
 
     if (state->section == APL_TUI_SECTION_PEOPLE) {
         record_id = state->drivers[index].id;
@@ -3257,21 +3265,64 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         current - state->last_click_ms <= APL_TUI_DOUBLE_CLICK_MS) {
         state->last_click_team_id = 0;
         state->last_click_ms = 0;
-        if (state->section == APL_TUI_SECTION_PEOPLE) {
-            open_selected_person(state);
-        } else if (state->section == APL_TUI_SECTION_HISTORY) {
-            handle_history_input(state, NCKEY_ENTER);
-        } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
-            open_selected_season(state);
-        } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
-            open_selected_car(state);
-        } else {
-            open_selected_detail(state);
-        }
+        open_current_list_record(state);
     } else {
         state->last_click_team_id = record_id;
         state->last_click_ms = current;
     }
+}
+
+/** Make the persistent key-hint row clickable, using the same key handlers as
+ *  the keyboard. This gives mouse access to actions such as Enter/open,
+ *  membership add/end, edit, archive, and view switching. */
+static bool handle_key_hint_mouse(shell_state *const state, const apl_tui_layout *const layout,
+                                  const ncinput *const input)
+{
+    if (input->id != NCKEY_BUTTON1 || input->y != (int)(layout->body.y + layout->body.rows - 1)) {
+        return false;
+    }
+    const unsigned column = (unsigned)(input->x - (int)layout->body.x);
+    char line[400];
+    (void)snprintf(line, sizeof(line), "Keys: %s", context_key_hint(state));
+    const size_t length = strlen(line);
+    if (column >= length) {
+        return true;
+    }
+    const char *const prefix = "Keys: ";
+    size_t position = strlen(prefix);
+    while (position <= length) {
+        size_t end = position;
+        while (end < length && strncmp(line + end, " | ", 3) != 0) {
+            ++end;
+        }
+        if (column >= position && column <= end) {
+            const char *segment = line + position;
+            while (*segment == ' ') {
+                ++segment;
+            }
+            uint32_t key = 0;
+            if (strncmp(segment, "Enter ", 6) == 0) {
+                key = NCKEY_ENTER;
+            } else if (strncmp(segment, "Esc ", 4) == 0) {
+                key = NCKEY_ESC;
+            } else if (strncmp(segment, ": commands", 10) == 0) {
+                key = ':';
+            } else if (segment[0] == ',') {
+                key = ',';
+            } else {
+                key = (uint32_t)(unsigned char)segment[0];
+            }
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+            const ncinput synthesized = {.id = key};
+            handle_input(state, &synthesized);
+            return true;
+        }
+        if (end >= length) {
+            break;
+        }
+        position = end + 3;
+    }
+    return true;
 }
 
 static void handle_mouse(shell_state *const state, const ncinput *const input)
@@ -3368,6 +3419,12 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
                    (unsigned)input->x >= keys_button_start(layout->window.cols)) {
             handle_menu_action(state, APL_TUI_MENU_ACTION_HELP_KEYBOARD);
         }
+        return;
+    }
+
+    if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
+        point_in_rect(layout->body, input->y, input->x) &&
+        handle_key_hint_mouse(state, layout, input)) {
         return;
     }
 
@@ -3633,6 +3690,21 @@ static void open_selected_person(shell_state *const state)
         return;
     }
     open_person_detail(state, state->drivers[state->list.selected]);
+}
+
+static void open_current_list_record(shell_state *const state)
+{
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        open_selected_person(state);
+    } else if (state->section == APL_TUI_SECTION_HISTORY) {
+        handle_history_input(state, NCKEY_ENTER);
+    } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
+        open_selected_season(state);
+    } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
+        open_selected_car(state);
+    } else {
+        open_selected_detail(state);
+    }
 }
 
 static void handle_list_input(shell_state *const state, const uint32_t id)

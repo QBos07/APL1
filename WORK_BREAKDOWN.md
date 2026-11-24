@@ -177,8 +177,9 @@ Goal: add manually maintained people/season/car references and a user-inspectabl
 - New unit/integration coverage includes reference normalization and date rules,
   season/driver/membership/car repositories, service validation and team scope,
   append-only activity persistence and filters, team audit create/rename/
-  archive/rollback behavior, and reference/membership audit events.
-- Activity history records team create/rename/archive/selection plus season,
+  archive/rollback behavior, and reference/membership audit events. Switching the
+  active team is intentionally not recorded as team activity.
+- Activity history records team create/rename/archive plus season,
   car, driver, and membership create/update/archive/end events. Teamless shared
   driver events are visible in active-team history while remaining explicitly
   attributed as shared identity events.

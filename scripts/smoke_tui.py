@@ -590,9 +590,7 @@ class Smoke:
         expected_activity = [
             ("team_created",),
             ("team_created",),
-            ("team_selected",),
             ("team_created",),
-            ("team_selected",),
             ("driver_created",),
             ("membership_added",),
             ("season_created",),
@@ -820,8 +818,9 @@ class Smoke:
         self.type_text('driver new --name "Charles Leclerc" --short CL')
         self.send_keys("Return")
         self.wait_for_content("driver command detail", ("Name: Charles Leclerc",))
-        self.send_keys("m")
-        self.wait_for_content("membership form", ("Add team membership", "Start date:"))
+        rows = self.terminal_rows()
+        self.click_cell(rows - 2, 30)
+        self.wait_for_content("membership form from mouse key hint", ("Add team membership", "Start date:"))
         self.type_text("2026-01-01")
         self.send_keys("Tab", "Tab")
         self.type_text("Race seat")
@@ -861,7 +860,6 @@ class Smoke:
             "history filters cleared by mouse", ("Ent:all", "Act:all")
         )
         self.click_cell(4, 25)
-        self.send_keys("Return")
         self.wait_for_content("history row mouse detail", ("Activity detail", "car_created"))
         self.send_keys("Escape")
         self.log("history filters and first row responded to mouse")
@@ -873,6 +871,9 @@ class Smoke:
         self.type_text("tl")
         self.send_keys("Return")
         self.wait_for_content("return to team list", ("Ferrari", "McLaren", "Red Bull"))
+        self.click_cell(1, 25)
+        self.wait_for_content("team detail opened by mouse", ("Name: Ferrari", "Related records"))
+        self.send_keys("Escape")
         self.log("season, car, history, and driver-show command routes applied")
 
         self.type_text(":")

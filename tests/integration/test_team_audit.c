@@ -127,7 +127,7 @@ Test(team_audit, create_rename_notes_noop_and_archive_are_recorded_once)
     cr_assert_eq(apl_team_service_archive(&app, first.id, &archived, &err), APL_OK);
     cr_assert(archived.archived);
     const size_t after_archive = activity_count(&app, &err);
-    cr_assert_eq(after_archive, 6);
+    cr_assert_eq(after_archive, 5);
     event = latest_event(&app, &err);
     cr_assert_str_eq(event.action, "team_archived");
     cr_assert_neq(strstr(event.summary, "active team is now 'McLaren'"), nullptr);
