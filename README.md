@@ -45,6 +45,18 @@ ctest --test-dir build --output-on-failure
 
 The application currently prints a placeholder message; its eventual terminal startup and database location will be documented here as those features are implemented.
 
+### Database location
+
+The database path is resolved in this order (implemented in `src/db/path.h`):
+
+1. An explicitly configured path takes precedence.
+2. `$XDG_DATA_HOME/apl1/apl1.sqlite3` when `XDG_DATA_HOME` is set and absolute.
+3. `$HOME/.local/share/apl1/apl1.sqlite3` when `HOME` is set and absolute.
+
+Missing parent directories of an environment-derived default are created on
+first run. When no usable location is configured, the application fails with a
+clear error instead of creating a database in the current working directory.
+
 ## Design boundaries
 
 - SQLite is the local source of truth; normal operation is offline.

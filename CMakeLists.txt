@@ -28,6 +28,7 @@ if(BUILD_TESTING)
         tests/unit/test_error.c
         tests/integration/test_support.c
         tests/integration/test_db_connection.c
+        tests/integration/test_db_path.c
     )
 
     target_include_directories(apl1_tests PRIVATE src tests/integration)
@@ -53,6 +54,7 @@ target_include_directories(apl_core PUBLIC src)
 
 add_library(apl_db STATIC
     src/db/connection.c
+    src/db/path.c
 )
 
 target_include_directories(apl_db PUBLIC src tests/integration)
