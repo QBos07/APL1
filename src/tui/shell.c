@@ -555,11 +555,11 @@ static const char *history_action_filter_name(const unsigned index)
 
 static unsigned history_action_filter_count(void)
 {
-    unsigned count = 0;
+    unsigned count = 1; /* "all" plus every explicit action */
     while (history_action_filter_name(count)[0] != '\0') {
         ++count;
     }
-    return count + 1;
+    return count;
 }
 
 static apl_status load_history(shell_state *const state, apl_error *const error)

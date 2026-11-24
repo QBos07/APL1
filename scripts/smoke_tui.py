@@ -853,9 +853,13 @@ class Smoke:
             ("History: active team", "team_created", "driver_created", "Created team 'Ferrari'"),
         )
         self.click_cell(2, 36)
-        self.wait_for_content("history filter changed by mouse", ("Ent:team",))
-        self.click_cell(2, 64)
-        self.wait_for_content("history filter cleared by mouse", ("Ent:all",))
+        self.wait_for_content("history entity filter changed by mouse", ("Ent:team",))
+        self.click_cell(2, 45)
+        self.wait_for_content("history action filter changed by mouse", ("Act:team:created",))
+        self.click_cell(2, 74)
+        self.wait_for_content(
+            "history filters cleared by mouse", ("Ent:all", "Act:all")
+        )
         self.click_cell(4, 25)
         self.send_keys("Return")
         self.wait_for_content("history row mouse detail", ("Activity detail", "car_created"))
