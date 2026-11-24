@@ -18,9 +18,9 @@
 
 /** How the persisted active-team setting maps to a team. */
 typedef enum apl_active_team_status {
-    APL_ACTIVE_TEAM_NONE = 0, /**< No selection, or the stored team no longer exists. */
+    APL_ACTIVE_TEAM_NONE = 0, /**< No selection and no active fallback. */
     APL_ACTIVE_TEAM_ACTIVE,   /**< Selected team exists and is active. */
-    APL_ACTIVE_TEAM_ARCHIVED, /**< Selected team exists but is archived; choose another. */
+    APL_ACTIVE_TEAM_FALLBACK, /**< Selected team was archived/missing; fallback selected. */
 } apl_active_team_status;
 
 /** Normalize, insert, and activate a new team atomically.
@@ -44,15 +44,17 @@ apl_status apl_team_service_get(apl_app *app, int64_t id, apl_team *out_team, ap
 apl_status apl_team_service_update(apl_app *app, int64_t id, const char *name, const char *notes,
                                    apl_team *out_team, apl_error *error);
 
-/** Archive a team. If it was active, clear the active-team setting in the same
- *  transaction; the archived rows/history remain. */
+/** Archive a team. The last non-archived team cannot be archived. If the
+ *  archived team was active, select the oldest remaining active team (stable
+ *  ID tie-breaker) in the same transaction; archived rows/history remain. */
 apl_status apl_team_service_archive(apl_app *app, int64_t id, apl_team *out_team, apl_error *error);
 
 /** Load the persisted active-team selection.
  *
- * A missing target is reported as APL_ACTIVE_TEAM_NONE (the FK prevents this
- * in normal operation); an archived target is reported explicitly as
- * APL_ACTIVE_TEAM_ARCHIVED with the team row for context. */
+ * If the stored target is missing or archived, choose the oldest-created
+ * non-archived team (stable ID as tie-breaker), persist that stable ID, and
+ * return APL_ACTIVE_TEAM_FALLBACK. If no active team remains, clear the
+ * selection and return APL_ACTIVE_TEAM_NONE. */
 apl_status apl_team_service_active(apl_app *app, apl_team *out_team,
                                    apl_active_team_status *out_status, apl_error *error);
 

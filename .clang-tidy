@@ -10,6 +10,7 @@ Checks: >
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   bugprone-*,
   -bugprone-reserved-identifier,
+  -bugprone-easily-swappable-parameters,
   cert-*,
   -cert-err33-c,
   -cert-dcl37-c,

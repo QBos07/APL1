@@ -20,8 +20,10 @@
  *     actions (row rows-2)
  *     status  (row rows-1)
  * - The overlay rectangle is centered inside the body region so the frame's
- *   header, actions, and status stay visible while a modal is open. It is
- *   computed even when no modal is active; callers use it only on demand.
+ *   header, actions, and status stay visible while a modal is open. At the
+ *   minimum terminal size it fills the body to keep title/message/buttons
+ *   usable. It is computed even when no modal is active; callers use it only
+ *   on demand.
  * - All coordinates are absolute terminal cells. No caller may draw outside
  *   its assigned rectangle.
  */

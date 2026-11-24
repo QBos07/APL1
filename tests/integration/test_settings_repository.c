@@ -103,3 +103,35 @@ Test(settings_repository, selection_survives_connection_reopen)
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }
+
+Test(settings_repository, invalid_and_closed_connections_are_rejected)
+{
+    apl_error err;
+    apl_error_init(&err);
+    int64_t active = 0;
+
+    cr_assert_eq(apl_settings_repository_get_active_team_id(nullptr, &active, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_settings_repository_set_active_team_id(nullptr, 1, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_settings_repository_clear_active_team_id(nullptr, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+
+    apl_test_db db = {};
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+    cr_assert_eq(apl_settings_repository_set_active_team_id(&db.connection, 0, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_settings_repository_set_active_team_id(&db.connection, 999, &err),
+                 APL_ERR_NOT_FOUND);
+
+    apl_db_close(&db.connection);
+    db.opened = false;
+    cr_assert_eq(apl_settings_repository_get_active_team_id(&db.connection, &active, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_settings_repository_set_active_team_id(&db.connection, 1, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_settings_repository_clear_active_team_id(&db.connection, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}

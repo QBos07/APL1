@@ -144,7 +144,7 @@ Test(team_service, update_preserves_id_and_rejects_duplicate_name)
     close_test_app(&app, dir, &err);
 }
 
-Test(team_service, archiving_active_team_clears_selection_but_keeps_row)
+Test(team_service, archiving_active_team_falls_back_and_keeps_row)
 {
     char dir[APL_TEST_DIR_MAX];
     char path[APL_TEST_PATH_MAX];
@@ -155,6 +155,8 @@ Test(team_service, archiving_active_team_clears_selection_but_keeps_row)
     open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
 
     const apl_team ferrari = create_team(&app, "Ferrari", "history", &err);
+    const apl_team mclaren = create_team(&app, "McLaren", "", &err);
+    cr_assert_eq(apl_team_service_set_active(&app, ferrari.id, &err), APL_OK);
 
     apl_team archived = {};
     cr_assert_eq(apl_team_service_archive(&app, ferrari.id, &archived, &err), APL_OK);
@@ -162,9 +164,10 @@ Test(team_service, archiving_active_team_clears_selection_but_keeps_row)
     cr_assert_str_eq(archived.notes, "history");
 
     apl_team active = {};
-    apl_active_team_status active_status = APL_ACTIVE_TEAM_ACTIVE;
+    apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;
     cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
-    cr_assert_eq(active_status, APL_ACTIVE_TEAM_NONE);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_ACTIVE);
+    cr_assert_eq(active.id, mclaren.id);
 
     apl_team fetched = {};
     cr_assert_eq(apl_team_service_get(&app, ferrari.id, &fetched, &err), APL_OK);
@@ -200,7 +203,7 @@ Test(team_service, archiving_non_active_team_keeps_selection)
     close_test_app(&app, dir, &err);
 }
 
-Test(team_service, archived_active_setting_is_reported_explicitly)
+Test(team_service, archived_active_setting_falls_back_and_persists_fallback)
 {
     char dir[APL_TEST_DIR_MAX];
     char path[APL_TEST_PATH_MAX];
@@ -211,20 +214,50 @@ Test(team_service, archived_active_setting_is_reported_explicitly)
     open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
 
     const apl_team ferrari = create_team(&app, "Ferrari", "", &err);
-    (void)create_team(&app, "McLaren", "", &err);
+    const apl_team mclaren = create_team(&app, "McLaren", "", &err);
     cr_assert_eq(apl_team_service_set_active(&app, ferrari.id, &err), APL_OK);
 
     /* Simulate a selection made before the team was archived (the service
-     * archive path clears it, but the read path must still handle the state). */
+     * archive path selects a fallback, but the read path must still handle a
+     * stale archived selection). */
     apl_team archived = {};
     cr_assert_eq(apl_team_repository_archive(&app.db, ferrari.id, &archived, &err), APL_OK);
 
     apl_team active = {};
     apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;
     cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
-    cr_assert_eq(active_status, APL_ACTIVE_TEAM_ARCHIVED);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_FALLBACK);
+    cr_assert_eq(active.id, mclaren.id);
+    cr_assert_str_eq(active.name, "McLaren");
+
+    cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_ACTIVE);
+    cr_assert_eq(active.id, mclaren.id);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(team_service, last_active_team_cannot_be_archived)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+
+    const apl_team ferrari = create_team(&app, "Ferrari", "", &err);
+
+    apl_team archived = {};
+    cr_assert_eq(apl_team_service_archive(&app, ferrari.id, &archived, &err), APL_ERR_CONFLICT);
+    cr_assert_neq(strstr(apl_error_message(&err), "last active team"), nullptr);
+
+    apl_team active = {};
+    apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;
+    cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_ACTIVE);
     cr_assert_eq(active.id, ferrari.id);
-    cr_assert(active.archived);
 
     close_test_app(&app, dir, &err);
 }
@@ -258,6 +291,40 @@ Test(team_service, list_can_include_archived_teams)
     cr_assert_str_eq(all[1].name, "Ferrari");
     cr_assert(all[1].archived);
     apl_team_service_free_list(all);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(team_service, fallback_uses_oldest_created_active_team)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+
+    const apl_team first = create_team(&app, "Alpha", "", &err);
+    const apl_team second = create_team(&app, "Beta", "", &err);
+    const apl_team third = create_team(&app, "Gamma", "", &err);
+    cr_assert_eq(apl_team_service_set_active(&app, first.id, &err), APL_OK);
+
+    /* Bypass the service so the stored selection points at an archived row. */
+    apl_team archived = {};
+    cr_assert_eq(apl_team_repository_archive(&app.db, first.id, &archived, &err), APL_OK);
+
+    apl_team active = {};
+    apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;
+    cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_FALLBACK);
+    cr_assert_eq(active.id, second.id);
+
+    cr_assert_eq(apl_team_service_set_active(&app, second.id, &err), APL_OK);
+    cr_assert_eq(apl_team_repository_archive(&app.db, second.id, &archived, &err), APL_OK);
+    cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_FALLBACK);
+    cr_assert_eq(active.id, third.id);
 
     close_test_app(&app, dir, &err);
 }

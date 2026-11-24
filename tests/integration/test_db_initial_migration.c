@@ -50,13 +50,13 @@ Test(db_initial_migration, new_database_is_marked_at_latest_version)
 
     int version = -1;
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 2);
+    cr_assert_eq(version, 3);
 
     int version_rows = -1;
     cr_assert_eq(
         query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows),
         APL_OK);
-    cr_assert_eq(version_rows, 2);
+    cr_assert_eq(version_rows, 3);
 
     apl_db_close(&connection);
     apl_error_init(&err);
@@ -121,7 +121,7 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
 
     int version = -1;
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 2);
+    cr_assert_eq(version, 3);
 
     int version_rows_after = -1;
     cr_assert_eq(

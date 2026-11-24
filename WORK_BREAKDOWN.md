@@ -78,27 +78,40 @@ Goal: establish the navigation pattern and implement team creation and switching
 
 Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4. Complete 2.0.3 before the team schema/repository work (2.5/2.6).
 
-- [ ] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
-- [ ] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
-- [ ] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
+- [x] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
+- [x] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
+- [x] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
 
-- [ ] **2.1 Add the main navigation model.** [Work item](work-items/phase-2/2.1-navigation-model.md)
-- [ ] **2.2 Draw the shared screen frame.** [Work item](work-items/phase-2/2.2-shared-screen-frame.md)
-- [ ] **2.3 Add one reusable list/table interaction.** [Work item](work-items/phase-2/2.3-list-table-interaction.md)
-- [ ] **2.4 Add reusable confirmation and error dialogs.** [Work item](work-items/phase-2/2.4-confirmation-error-dialogs.md)
-- [ ] **2.5 Add the team table migration.** [Work item](work-items/phase-2/2.5-team-schema.md)
-- [ ] **2.6 Add team repository create/list/get operations.** [Work item](work-items/phase-2/2.6-team-repository-read-create.md)
-- [ ] **2.7 Add team use-case validation.** [Work item](work-items/phase-2/2.7-team-create-validation.md)
-- [ ] **2.9 Add persisted active-team setting.** Implement this before 2.8 so archiving the current team has a defined fallback. [Work item](work-items/phase-2/2.9-active-team-setting.md)
-- [ ] **2.8 Add team rename and archive operations.** Preserve IDs and history; depends on the active-team behavior in 2.9. [Work item](work-items/phase-2/2.8-team-rename-archive.md)
-- [ ] **2.10 Build the team list/switcher screen.** [Work item](work-items/phase-2/2.10-team-switcher-screen.md)
-- [ ] **2.11 Build the create-team form.** [Work item](work-items/phase-2/2.11-create-team-form.md)
-- [ ] **2.12 Build the team detail/edit screen.** [Work item](work-items/phase-2/2.12-team-detail-edit.md)
-- [ ] **2.13 Build the empty-database welcome flow.** [Work item](work-items/phase-2/2.13-empty-database-welcome.md)
-- [ ] **2.14 Add a team-isolation integration test.** [Work item](work-items/phase-2/2.14-team-isolation-test.md)
-- [ ] **2.15 Add a database code-coverage baseline.** After 2.5/2.6 land, use gcov to identify untested database paths without setting an arbitrary threshold. [Work item](work-items/phase-2/2.15-db-coverage-baseline.md)
+- [x] **2.1 Add the main navigation model.** [Work item](work-items/phase-2/2.1-navigation-model.md)
+- [x] **2.2 Draw the shared screen frame.** [Work item](work-items/phase-2/2.2-shared-screen-frame.md)
+- [x] **2.3 Add one reusable list/table interaction.** [Work item](work-items/phase-2/2.3-list-table-interaction.md)
+- [x] **2.4 Add reusable confirmation and error dialogs.** [Work item](work-items/phase-2/2.4-confirmation-error-dialogs.md)
+- [x] **2.5 Add the team table migration.** [Work item](work-items/phase-2/2.5-team-schema.md)
+- [x] **2.6 Add team repository create/list/get operations.** [Work item](work-items/phase-2/2.6-team-repository-read-create.md)
+- [x] **2.7 Add team use-case validation.** [Work item](work-items/phase-2/2.7-team-create-validation.md)
+- [x] **2.9 Add persisted active-team setting.** Implement this before 2.8 so archiving the current team has a defined fallback. [Work item](work-items/phase-2/2.9-active-team-setting.md)
+- [x] **2.8 Add team rename and archive operations.** Preserve IDs and history; depends on the active-team behavior in 2.9. [Work item](work-items/phase-2/2.8-team-rename-archive.md)
+- [x] **2.10 Build the team list/switcher screen.** [Work item](work-items/phase-2/2.10-team-switcher-screen.md)
+- [x] **2.11 Build the create-team form.** [Work item](work-items/phase-2/2.11-create-team-form.md)
+- [x] **2.12 Build the team detail/edit screen.** [Work item](work-items/phase-2/2.12-team-detail-edit.md)
+- [x] **2.13 Build the empty-database welcome flow.** [Work item](work-items/phase-2/2.13-empty-database-welcome.md)
+- [x] **2.14 Add a team-isolation integration test.** [Work item](work-items/phase-2/2.14-team-isolation-test.md)
+- [x] **2.15 Add a database code-coverage baseline.** After 2.5/2.6 land, use gcov to identify untested database paths without setting an arbitrary threshold. [Work item](work-items/phase-2/2.15-db-coverage-baseline.md)
 
 **Gate:** the user can create two teams, switch between them, quit, relaunch, and see the selected team and separate data still present.
+
+### Phase 2 verification (2026-11-24)
+
+- `ctest --test-dir cmake-build-debug --output-on-failure`: 2/2 CTest tests pass
+  (`apl1_unit_tests` 114/114 Criterion tests, `apl1_tui_tests` 25/25).
+- `python3 scripts/smoke_tui.py --app cmake-build-debug/apl1`: passed the full
+  gate flow — welcome, create Ferrari and McLaren, switch active team to Ferrari,
+  quit with status 0, relaunch the same database, and verify Ferrari is still
+  active. It also checks schema version 3 and the two persisted team rows.
+- `./scripts/check.sh`, `./scripts/check-format.sh`, and
+  `./scripts/check-static.sh` pass.
+- `scripts/coverage.sh` records a 74.91% `src/db` line-coverage baseline in
+  [2.15](work-items/phase-2/2.15-db-coverage-baseline.md); no threshold is enforced.
 
 ## Phase 3 — Shared records, people, and audit groundwork
 

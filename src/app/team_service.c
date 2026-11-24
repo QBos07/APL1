@@ -1,6 +1,7 @@
 #include "app/team_service.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "db/settings_repository.h"
 #include "db/team_repository.h"
@@ -131,6 +132,35 @@ apl_status apl_team_service_update(apl_app *const app, const int64_t id, const c
                         "cannot update team", error);
 }
 
+/** Choose the oldest-created non-archived team, with stable ID as tie-breaker. */
+static apl_status find_oldest_active_team(apl_db_connection *const connection,
+                                          apl_team *const out_team, bool *const out_found,
+                                          apl_error *const error)
+{
+    *out_found = false;
+    apl_team *teams = nullptr;
+    size_t count = 0;
+    apl_status status = apl_team_repository_list(connection, false, &teams, &count, error);
+    if (status != APL_OK) {
+        return status;
+    }
+
+    const apl_team *best = nullptr;
+    for (size_t index = 0; index < count; ++index) {
+        if (best == nullptr || strcmp(teams[index].created_at, best->created_at) < 0 ||
+            (strcmp(teams[index].created_at, best->created_at) == 0 &&
+             teams[index].id < best->id)) {
+            best = &teams[index];
+        }
+    }
+    if (best != nullptr) {
+        *out_team = *best;
+        *out_found = true;
+    }
+    apl_team_repository_free_list(teams);
+    return APL_OK;
+}
+
 apl_status apl_team_service_archive(apl_app *const app, const int64_t id, apl_team *const out_team,
                                     apl_error *const error)
 {
@@ -145,13 +175,36 @@ apl_status apl_team_service_archive(apl_app *const app, const int64_t id, apl_te
         return with_context(status, "cannot archive team", error);
     }
 
+    apl_team existing = {};
+    status = apl_team_repository_get(&app->db, id, &existing, error);
+    if (status == APL_OK && !existing.archived) {
+        apl_team *active_teams = nullptr;
+        size_t active_count = 0;
+        status = apl_team_repository_list(&app->db, false, &active_teams, &active_count, error);
+        apl_team_repository_free_list(active_teams);
+        if (status == APL_OK && active_count <= 1) {
+            apl_error_set(error, APL_ERR_CONFLICT,
+                          "the last active team cannot be archived; create another team first");
+            status = APL_ERR_CONFLICT;
+        }
+    }
+
     int64_t active_team_id = 0;
-    status = apl_settings_repository_get_active_team_id(&app->db, &active_team_id, error);
+    if (status == APL_OK) {
+        status = apl_settings_repository_get_active_team_id(&app->db, &active_team_id, error);
+    }
     if (status == APL_OK) {
         status = apl_team_repository_archive(&app->db, id, out_team, error);
     }
     if (status == APL_OK && active_team_id == id) {
-        status = apl_settings_repository_clear_active_team_id(&app->db, error);
+        apl_team fallback = {};
+        bool found = false;
+        status = find_oldest_active_team(&app->db, &fallback, &found, error);
+        if (status == APL_OK && found) {
+            status = apl_settings_repository_set_active_team_id(&app->db, fallback.id, error);
+        } else if (status == APL_OK) {
+            status = apl_settings_repository_clear_active_team_id(&app->db, error);
+        }
     }
 
     if (status != APL_OK) {
@@ -184,18 +237,37 @@ apl_status apl_team_service_active(apl_app *const app, apl_team *const out_team,
     }
 
     status = apl_team_repository_get(&app->db, team_id, out_team, error);
-    if (status == APL_ERR_NOT_FOUND) {
-        /* The foreign key prevents this normally, but a stale setting is
-         * handled as "no active team" rather than a startup failure. */
-        apl_error_clear(error);
-        *out_team = (apl_team){};
+    if (status == APL_OK && !out_team->archived) {
+        *out_status = APL_ACTIVE_TEAM_ACTIVE;
         return APL_OK;
     }
+    if (status != APL_OK && status != APL_ERR_NOT_FOUND) {
+        return with_context(status, "cannot load active team", error);
+    }
+    apl_error_clear(error);
+
+    apl_team fallback = {};
+    bool found = false;
+    status = find_oldest_active_team(&app->db, &fallback, &found, error);
     if (status != APL_OK) {
         return with_context(status, "cannot load active team", error);
     }
+    if (!found) {
+        status = apl_settings_repository_clear_active_team_id(&app->db, error);
+        if (status != APL_OK) {
+            return with_context(status, "cannot load active team", error);
+        }
+        *out_team = (apl_team){};
+        *out_status = APL_ACTIVE_TEAM_NONE;
+        return APL_OK;
+    }
 
-    *out_status = out_team->archived ? APL_ACTIVE_TEAM_ARCHIVED : APL_ACTIVE_TEAM_ACTIVE;
+    status = apl_settings_repository_set_active_team_id(&app->db, fallback.id, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot load active team", error);
+    }
+    *out_team = fallback;
+    *out_status = APL_ACTIVE_TEAM_FALLBACK;
     return APL_OK;
 }
 

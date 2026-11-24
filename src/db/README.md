@@ -14,3 +14,5 @@ Rules:
   Repositories are single-operation primitives; use cases own multi-write
   transactions through the small `db/transaction` helper. See
   [2.0.3](../../work-items/phase-2/2.0.3-repository-ownership-decision.md).
+- Concrete team and active-team-setting persistence lives in
+  `team_repository.{h,c}` and `settings_repository.{h,c}`.

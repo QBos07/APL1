@@ -114,3 +114,29 @@ Test(transaction, commit_without_begin_is_rejected)
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }
+
+Test(transaction, invalid_argument_paths_are_rejected)
+{
+    apl_error err;
+    apl_error_init(&err);
+
+    cr_assert_eq(apl_db_transaction_begin(nullptr, nullptr, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_db_transaction_commit(nullptr, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_db_transaction_rollback(nullptr, &err), APL_ERR_INVALID_ARGUMENT);
+
+    apl_test_db db = {};
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+
+    apl_db_transaction tx = {};
+    cr_assert_eq(apl_db_transaction_begin(&tx, nullptr, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_db_transaction_begin(&tx, &db.connection, &err), APL_OK);
+    cr_assert_eq(apl_db_transaction_begin(&tx, &db.connection, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_db_transaction_rollback(&tx, &err), APL_OK);
+
+    apl_db_transaction closed = {};
+    apl_db_close(&db.connection);
+    db.opened = false;
+    cr_assert_eq(apl_db_transaction_begin(&closed, &db.connection, &err), APL_ERR_INVALID_ARGUMENT);
+
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}

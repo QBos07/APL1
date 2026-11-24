@@ -187,3 +187,100 @@ Test(team_repository, empty_list_returns_null_and_zero)
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }
+
+Test(team_repository, blank_name_is_rejected_by_storage_constraint)
+{
+    apl_test_db db = {};
+    apl_error err;
+    apl_error_init(&err);
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+
+    apl_team team = {};
+    cr_assert_eq(apl_team_repository_create(&db.connection, "   ", "", &team, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_neq(strstr(apl_error_message(&err), "constraint"), nullptr);
+
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}
+
+Test(team_repository, archive_missing_team_is_not_found)
+{
+    apl_test_db db = {};
+    apl_error err;
+    apl_error_init(&err);
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+
+    apl_team team = {};
+    cr_assert_eq(apl_team_repository_archive(&db.connection, 999, &team, &err), APL_ERR_NOT_FOUND);
+
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}
+
+Test(team_repository, null_arguments_are_rejected)
+{
+    apl_team team = {};
+    apl_error err;
+    apl_error_init(&err);
+
+    cr_assert_eq(apl_team_repository_create(nullptr, "Ferrari", "", &team, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_get(nullptr, 1, &team, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_update(nullptr, 1, "Ferrari", "", &team, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_archive(nullptr, 1, &team, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_list(nullptr, true, nullptr, nullptr, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+}
+
+Test(team_repository, closed_connection_is_rejected)
+{
+    apl_test_db db = {};
+    apl_error err;
+    apl_error_init(&err);
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+    apl_db_close(&db.connection);
+    db.opened = false;
+
+    apl_team team = {};
+    apl_team *teams = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_team_repository_create(&db.connection, "Ferrari", "", &team, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_get(&db.connection, 1, &team, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_update(&db.connection, 1, "Ferrari", "", &team, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_archive(&db.connection, 1, &team, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_team_repository_list(&db.connection, true, &teams, &count, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}
+
+Test(team_repository, sql_special_characters_are_stored_as_data)
+{
+    apl_test_db db = {};
+    apl_error err;
+    apl_error_init(&err);
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+
+    const char *const tricky_name = "O'Brien \"Racing\"; DROP TABLE teams; --";
+    const char *const tricky_notes = "notes with 'quotes', % percent, and ? placeholders";
+    const apl_team created = create_team(&db, tricky_name, tricky_notes);
+    cr_assert_str_eq(created.name, tricky_name);
+    cr_assert_str_eq(created.notes, tricky_notes);
+
+    apl_team fetched = {};
+    cr_assert_eq(apl_team_repository_get(&db.connection, created.id, &fetched, &err), APL_OK);
+    cr_assert_str_eq(fetched.name, tricky_name);
+    cr_assert_str_eq(fetched.notes, tricky_notes);
+
+    apl_team *teams = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_team_repository_list(&db.connection, true, &teams, &count, &err), APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_str_eq(teams[0].name, tricky_name);
+    apl_team_repository_free_list(teams);
+
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}

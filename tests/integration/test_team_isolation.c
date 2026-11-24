@@ -93,6 +93,14 @@ Test(team_isolation, writes_to_one_team_do_not_change_another)
     cr_assert(all[1].archived);
     apl_team_service_free_list(all);
 
+    /* The last remaining active team is protected from archive. */
+    apl_team last_archive = {};
+    cr_assert_eq(apl_team_service_archive(&app, blue.id, &last_archive, &err), APL_ERR_CONFLICT);
+    cr_assert_eq(apl_team_service_get(&app, blue.id, &blue_after_archive, &err), APL_OK);
+    cr_assert_not(blue_after_archive.archived);
+    cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
+    cr_assert_eq(active.id, blue.id);
+
     apl_app_stop(&app);
     cr_assert_eq(apl_test_remove_temp_dir(dir, &err), APL_OK);
 }

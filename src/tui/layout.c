@@ -41,9 +41,8 @@ apl_tui_layout apl_tui_layout_compute(const unsigned rows, const unsigned cols)
 
     /* Keep the modal inside the body so the frame context and status remain
      * visible. The body is at least 7 rows, so the 5-row floor always fits. */
-    const unsigned overlay_rows = min_u(layout.body.rows - 2, max_u(5, (layout.body.rows * 3) / 4));
-    const unsigned overlay_cols =
-        min_u(layout.body.cols - 2, max_u(20, (layout.body.cols * 3) / 4));
+    const unsigned overlay_rows = min_u(layout.body.rows, max_u(7, (layout.body.rows * 3) / 4));
+    const unsigned overlay_cols = min_u(layout.body.cols, max_u(24, (layout.body.cols * 3) / 4));
     layout.overlay = make_rect(layout.body.y + (layout.body.rows - overlay_rows) / 2,
                                (layout.body.cols - overlay_cols) / 2, overlay_rows, overlay_cols);
 

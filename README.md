@@ -16,11 +16,12 @@ The product requirements define the intended behavior and acceptance criteria: [
 
 ## Project status
 
-The repository is at the scaffold stage. The application starts an empty TUI
-shell (work item 1.9); the management features described in the requirements
-have not been implemented yet. The proposed work is divided into small,
-reviewable slices in [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md). The checklist is
-a plan, not a claim that work is complete.
+Phase 2 is implemented: the TUI has a shared frame and a working team
+workspace. You can create teams, edit names/notes, archive teams, switch the
+active team, and reopen the database with the selected team still active. Other
+sections currently show an honest placeholder until their phase lands. The
+remaining work is divided into small slices in
+[WORK_BREAKDOWN.md](WORK_BREAKDOWN.md).
 
 ## Build and test
 
@@ -62,8 +63,10 @@ configure arguments. Manual incremental CMake/CTest commands remain available.
 
 ### TUI smoke test (opt-in)
 
-The interactive startup/resize/quit check runs the real application in xterm on
-a private Xvfb display. It requires Python 3, `Xvfb`, `xterm`, and `xdotool`:
+The interactive smoke check runs the real application in xterm on a private
+Xvfb display. It creates two teams, switches the active team, quits, relaunches,
+and verifies that the selected team persisted. It requires Python 3, `Xvfb`,
+`xterm`, and `xdotool`:
 
 ```sh
 ./scripts/smoke_tui.py --app build/apl1
@@ -97,10 +100,14 @@ Run the application from an interactive terminal with:
 ./build/apl1
 ```
 
-The scaffold shell shows the application name, an honest empty state, and the
-visible exit affordance (`q`). A launch without a usable interactive terminal
-(e.g. `apl1 < /dev/null`) fails cleanly with a message on stderr, creates no
-database file, and exits with the terminal-failure code.
+The first launch shows a welcome screen with no seeded teams. Press `n` to
+create a team; `Tab` moves between the name and notes fields, `Enter` saves, and
+`Esc` cancels. In the team list, use the arrow keys to select, `Enter` to open,
+`s` to make the selected team active, `a` to show archived teams, and `q` to
+quit. Team details support editing (`e`) and archiving (`x`, with confirmation).
+`Esc` returns to the previous screen. A launch without a usable interactive
+terminal (e.g. `apl1 < /dev/null`) fails cleanly with a message on stderr,
+creates no database file, and exits with the terminal-failure code.
 
 ### Command-line options
 

@@ -27,8 +27,10 @@
   `cert-*`, `performance-*`, and `portability-*`.
 - Exclusions are narrow and documented: standard-C `DeprecatedOrUnsafeBufferHandling`,
   `cert-err33-c` for intentionally ignored I/O return values, the reserved
-  identifier check for the required `_POSIX_C_SOURCE` feature macro, and related
-  CERT aliases. No broad “ignore all” suppression is used.
+  identifier check for the required `_POSIX_C_SOURCE` feature macro,
+  `bugprone-easily-swappable-parameters` for small C APIs that intentionally
+  take adjacent name/notes/row/column values, and related CERT aliases. No
+  broad “ignore all” suppression is used.
 - Added `scripts/check-static.sh`, which configures a compile-commands database
   (`$TMPDIR/apl1-tidy-build` by default) and analyzes production `src/*.c`
   files. It is not a build dependency; the GitHub workflow runs it as a
