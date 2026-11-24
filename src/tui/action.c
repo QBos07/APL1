@@ -74,6 +74,142 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
         }
         return APL_OK;
     }
+    case APL_TUI_COMMAND_DRIVER_LIST:
+        out_action->kind = APL_TUI_ACTION_OPEN_DRIVER_LIST;
+        return APL_OK;
+    case APL_TUI_COMMAND_DRIVER_NEW: {
+        const char *const name = apl_tui_command_option_value(request, "name");
+        if (name == nullptr || name[0] == '\0') {
+            out_action->kind = APL_TUI_ACTION_OPEN_DRIVER_CREATE_FORM;
+            return APL_OK;
+        }
+        out_action->kind = APL_TUI_ACTION_CREATE_DRIVER_DIRECT;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", name);
+        const char *const short_name = apl_tui_command_option_value(request, "short");
+        if (short_name != nullptr) {
+            (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", short_name);
+        }
+        const char *const notes = apl_tui_command_option_value(request, "notes");
+        if (notes != nullptr) {
+            (void)snprintf(out_action->role, sizeof(out_action->role), "%s", notes);
+        }
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_DRIVER_SHOW:
+        out_action->kind = APL_TUI_ACTION_OPEN_DRIVER_SHOW;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        return APL_OK;
+    case APL_TUI_COMMAND_MEMBERSHIP_ADD: {
+        const char *const driver = apl_tui_command_option_value(request, "driver");
+        const char *const start = apl_tui_command_option_value(request, "start");
+        const char *const end = apl_tui_command_option_value(request, "end");
+        const char *const role = apl_tui_command_option_value(request, "role");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
+        if (driver == nullptr || start == nullptr) {
+            out_action->kind = APL_TUI_ACTION_OPEN_MEMBERSHIP_ADD_FORM;
+            if (driver != nullptr) {
+                (void)snprintf(out_action->driver, sizeof(out_action->driver), "%s", driver);
+            }
+            if (start != nullptr) {
+                (void)snprintf(out_action->start, sizeof(out_action->start), "%s", start);
+            }
+            if (end != nullptr) {
+                (void)snprintf(out_action->end, sizeof(out_action->end), "%s", end);
+            }
+            if (role != nullptr) {
+                (void)snprintf(out_action->role, sizeof(out_action->role), "%s", role);
+            }
+            if (notes != nullptr) {
+                (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", notes);
+            }
+            return APL_OK;
+        }
+        out_action->kind = APL_TUI_ACTION_CREATE_MEMBERSHIP_DIRECT;
+        (void)snprintf(out_action->driver, sizeof(out_action->driver), "%s", driver);
+        (void)snprintf(out_action->start, sizeof(out_action->start), "%s", start);
+        if (end != nullptr) {
+            (void)snprintf(out_action->end, sizeof(out_action->end), "%s", end);
+        }
+        if (role != nullptr) {
+            (void)snprintf(out_action->role, sizeof(out_action->role), "%s", role);
+        }
+        if (notes != nullptr) {
+            (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", notes);
+        }
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_MEMBERSHIP_END: {
+        const char *const driver = apl_tui_command_option_value(request, "driver");
+        const char *const end = apl_tui_command_option_value(request, "end");
+        if (driver == nullptr || end == nullptr) {
+            out_action->kind = APL_TUI_ACTION_OPEN_MEMBERSHIP_END_FORM;
+            if (driver != nullptr) {
+                (void)snprintf(out_action->driver, sizeof(out_action->driver), "%s", driver);
+            }
+            if (end != nullptr) {
+                (void)snprintf(out_action->end, sizeof(out_action->end), "%s", end);
+            }
+            return APL_OK;
+        }
+        out_action->kind = APL_TUI_ACTION_END_MEMBERSHIP_DIRECT;
+        (void)snprintf(out_action->driver, sizeof(out_action->driver), "%s", driver);
+        (void)snprintf(out_action->end, sizeof(out_action->end), "%s", end);
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_SEASON_LIST:
+        out_action->kind = APL_TUI_ACTION_OPEN_SEASON_LIST;
+        return APL_OK;
+    case APL_TUI_COMMAND_SEASON_NEW: {
+        const char *const label = apl_tui_command_option_value(request, "label");
+        if (label == nullptr || label[0] == '\0') {
+            out_action->kind = APL_TUI_ACTION_OPEN_SEASON_CREATE_FORM;
+            return APL_OK;
+        }
+        out_action->kind = APL_TUI_ACTION_CREATE_SEASON_DIRECT;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", label);
+        const char *const start = apl_tui_command_option_value(request, "start");
+        const char *const end = apl_tui_command_option_value(request, "end");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
+        if (start != nullptr) {
+            (void)snprintf(out_action->start, sizeof(out_action->start), "%s", start);
+        }
+        if (end != nullptr) {
+            (void)snprintf(out_action->end, sizeof(out_action->end), "%s", end);
+        }
+        if (notes != nullptr) {
+            (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", notes);
+        }
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_SEASON_SELECT:
+        out_action->kind = APL_TUI_ACTION_SEASON_SELECT_TARGET;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        return APL_OK;
+    case APL_TUI_COMMAND_CAR_LIST:
+        out_action->kind = APL_TUI_ACTION_OPEN_CAR_LIST;
+        return APL_OK;
+    case APL_TUI_COMMAND_CAR_NEW: {
+        const char *const label = apl_tui_command_option_value(request, "label");
+        if (label == nullptr || label[0] == '\0') {
+            out_action->kind = APL_TUI_ACTION_OPEN_CAR_CREATE_FORM;
+            return APL_OK;
+        }
+        out_action->kind = APL_TUI_ACTION_CREATE_CAR_DIRECT;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", label);
+        const char *const chassis = apl_tui_command_option_value(request, "chassis");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
+        if (chassis != nullptr) {
+            (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", chassis);
+        }
+        if (notes != nullptr) {
+            (void)snprintf(out_action->role, sizeof(out_action->role), "%s", notes);
+        }
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_CAR_SHOW:
+        out_action->kind = APL_TUI_ACTION_OPEN_CAR_SHOW;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        return APL_OK;
     case APL_TUI_COMMAND_HELP:
         out_action->kind = APL_TUI_ACTION_OPEN_HELP;
         join_positionals(request, out_action->value, sizeof(out_action->value));
@@ -114,6 +250,38 @@ const char *apl_tui_action_name(const apl_tui_action_kind kind)
         return "create-team-direct";
     case APL_TUI_ACTION_TEAM_SWITCH_TARGET:
         return "team-switch-target";
+    case APL_TUI_ACTION_OPEN_DRIVER_LIST:
+        return "open-driver-list";
+    case APL_TUI_ACTION_OPEN_DRIVER_CREATE_FORM:
+        return "open-driver-create-form";
+    case APL_TUI_ACTION_CREATE_DRIVER_DIRECT:
+        return "create-driver-direct";
+    case APL_TUI_ACTION_OPEN_DRIVER_SHOW:
+        return "open-driver-show";
+    case APL_TUI_ACTION_OPEN_MEMBERSHIP_ADD_FORM:
+        return "open-membership-add-form";
+    case APL_TUI_ACTION_CREATE_MEMBERSHIP_DIRECT:
+        return "create-membership-direct";
+    case APL_TUI_ACTION_OPEN_MEMBERSHIP_END_FORM:
+        return "open-membership-end-form";
+    case APL_TUI_ACTION_END_MEMBERSHIP_DIRECT:
+        return "end-membership-direct";
+    case APL_TUI_ACTION_OPEN_SEASON_LIST:
+        return "open-season-list";
+    case APL_TUI_ACTION_OPEN_SEASON_CREATE_FORM:
+        return "open-season-create-form";
+    case APL_TUI_ACTION_CREATE_SEASON_DIRECT:
+        return "create-season-direct";
+    case APL_TUI_ACTION_SEASON_SELECT_TARGET:
+        return "season-select-target";
+    case APL_TUI_ACTION_OPEN_CAR_LIST:
+        return "open-car-list";
+    case APL_TUI_ACTION_OPEN_CAR_CREATE_FORM:
+        return "open-car-create-form";
+    case APL_TUI_ACTION_CREATE_CAR_DIRECT:
+        return "create-car-direct";
+    case APL_TUI_ACTION_OPEN_CAR_SHOW:
+        return "open-car-show";
     case APL_TUI_ACTION_OPEN_HELP:
         return "open-help";
     case APL_TUI_ACTION_OPEN_ABOUT:

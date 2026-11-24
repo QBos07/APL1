@@ -214,6 +214,49 @@ Test(tui_command, help_and_completion_come_from_the_registry)
     cr_assert_str_empty(completion);
 }
 
+Test(tui_command, phase_three_reference_commands_parse)
+{
+    const apl_tui_command_parse_result driver_new =
+        apl_tui_command_parse("driver new --name \"Alex Driver\" --short AD");
+    cr_assert_eq(driver_new.status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(driver_new.request.id, APL_TUI_COMMAND_DRIVER_NEW);
+    cr_assert_str_eq(apl_tui_command_option_value(&driver_new.request, "name"), "Alex Driver");
+
+    const apl_tui_command_parse_result driver_form = apl_tui_command_parse("driver new");
+    cr_assert_eq(driver_form.status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(driver_form.request.id, APL_TUI_COMMAND_DRIVER_NEW);
+
+    cr_assert_eq(apl_tui_command_parse("driver show \"Alex Driver\"").status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(apl_tui_command_parse("driver show").status, APL_TUI_COMMAND_INCOMPLETE);
+
+    const apl_tui_command_parse_result membership =
+        apl_tui_command_parse("membership add --driver 1 --start 2026-01-01 --role \"Race seat\"");
+    cr_assert_eq(membership.status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(membership.request.id, APL_TUI_COMMAND_MEMBERSHIP_ADD);
+    cr_assert_str_eq(apl_tui_command_option_value(&membership.request, "start"), "2026-01-01");
+
+    cr_assert_eq(apl_tui_command_parse("membership end --driver 1 --end 2026-06-30").status,
+                 APL_TUI_COMMAND_OK);
+    cr_assert_eq(apl_tui_command_parse("season select 1").request.id,
+                 APL_TUI_COMMAND_SEASON_SELECT);
+    cr_assert_eq(apl_tui_command_parse("car new --label SF-26").request.id,
+                 APL_TUI_COMMAND_CAR_NEW);
+    cr_assert_eq(apl_tui_command_parse("car show SF-26").status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(apl_tui_command_parse("car show").status, APL_TUI_COMMAND_INCOMPLETE);
+
+    char completion[APL_TUI_COMMAND_SUGGESTION_MAX];
+    apl_tui_command_complete("driver ", completion, sizeof(completion));
+    cr_assert_neq(strstr(completion, "driver list"), nullptr);
+    apl_tui_command_complete("driver l", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "driver list");
+    apl_tui_command_complete("season n", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "season new");
+    char help[APL_TUI_COMMAND_HELP_MAX];
+    apl_tui_command_registry_help(help, sizeof(help));
+    cr_assert_neq(strstr(help, "People\n"), nullptr);
+    cr_assert_neq(strstr(help, "- membership add"), nullptr);
+}
+
 Test(tui_command, status_names_are_stable)
 {
     cr_assert_str_eq(apl_tui_command_status_name(APL_TUI_COMMAND_OK), "ok");

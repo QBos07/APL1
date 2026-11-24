@@ -9,6 +9,11 @@
 #include <string.h>
 #include <time.h>
 
+#include "app/activity_service.h"
+#include "app/car_service.h"
+#include "app/driver_service.h"
+#include "app/membership_service.h"
+#include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
 #include "tui/action.h"
@@ -28,12 +33,22 @@ typedef enum shell_screen {
     SHELL_SCREEN_WELCOME = 0,
     SHELL_SCREEN_TEAM_LIST,
     SHELL_SCREEN_TEAM_DETAIL,
+    SHELL_SCREEN_SEASON_LIST,
+    SHELL_SCREEN_SEASON_DETAIL,
+    SHELL_SCREEN_CAR_LIST,
+    SHELL_SCREEN_CAR_DETAIL,
+    SHELL_SCREEN_PEOPLE_LIST,
+    SHELL_SCREEN_PERSON_DETAIL,
+    SHELL_SCREEN_HISTORY_LIST,
     SHELL_SCREEN_PLACEHOLDER,
 } shell_screen;
 
 typedef enum shell_pending_action {
     SHELL_PENDING_NONE = 0,
     SHELL_PENDING_ARCHIVE_TEAM,
+    SHELL_PENDING_ARCHIVE_SEASON,
+    SHELL_PENDING_ARCHIVE_CAR,
+    SHELL_PENDING_ARCHIVE_DRIVER,
 } shell_pending_action;
 
 typedef enum shell_dialog_context {
@@ -41,50 +56,101 @@ typedef enum shell_dialog_context {
     SHELL_DIALOG_CONTEXT_TEAM_PICKER,
     SHELL_DIALOG_CONTEXT_TEAM_CREATE,
     SHELL_DIALOG_CONTEXT_TEAM_EDIT,
+    SHELL_DIALOG_CONTEXT_SEASON_CREATE,
+    SHELL_DIALOG_CONTEXT_SEASON_EDIT,
+    SHELL_DIALOG_CONTEXT_CAR_CREATE,
+    SHELL_DIALOG_CONTEXT_CAR_EDIT,
+    SHELL_DIALOG_CONTEXT_DRIVER_CREATE,
+    SHELL_DIALOG_CONTEXT_DRIVER_EDIT,
+    SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD,
+    SHELL_DIALOG_CONTEXT_MEMBERSHIP_END,
+    SHELL_DIALOG_CONTEXT_DRIVER_PICKER,
+    SHELL_DIALOG_CONTEXT_ACTIVITY_DETAIL,
 } shell_dialog_context;
 
 constexpr int APL_TUI_SCROLL_STEP = 3;
 constexpr int64_t APL_TUI_DOUBLE_CLICK_MS = 500;
+constexpr size_t APL_TUI_HISTORY_FILTERS = 5;
 
 typedef struct shell_state {
     apl_app *app;
-    apl_tui_frame frame;
-    apl_tui_section section;
-    shell_screen screen;
-    apl_tui_list list;
-    apl_tui_list tabs;
     apl_team *teams;
     size_t team_count;
-    bool include_archived;
-    bool any_teams;
-    apl_team active_team;
-    apl_active_team_status active_status;
-    apl_team detail;
-    apl_tui_dialog dialog;
-    apl_tui_menu menu;
-    apl_tui_focus focus;
-    apl_tui_status status;
-    apl_tui_theme theme;
-    apl_tui_command_line command_line;
-    shell_dialog_context dialog_context;
+    apl_season *seasons;
+    size_t season_count;
+    int64_t selected_season_id;
+    apl_car *cars;
+    size_t car_count;
+    apl_driver *drivers;
+    size_t driver_count;
+    apl_membership *memberships;
+    size_t membership_count;
+    apl_activity_event *events;
+    size_t event_count;
     int64_t dialog_team_id;
+    int64_t dialog_record_id;
+    int64_t dialog_driver_id;
     apl_team *picker_teams;
     size_t picker_team_count;
-    bool picker_include_archived;
-    bool team_focus;
-    shell_pending_action pending;
     int64_t pending_team_id;
+    int64_t pending_record_id;
+    int64_t pending_driver_id;
     int64_t last_click_team_id;
     int64_t last_click_ms;
+    int64_t last_mouse_ms;
+    apl_tui_list list;
+    apl_tui_list tabs;
+    apl_activity_filter history_filter;
+    apl_tui_frame frame;
+    int64_t driver_choice_ids[APL_TUI_DIALOG_OPTIONS_MAX];
+    apl_team active_team;
+    apl_team detail;
+    apl_season season_detail;
+    apl_driver driver_detail;
+    apl_car car_detail;
+    apl_tui_section section;
+    shell_screen screen;
+    apl_active_team_status active_status;
+    unsigned history_date_preset;
+    unsigned history_action_filter;
+    unsigned history_entity_filter;
+    shell_dialog_context dialog_context;
+    int driver_choice_mode;
+    unsigned driver_choice_count;
+    shell_pending_action pending;
     uint32_t last_mouse_id;
     int last_mouse_y;
     int last_mouse_x;
-    int64_t last_mouse_ms;
+    apl_tui_focus focus;
+    apl_tui_menu menu;
+    apl_tui_status status;
+    apl_tui_command_line command_line;
+    apl_tui_dialog dialog;
+    bool include_archived;
+    bool any_teams;
+    bool include_archived_seasons;
+    bool include_archived_cars;
+    bool include_archived_drivers;
+    bool people_all_teams;
+    bool history_all_teams;
+    apl_tui_theme theme;
+    bool picker_include_archived;
+    bool team_focus;
     bool quit;
+    char pending_start[APL_TUI_COMMAND_WORD_MAX];
+    char pending_end[APL_TUI_COMMAND_WORD_MAX];
+    char pending_role[APL_TUI_COMMAND_WORD_MAX];
+    char pending_notes[APL_TUI_COMMAND_WORD_MAX];
 } shell_state;
 
 static void handle_dialog_input(shell_state *state, const ncinput *input);
 static void open_selected_detail(shell_state *state);
+static void open_selected_season(shell_state *state);
+static void open_selected_car(shell_state *state);
+static void open_selected_person(shell_state *state);
+static void handle_people_list_input(shell_state *state, uint32_t id);
+static void handle_person_detail_input(shell_state *state, uint32_t id);
+static void handle_history_input(shell_state *state, uint32_t id);
 
 static void set_status_level(shell_state *const state, const apl_tui_status_level level,
                              const char *const format, va_list args)
@@ -186,6 +252,56 @@ static unsigned form_error_field(const apl_error *const error)
     return (strstr(apl_error_message(error), "notes") != nullptr) ? 1 : 0;
 }
 
+static unsigned reference_form_error_field(const shell_dialog_context context,
+                                           const apl_error *const error)
+{
+    const char *const message = apl_error_message(error);
+    switch (context) {
+    case SHELL_DIALOG_CONTEXT_SEASON_CREATE:
+    case SHELL_DIALOG_CONTEXT_SEASON_EDIT:
+        if (strstr(message, "label") != nullptr) {
+            return 0;
+        }
+        if (strstr(message, "start") != nullptr) {
+            return 1;
+        }
+        if (strstr(message, "end") != nullptr) {
+            return 2;
+        }
+        return 3;
+    case SHELL_DIALOG_CONTEXT_CAR_CREATE:
+    case SHELL_DIALOG_CONTEXT_CAR_EDIT:
+        if (strstr(message, "label") != nullptr) {
+            return 0;
+        }
+        if (strstr(message, "chassis") != nullptr) {
+            return 1;
+        }
+        return 2;
+    case SHELL_DIALOG_CONTEXT_DRIVER_CREATE:
+    case SHELL_DIALOG_CONTEXT_DRIVER_EDIT:
+        if (strstr(message, "name") != nullptr) {
+            return 0;
+        }
+        return 2;
+    case SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD:
+        if (strstr(message, "start") != nullptr) {
+            return 0;
+        }
+        if (strstr(message, "end") != nullptr || strstr(message, "date") != nullptr) {
+            return 1;
+        }
+        if (strstr(message, "role") != nullptr) {
+            return 2;
+        }
+        return 3;
+    case SHELL_DIALOG_CONTEXT_MEMBERSHIP_END:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static apl_status refresh_active(shell_state *const state, apl_error *const error)
 {
     const apl_status status =
@@ -215,6 +331,218 @@ static apl_status detect_any_teams(shell_state *const state, apl_error *const er
     }
     state->any_teams = count > 0;
     apl_team_service_free_list(teams);
+    return APL_OK;
+}
+
+/** Owning team for team-scoped views, or 0 when no active team exists. */
+static int64_t active_team_id(const shell_state *const state)
+{
+    return active_status_has_team(state->active_status) ? state->active_team.id : 0;
+}
+
+static size_t find_season_index(const shell_state *const state, const int64_t id)
+{
+    for (size_t index = 0; index < state->season_count; ++index) {
+        if (state->seasons[index].id == id) {
+            return index;
+        }
+    }
+    return SIZE_MAX;
+}
+
+static size_t find_car_index(const shell_state *const state, const int64_t id)
+{
+    for (size_t index = 0; index < state->car_count; ++index) {
+        if (state->cars[index].id == id) {
+            return index;
+        }
+    }
+    return SIZE_MAX;
+}
+
+static size_t find_driver_index(const shell_state *const state, const int64_t id)
+{
+    for (size_t index = 0; index < state->driver_count; ++index) {
+        if (state->drivers[index].id == id) {
+            return index;
+        }
+    }
+    return SIZE_MAX;
+}
+
+static void free_reference_lists(shell_state *const state)
+{
+    apl_season_service_free_list(state->seasons);
+    state->seasons = nullptr;
+    state->season_count = 0;
+    apl_car_service_free_list(state->cars);
+    state->cars = nullptr;
+    state->car_count = 0;
+    apl_driver_service_free_list(state->drivers);
+    state->drivers = nullptr;
+    state->driver_count = 0;
+    apl_membership_service_free_list(state->memberships);
+    state->memberships = nullptr;
+    state->membership_count = 0;
+    apl_activity_service_free_events(state->events);
+    state->events = nullptr;
+    state->event_count = 0;
+}
+
+static apl_status load_seasons(shell_state *const state, const int64_t preferred_id,
+                               apl_error *const error)
+{
+    int64_t keep_id = preferred_id;
+    if (keep_id == 0 && state->season_count > 0 && state->list.selected < state->season_count) {
+        keep_id = state->seasons[state->list.selected].id;
+    }
+    apl_season *seasons = nullptr;
+    size_t count = 0;
+    const int64_t team_id = active_team_id(state);
+    apl_status status = APL_OK;
+    if (team_id > 0) {
+        status = apl_season_service_list(state->app, team_id, state->include_archived_seasons,
+                                         &seasons, &count, error);
+    }
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_season_service_free_list(state->seasons);
+    state->seasons = seasons;
+    state->season_count = count;
+    apl_tui_list_set_count(&state->list, count);
+    if (keep_id != 0) {
+        const size_t index = find_season_index(state, keep_id);
+        if (index != SIZE_MAX) {
+            apl_tui_list_select(&state->list, index);
+        }
+    }
+    return APL_OK;
+}
+
+static apl_status load_cars(shell_state *const state, const int64_t preferred_id,
+                            apl_error *const error)
+{
+    int64_t keep_id = preferred_id;
+    if (keep_id == 0 && state->car_count > 0 && state->list.selected < state->car_count) {
+        keep_id = state->cars[state->list.selected].id;
+    }
+    apl_car *cars = nullptr;
+    size_t count = 0;
+    const int64_t team_id = active_team_id(state);
+    apl_status status = APL_OK;
+    if (team_id > 0) {
+        status = apl_car_service_list(state->app, team_id, state->include_archived_cars, &cars,
+                                      &count, error);
+    }
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_car_service_free_list(state->cars);
+    state->cars = cars;
+    state->car_count = count;
+    apl_tui_list_set_count(&state->list, count);
+    if (keep_id != 0) {
+        const size_t index = find_car_index(state, keep_id);
+        if (index != SIZE_MAX) {
+            apl_tui_list_select(&state->list, index);
+        }
+    }
+    return APL_OK;
+}
+
+static apl_status load_people(shell_state *const state, const int64_t preferred_id,
+                              apl_error *const error)
+{
+    int64_t keep_id = preferred_id;
+    if (keep_id == 0 && state->driver_count > 0 && state->list.selected < state->driver_count) {
+        keep_id = state->drivers[state->list.selected].id;
+    }
+    apl_driver *drivers = nullptr;
+    size_t count = 0;
+    const int64_t team_id = active_team_id(state);
+    apl_status status = APL_OK;
+    if (state->people_all_teams) {
+        status = apl_driver_service_list(state->app, state->include_archived_drivers, &drivers,
+                                         &count, error);
+    } else if (team_id > 0) {
+        status = apl_driver_service_list_for_team(
+            state->app, team_id, state->include_archived_drivers, &drivers, &count, error);
+    }
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_driver_service_free_list(state->drivers);
+    state->drivers = drivers;
+    state->driver_count = count;
+    apl_tui_list_set_count(&state->list, count);
+    if (keep_id != 0) {
+        const size_t index = find_driver_index(state, keep_id);
+        if (index != SIZE_MAX) {
+            apl_tui_list_select(&state->list, index);
+        }
+    }
+    return APL_OK;
+}
+
+static apl_status load_driver_memberships(shell_state *const state, const int64_t driver_id,
+                                          apl_error *const error)
+{
+    apl_membership *memberships = nullptr;
+    size_t count = 0;
+    const apl_status status =
+        apl_membership_service_list_for_driver(state->app, driver_id, &memberships, &count, error);
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_membership_service_free_list(state->memberships);
+    state->memberships = memberships;
+    state->membership_count = count;
+    return APL_OK;
+}
+
+static const char *history_entity_filter_name(const unsigned index)
+{
+    static const char *const NAMES[] = {"", "team", "season", "driver", "membership", "car"};
+    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "";
+}
+
+static const char *history_action_filter_name(const unsigned index)
+{
+    static const char *const NAMES[] = {"", "team_created", "team_renamed", "team_archived"};
+    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "";
+}
+
+static apl_status load_history(shell_state *const state, apl_error *const error)
+{
+    apl_activity_filter filter = {};
+    if (!state->history_all_teams) {
+        filter.team_id = active_team_id(state);
+    }
+    (void)snprintf(filter.entity_type, sizeof(filter.entity_type), "%s",
+                   history_entity_filter_name(state->history_entity_filter));
+    (void)snprintf(filter.action, sizeof(filter.action), "%s",
+                   history_action_filter_name(state->history_action_filter));
+    if (state->history_date_preset > 0) {
+        const int days =
+            (state->history_date_preset == 1) ? 7 : ((state->history_date_preset == 2) ? 30 : 365);
+        apl_reference_date_today_minus_days(days, filter.from_date, sizeof(filter.from_date));
+    }
+    state->history_filter = filter;
+
+    apl_activity_event *events = nullptr;
+    size_t count = 0;
+    apl_status status = APL_OK;
+    if (state->history_all_teams || filter.team_id > 0) {
+        status = apl_activity_service_list(state->app, &filter, &events, &count, error);
+    }
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_activity_service_free_events(state->events);
+    state->events = events;
+    state->event_count = count;
+    apl_tui_list_set_count(&state->list, count);
     return APL_OK;
 }
 
@@ -418,6 +746,321 @@ static void toggle_archived_view(shell_state *const state, apl_error *const erro
                state->include_archived ? "Showing archived teams." : "Hiding archived teams.");
 }
 
+static void open_season_dialog(shell_state *const state, const bool edit, const char *const label,
+                               const char *const start_date, const char *const end_date,
+                               const char *const notes)
+{
+    apl_tui_dialog_open_form(&state->dialog, edit ? "Edit season/period" : "Create season/period",
+                             "Label is required. Dates use YYYY-MM-DD or stay blank.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Label", label, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    state->dialog_context =
+        edit ? SHELL_DIALOG_CONTEXT_SEASON_EDIT : SHELL_DIALOG_CONTEXT_SEASON_CREATE;
+    state->dialog_record_id = edit ? state->season_detail.id : 0;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter saves; Esc cancels without writing.");
+}
+
+static void open_car_dialog(shell_state *const state, const bool edit, const char *const label,
+                            const char *const chassis, const char *const notes)
+{
+    apl_tui_dialog_open_form(&state->dialog, edit ? "Edit car/chassis" : "Create car/chassis",
+                             "Identifier is required. Chassis and notes are optional.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Identifier", label, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Chassis", chassis, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    state->dialog_context = edit ? SHELL_DIALOG_CONTEXT_CAR_EDIT : SHELL_DIALOG_CONTEXT_CAR_CREATE;
+    state->dialog_record_id = edit ? state->car_detail.id : 0;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter saves; Esc cancels without writing.");
+}
+
+static void open_driver_dialog(shell_state *const state, const bool edit, const char *const name,
+                               const char *const short_name, const char *const notes)
+{
+    apl_tui_dialog_open_form(&state->dialog, edit ? "Edit driver" : "Create driver",
+                             "Display name is required. Duplicate names are allowed as separate "
+                             "identities.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Name", name, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Short name", short_name, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    state->dialog_context =
+        edit ? SHELL_DIALOG_CONTEXT_DRIVER_EDIT : SHELL_DIALOG_CONTEXT_DRIVER_CREATE;
+    state->dialog_record_id = edit ? state->driver_detail.id : 0;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter saves; Esc cancels without writing.");
+}
+
+static void open_membership_add_dialog(shell_state *const state, const int64_t driver_id,
+                                       const char *const start_date, const char *const end_date,
+                                       const char *const role, const char *const notes)
+{
+    if (active_team_id(state) == 0) {
+        set_status_warning(state, "Select an active team before adding a membership.");
+        return;
+    }
+    apl_tui_dialog_open_form(&state->dialog, "Add team membership",
+                             "Start date is required. End date and role are optional and "
+                             "user-entered.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start_date, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Role/seat", role, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD;
+    state->dialog_driver_id = driver_id;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter adds the membership; Esc writes nothing.");
+}
+
+static void open_membership_end_dialog(shell_state *const state, const int64_t membership_id,
+                                       const char *const start_date, const char *const end_date)
+{
+    apl_tui_dialog_open_form(&state->dialog, "End team membership",
+                             "Enter the final date for this membership period. The period remains "
+                             "in history.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end_date, true);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MEMBERSHIP_END;
+    state->dialog_record_id = membership_id;
+    state->dialog.fields[0].required = false;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter ends the period; Esc writes nothing.");
+}
+
+static bool perform_season_create(shell_state *const state, const char *const label,
+                                  const char *const start_date, const char *const end_date,
+                                  const char *const notes, apl_error *const error)
+{
+    apl_season created = {};
+    const apl_status status = apl_season_service_create(
+        state->app, active_team_id(state), label, start_date, end_date, notes, &created, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot create season", error);
+        return false;
+    }
+    state->season_detail = created;
+    if (load_seasons(state, created.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_TEAMS;
+    state->screen = SHELL_SCREEN_SEASON_DETAIL;
+    sync_status_context(state);
+    set_status_success(state, "Season '%s' created.", created.label);
+    return true;
+}
+
+static bool perform_season_update(shell_state *const state, const char *const label,
+                                  const char *const start_date, const char *const end_date,
+                                  const char *const notes, apl_error *const error)
+{
+    apl_season updated = {};
+    const apl_status status =
+        apl_season_service_update(state->app, active_team_id(state), state->dialog_record_id, label,
+                                  start_date, end_date, notes, &updated, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save season", error);
+        return false;
+    }
+    state->season_detail = updated;
+    if (load_seasons(state, updated.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->screen = SHELL_SCREEN_SEASON_DETAIL;
+    set_status_success(state, "Season changes saved.");
+    return true;
+}
+
+static void perform_season_archive(shell_state *const state, const int64_t id,
+                                   apl_error *const error)
+{
+    apl_season archived = {};
+    if (apl_season_service_archive(state->app, active_team_id(state), id, &archived, error) !=
+        APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    if (load_seasons(state, 0, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_SEASON_LIST;
+    set_status_success(state, "Season archived. It remains available in history.");
+}
+
+static bool perform_car_create(shell_state *const state, const char *const label,
+                               const char *const chassis, const char *const notes,
+                               apl_error *const error)
+{
+    apl_car created = {};
+    const apl_status status = apl_car_service_create(state->app, active_team_id(state), label,
+                                                     chassis, notes, &created, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot create car", error);
+        return false;
+    }
+    state->car_detail = created;
+    if (load_cars(state, created.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_TEAMS;
+    state->screen = SHELL_SCREEN_CAR_DETAIL;
+    sync_status_context(state);
+    set_status_success(state, "Car '%s' created.", created.label);
+    return true;
+}
+
+static bool perform_car_update(shell_state *const state, const char *const label,
+                               const char *const chassis, const char *const notes,
+                               apl_error *const error)
+{
+    apl_car updated = {};
+    const apl_status status =
+        apl_car_service_update(state->app, active_team_id(state), state->dialog_record_id, label,
+                               chassis, notes, &updated, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save car", error);
+        return false;
+    }
+    state->car_detail = updated;
+    if (load_cars(state, updated.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->screen = SHELL_SCREEN_CAR_DETAIL;
+    set_status_success(state, "Car changes saved.");
+    return true;
+}
+
+static void perform_car_archive(shell_state *const state, const int64_t id, apl_error *const error)
+{
+    apl_car archived = {};
+    if (apl_car_service_archive(state->app, active_team_id(state), id, &archived, error) !=
+        APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    if (load_cars(state, 0, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_CAR_LIST;
+    set_status_success(state, "Car archived. It remains available for reference/history.");
+}
+
+static bool perform_driver_create(shell_state *const state, const char *const name,
+                                  const char *const short_name, const char *const notes,
+                                  apl_error *const error)
+{
+    apl_driver created = {};
+    const apl_status status =
+        apl_driver_service_create(state->app, name, short_name, notes, &created, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot create driver", error);
+        return false;
+    }
+    state->driver_detail = created;
+    if (load_people(state, created.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_PEOPLE;
+    state->screen = SHELL_SCREEN_PERSON_DETAIL;
+    sync_status_context(state);
+    set_status_success(state, "Driver '%s' created. Add a membership to link a team.",
+                       created.name);
+    return true;
+}
+
+static bool perform_driver_update(shell_state *const state, const char *const name,
+                                  const char *const short_name, const char *const notes,
+                                  apl_error *const error)
+{
+    apl_driver updated = {};
+    const apl_status status = apl_driver_service_update(state->app, state->dialog_record_id, name,
+                                                        short_name, notes, &updated, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save driver", error);
+        return false;
+    }
+    state->driver_detail = updated;
+    if (load_people(state, updated.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->screen = SHELL_SCREEN_PERSON_DETAIL;
+    set_status_success(state, "Driver changes saved.");
+    return true;
+}
+
+static void perform_driver_archive(shell_state *const state, const int64_t id,
+                                   apl_error *const error)
+{
+    apl_driver archived = {};
+    if (apl_driver_service_archive(state->app, id, &archived, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    if (load_people(state, 0, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_PEOPLE_LIST;
+    set_status_success(state, "Driver archived. Historical memberships remain readable; default "
+                              "pickers hide the profile.");
+}
+
+static bool perform_membership_add(shell_state *const state, const char *const start_date,
+                                   const char *const end_date, const char *const role,
+                                   const char *const notes, apl_error *const error)
+{
+    apl_membership created = {};
+    const apl_status status =
+        apl_membership_service_create(state->app, active_team_id(state), state->dialog_driver_id,
+                                      start_date, end_date, role, notes, &created, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot add membership", error);
+        return false;
+    }
+    if (load_driver_memberships(state, state->dialog_driver_id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    if (load_people(state, state->dialog_driver_id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_PEOPLE;
+    state->screen = SHELL_SCREEN_PERSON_DETAIL;
+    sync_status_context(state);
+    set_status_success(state, "Membership added starting %s.", created.start_date);
+    return true;
+}
+
+static bool perform_membership_end(shell_state *const state, const char *const end_date,
+                                   apl_error *const error)
+{
+    apl_membership ended = {};
+    const apl_status status = apl_membership_service_end(
+        state->app, active_team_id(state), state->dialog_record_id, end_date, &ended, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot end membership", error);
+        return false;
+    }
+    if (load_driver_memberships(state, state->driver_detail.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->screen = SHELL_SCREEN_PERSON_DETAIL;
+    set_status_success(state, "Membership ended on %s; the period remains in history.",
+                       ended.end_date);
+    return true;
+}
+
 static void free_picker_teams(shell_state *const state)
 {
     apl_team_service_free_list(state->picker_teams);
@@ -543,6 +1186,109 @@ static void finish_team_picker(shell_state *const state, const apl_tui_dialog_re
     }
 }
 
+static void open_person_detail(shell_state *const state, const apl_driver driver)
+{
+    apl_error error;
+    apl_error_init(&error);
+    state->driver_detail = driver;
+    if (load_driver_memberships(state, driver.id, &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    state->section = APL_TUI_SECTION_PEOPLE;
+    state->screen = SHELL_SCREEN_PERSON_DETAIL;
+    sync_status_context(state);
+    set_status(state, "m add membership, d end current membership, e edit, x archive, Esc back.");
+}
+
+static void finish_driver_picker(shell_state *const state, const apl_tui_dialog_result result)
+{
+    const unsigned selected = apl_tui_dialog_selected_option(&state->dialog);
+    const int mode = state->driver_choice_mode;
+    if (result == APL_TUI_DIALOG_DISMISSED || selected == UINT_MAX ||
+        selected >= state->driver_choice_count) {
+        close_shell_dialog(state);
+        set_status(state, "Driver selection cancelled.");
+        return;
+    }
+    const int64_t driver_id = state->driver_choice_ids[selected];
+    close_shell_dialog(state);
+
+    if (mode == 1) {
+        open_membership_add_dialog(state, driver_id, state->pending_start, state->pending_end,
+                                   state->pending_role, state->pending_notes);
+        return;
+    }
+    if (mode == 2) {
+        apl_membership *memberships = nullptr;
+        size_t count = 0;
+        apl_error error;
+        apl_error_init(&error);
+        if (apl_membership_service_list_for_driver(state->app, driver_id, &memberships, &count,
+                                                   &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        int64_t membership_id = 0;
+        char start_date[APL_REFERENCE_DATE_MAX] = "";
+        for (size_t index = count; index > 0; --index) {
+            if (memberships[index - 1].end_date[0] == '\0') {
+                membership_id = memberships[index - 1].id;
+                (void)snprintf(start_date, sizeof(start_date), "%s",
+                               memberships[index - 1].start_date);
+                break;
+            }
+        }
+        apl_membership_service_free_list(memberships);
+        if (membership_id == 0) {
+            set_status_warning(state, "That driver has no current membership period to end.");
+            return;
+        }
+        open_membership_end_dialog(state, membership_id, start_date, state->pending_end);
+        return;
+    }
+
+    apl_driver driver = {};
+    apl_error error;
+    apl_error_init(&error);
+    if (apl_driver_service_get(state->app, driver_id, &driver, &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    open_person_detail(state, driver);
+}
+
+/** Present a driver choice for ambiguous names or a command without a target. */
+static void open_driver_choice(shell_state *const state, apl_driver *const drivers,
+                               const size_t count, const int mode)
+{
+    const char *const title = (mode == 1)   ? "Add membership for driver"
+                              : (mode == 2) ? "End membership for driver"
+                                            : "Choose driver";
+    apl_tui_dialog_open_choice(&state->dialog, title,
+                               "Duplicate names remain separate records. Choose explicitly by ID.");
+    state->driver_choice_count = 0;
+    state->driver_choice_mode = mode;
+    for (size_t index = 0; index < count && index < APL_TUI_DIALOG_OPTIONS_MAX; ++index) {
+        char label[APL_TUI_DIALOG_OPTION_LABEL_MAX];
+        if (drivers[index].short_name[0] != '\0') {
+            (void)snprintf(label, sizeof(label), "%.80s (%.40s)  (#%lld)", drivers[index].name,
+                           drivers[index].short_name, (long long)drivers[index].id);
+        } else {
+            (void)snprintf(label, sizeof(label), "%.80s  (#%lld)", drivers[index].name,
+                           (long long)drivers[index].id);
+        }
+        const unsigned option =
+            apl_tui_dialog_add_option(&state->dialog, label, !drivers[index].archived, false);
+        if (option != UINT_MAX) {
+            state->driver_choice_ids[state->driver_choice_count++] = drivers[index].id;
+        }
+    }
+    state->dialog_context = SHELL_DIALOG_CONTEXT_DRIVER_PICKER;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Up/Down selects; Enter continues; Esc cancels.");
+}
+
 static void set_section(shell_state *const state, const apl_tui_section section)
 {
     state->section = section;
@@ -550,10 +1296,30 @@ static void set_section(shell_state *const state, const apl_tui_section section)
     if (tab != SIZE_MAX) {
         apl_tui_list_select(&state->tabs, tab);
     }
-    if (section == APL_TUI_SECTION_TEAMS) {
+    apl_error error;
+    apl_error_init(&error);
+    switch (section) {
+    case APL_TUI_SECTION_TEAMS:
+        if (refresh_teams(state, active_team_id(state), &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
         state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
-    } else {
+        break;
+    case APL_TUI_SECTION_PEOPLE:
+        state->screen = SHELL_SCREEN_PEOPLE_LIST;
+        if (load_people(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
+        break;
+    case APL_TUI_SECTION_HISTORY:
+        state->screen = SHELL_SCREEN_HISTORY_LIST;
+        if (load_history(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
+        break;
+    default:
         state->screen = SHELL_SCREEN_PLACEHOLDER;
+        break;
     }
     sync_status_context(state);
 }
@@ -840,9 +1606,327 @@ static void draw_team_detail(shell_state *const state)
 
     ++row;
     apl_tui_frame_draw_line(body, row++, "Related records");
-    apl_tui_frame_draw_line(body, row++, "  People: not implemented in this phase");
-    apl_tui_frame_draw_line(body, row++, "  Cars: not implemented in this phase");
+    apl_tui_frame_draw_line(body, row++, "  People: press p");
+    apl_tui_frame_draw_line(body, row++, "  Seasons/periods: press o");
+    apl_tui_frame_draw_line(body, row++, "  Cars/chassis: press c");
     apl_tui_frame_draw_line(body, row++, "  Money: not implemented in this phase");
+}
+
+static void draw_season_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    if (active_team_id(state) == 0) {
+        apl_tui_frame_draw_line(body, 0, "No active team. Select a team before browsing seasons.");
+        return;
+    }
+    if (state->season_count == 0) {
+        apl_tui_frame_draw_line(body, 0,
+                                state->include_archived_seasons
+                                    ? "No seasons or periods recorded. Press n to create one."
+                                    : "No current seasons. Press n to create one, or a to include "
+                                      "archived periods.");
+        return;
+    }
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_season *const season = &state->seasons[index];
+        const bool focused = index == state->list.selected;
+        const bool selected = season->id == state->selected_season_id;
+        char dates[32] = "";
+        if (season->start_date[0] != '\0' || season->end_date[0] != '\0') {
+            (void)snprintf(dates, sizeof(dates), " [%s..%s]",
+                           season->start_date[0] != '\0' ? season->start_date : "?",
+                           season->end_date[0] != '\0' ? season->end_date : "open");
+        }
+        char line[APL_REFERENCE_LABEL_MAX + APL_REFERENCE_NOTES_MAX + 96];
+        (void)snprintf(line, sizeof(line), "%c%c %s%s%s%s%.200s", focused ? '>' : ' ',
+                       selected ? '*' : ' ', season->label, dates,
+                       season->archived ? " [archived]" : "",
+                       season->notes[0] != '\0' ? "  -  " : "", season->notes);
+        apl_tui_theme_apply(&state->theme, body,
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+        apl_tui_frame_draw_line(body, (int)offset, line);
+        apl_tui_theme_reset(body);
+    }
+}
+
+static void draw_season_detail(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    const unsigned cols = apl_tui_frame_layout(&state->frame)->body.cols;
+    const apl_season *const season = &state->season_detail;
+    int row = 0;
+    char line[APL_REFERENCE_LABEL_MAX + 96];
+    (void)snprintf(line, sizeof(line), "Label: %s", season->label);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Status: %s", season->archived ? "Archived" : "Active");
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Start date: %s",
+                   season->start_date[0] != '\0' ? season->start_date : "not recorded");
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "End date: %s",
+                   season->end_date[0] != '\0' ? season->end_date : "not recorded");
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_draw_line(body, row++, "Notes:");
+    const unsigned note_rows =
+        apl_tui_frame_draw_wrapped(body, row, 2, cols > 2 ? cols - 2 : cols,
+                                   season->notes[0] != '\0' ? season->notes : "not recorded");
+    row += (int)(note_rows > 0 ? note_rows : 1);
+    ++row;
+    (void)snprintf(line, sizeof(line), "Created: %s", season->created_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Updated: %s", season->updated_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    if (season->archived) {
+        (void)snprintf(line, sizeof(line), "Archived: %s", season->archived_at);
+        apl_tui_frame_draw_line(body, row++, line);
+    }
+    ++row;
+    apl_tui_frame_draw_line(body, row++, "e edit   x archive   s select as current view context");
+    apl_tui_frame_draw_line(body, row++, "Esc back to seasons");
+}
+
+static void draw_car_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    if (active_team_id(state) == 0) {
+        apl_tui_frame_draw_line(body, 0, "No active team. Select a team before browsing cars.");
+        return;
+    }
+    if (state->car_count == 0) {
+        apl_tui_frame_draw_line(body, 0,
+                                state->include_archived_cars
+                                    ? "No cars/chassis recorded. Press n to create one."
+                                    : "No current cars. Press n to create one, or a to include "
+                                      "archived cars.");
+        return;
+    }
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_car *const car = &state->cars[index];
+        const bool focused = index == state->list.selected;
+        char line[APL_REFERENCE_LABEL_MAX + APL_REFERENCE_SHORT_MAX + 32];
+        (void)snprintf(line, sizeof(line), "%c %s%s%s%s", focused ? '>' : ' ', car->label,
+                       car->chassis[0] != '\0' ? "  chassis: " : "",
+                       car->chassis[0] != '\0' ? car->chassis : "",
+                       car->archived ? " [archived]" : "");
+        apl_tui_theme_apply(&state->theme, body,
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+        apl_tui_frame_draw_line(body, (int)offset, line);
+        apl_tui_theme_reset(body);
+    }
+}
+
+static void draw_car_detail(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    const unsigned cols = apl_tui_frame_layout(&state->frame)->body.cols;
+    const apl_car *const car = &state->car_detail;
+    int row = 0;
+    char line[APL_REFERENCE_LABEL_MAX + APL_REFERENCE_SHORT_MAX + 32];
+    (void)snprintf(line, sizeof(line), "Identifier: %s", car->label);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Chassis: %s",
+                   car->chassis[0] != '\0' ? car->chassis : "not recorded");
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Status: %s", car->archived ? "Archived" : "Active");
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_draw_line(body, row++, "Notes:");
+    const unsigned note_rows =
+        apl_tui_frame_draw_wrapped(body, row, 2, cols > 2 ? cols - 2 : cols,
+                                   car->notes[0] != '\0' ? car->notes : "not recorded");
+    row += (int)(note_rows > 0 ? note_rows : 1);
+    ++row;
+    (void)snprintf(line, sizeof(line), "Created: %s", car->created_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Updated: %s", car->updated_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    if (car->archived) {
+        (void)snprintf(line, sizeof(line), "Archived: %s", car->archived_at);
+        apl_tui_frame_draw_line(body, row++, line);
+    }
+    ++row;
+    apl_tui_frame_draw_line(body, row++, "e edit   x archive   Esc back to cars");
+}
+
+static void draw_people_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    if (!state->people_all_teams && active_team_id(state) == 0) {
+        apl_tui_frame_draw_line(
+            body, 0, "No active team. Select one, or press A for an explicit all-teams view.");
+        return;
+    }
+    if (state->driver_count == 0) {
+        const char *const scope = state->people_all_teams ? "all teams" : "this team";
+        char line[160];
+        (void)snprintf(line, sizeof(line),
+                       "No drivers for %s. Press n to create a driver profile%s.", scope,
+                       state->people_all_teams ? "" : ", then m to add a membership");
+        apl_tui_frame_draw_line(body, 0, line);
+        return;
+    }
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_driver *const driver = &state->drivers[index];
+        const bool focused = index == state->list.selected;
+        apl_membership *memberships = nullptr;
+        size_t membership_count = 0;
+        apl_error error;
+        apl_error_init(&error);
+        bool has_current = false;
+        if (apl_membership_service_list_for_driver(state->app, driver->id, &memberships,
+                                                   &membership_count, &error) == APL_OK) {
+            for (size_t member = 0; member < membership_count; ++member) {
+                if (memberships[member].end_date[0] == '\0') {
+                    has_current = true;
+                    break;
+                }
+            }
+            apl_membership_service_free_list(memberships);
+        }
+        const char *const membership_state =
+            has_current
+                ? "current membership"
+                : (membership_count > 0 ? "historical memberships only" : "no team membership");
+        char line[APL_REFERENCE_LABEL_MAX + APL_REFERENCE_SHORT_MAX + 96];
+        if (driver->short_name[0] != '\0') {
+            (void)snprintf(line, sizeof(line), "%c %.80s (%.40s)  [%s]%s", focused ? '>' : ' ',
+                           driver->name, driver->short_name, membership_state,
+                           driver->archived ? " [archived]" : "");
+        } else {
+            (void)snprintf(line, sizeof(line), "%c %.100s  [%s]%s", focused ? '>' : ' ',
+                           driver->name, membership_state, driver->archived ? " [archived]" : "");
+        }
+        apl_tui_theme_apply(&state->theme, body,
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+        apl_tui_frame_draw_line(body, (int)offset, line);
+        apl_tui_theme_reset(body);
+    }
+}
+
+static void draw_person_detail(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    const unsigned cols = apl_tui_frame_layout(&state->frame)->body.cols;
+    const apl_driver *const driver = &state->driver_detail;
+    int row = 0;
+    char line[APL_REFERENCE_LABEL_MAX + 96];
+    (void)snprintf(line, sizeof(line), "Name: %s", driver->name);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Short name: %s",
+                   driver->short_name[0] != '\0' ? driver->short_name : "not recorded");
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Status: %s", driver->archived ? "Archived" : "Active");
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_draw_line(body, row++, "Notes:");
+    const unsigned note_rows =
+        apl_tui_frame_draw_wrapped(body, row, 2, cols > 2 ? cols - 2 : cols,
+                                   driver->notes[0] != '\0' ? driver->notes : "not recorded");
+    row += (int)(note_rows > 0 ? note_rows : 1);
+    ++row;
+
+    apl_tui_frame_draw_line(body, row++, "Team membership periods (newest start first):");
+    if (state->membership_count == 0) {
+        apl_tui_frame_draw_line(body, row++, "  No membership recorded. Press m to add one.");
+    } else {
+        for (size_t index = state->membership_count; index > 0; --index) {
+            const apl_membership *const membership = &state->memberships[index - 1];
+            if (row >= (int)apl_tui_frame_layout(&state->frame)->body.rows) {
+                break;
+            }
+            apl_team team = {};
+            apl_error error;
+            apl_error_init(&error);
+            const char *team_name = "(unknown team)";
+            if (apl_team_service_get(state->app, membership->team_id, &team, &error) == APL_OK) {
+                team_name = team.name;
+            }
+            (void)snprintf(
+                line, sizeof(line), "  %s  %s to %s%s%s  #%lld", team_name, membership->start_date,
+                membership->end_date[0] != '\0' ? membership->end_date : "open",
+                membership->role[0] != '\0' ? "  role: " : "",
+                membership->role[0] != '\0' ? membership->role : "", (long long)membership->id);
+            apl_tui_frame_draw_line(body, row++, line);
+        }
+    }
+    ++row;
+    (void)snprintf(line, sizeof(line), "Created: %s", driver->created_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Updated: %s", driver->updated_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    ++row;
+    apl_tui_frame_draw_line(body, row++, "m add membership   d end current membership");
+    apl_tui_frame_draw_line(body, row++, "e edit driver   x archive   Esc back to people");
+}
+
+static void draw_history_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    const char *const scope = state->history_all_teams ? "all teams" : "active team";
+    char header[256];
+    (void)snprintf(
+        header, sizeof(header), "History: %s | entity: %s | action: %s | dates: %s", scope,
+        history_entity_filter_name(state->history_entity_filter)[0] != '\0'
+            ? history_entity_filter_name(state->history_entity_filter)
+            : "all",
+        history_action_filter_name(state->history_action_filter)[0] != '\0'
+            ? history_action_filter_name(state->history_action_filter)
+            : "all",
+        state->history_date_preset == 0
+            ? "all"
+            : (state->history_date_preset == 1
+                   ? "last 7 days"
+                   : (state->history_date_preset == 2 ? "last 30 days" : "last 365 days")));
+    apl_tui_frame_draw_line(body, 0, header);
+    if (state->event_count == 0) {
+        apl_tui_frame_draw_line(body, 2, "No activity matches the current filters.");
+        apl_tui_frame_draw_line(body, 4, "a all teams   f entity   g action   d date   c clear");
+        return;
+    }
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset + 1 < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_activity_event *const event = &state->events[index];
+        const bool focused = index == state->list.selected;
+        char stamp[17];
+        (void)snprintf(stamp, sizeof(stamp), "%.16s", event->occurred_at);
+        char line[APL_ACTIVITY_SUMMARY_MAX + 160];
+        (void)snprintf(line, sizeof(line), "%c %s  %-16s %s", focused ? '>' : ' ', stamp,
+                       event->action, event->summary);
+        apl_tui_theme_apply(&state->theme, body,
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+        apl_tui_frame_draw_line(body, (int)(offset + 1), line);
+        apl_tui_theme_reset(body);
+    }
 }
 
 static void draw_placeholder(shell_state *const state)
@@ -1028,7 +2112,15 @@ static void draw_screen(shell_state *const state)
     draw_tab_rail(state);
     draw_team_switcher(state);
 
-    if (state->section != APL_TUI_SECTION_TEAMS) {
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        if (state->screen == SHELL_SCREEN_PERSON_DETAIL) {
+            draw_person_detail(state);
+        } else {
+            draw_people_list(state);
+        }
+    } else if (state->section == APL_TUI_SECTION_HISTORY) {
+        draw_history_list(state);
+    } else if (state->section != APL_TUI_SECTION_TEAMS) {
         draw_placeholder(state);
     } else {
         switch (state->screen) {
@@ -1041,7 +2133,22 @@ static void draw_screen(shell_state *const state)
         case SHELL_SCREEN_TEAM_DETAIL:
             draw_team_detail(state);
             break;
+        case SHELL_SCREEN_SEASON_LIST:
+            draw_season_list(state);
+            break;
+        case SHELL_SCREEN_SEASON_DETAIL:
+            draw_season_detail(state);
+            break;
+        case SHELL_SCREEN_CAR_LIST:
+            draw_car_list(state);
+            break;
+        case SHELL_SCREEN_CAR_DETAIL:
+            draw_car_detail(state);
+            break;
         case SHELL_SCREEN_PLACEHOLDER:
+        case SHELL_SCREEN_PEOPLE_LIST:
+        case SHELL_SCREEN_PERSON_DETAIL:
+        case SHELL_SCREEN_HISTORY_LIST:
             draw_placeholder(state);
             break;
         }
@@ -1133,6 +2240,266 @@ static void close_command_line(shell_state *const state)
 {
     apl_tui_command_line_close(&state->command_line);
     apl_tui_focus_pop(&state->focus);
+}
+
+static bool text_is_numeric(const char *const text)
+{
+    if (text == nullptr || text[0] == '\0') {
+        return false;
+    }
+    for (const char *cursor = text; *cursor != '\0'; ++cursor) {
+        if (*cursor < '0' || *cursor > '9') {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void copy_pending_membership_values(shell_state *const state,
+                                           const apl_tui_action *const action)
+{
+    (void)snprintf(state->pending_start, sizeof(state->pending_start), "%s", action->start);
+    (void)snprintf(state->pending_end, sizeof(state->pending_end), "%s", action->end);
+    (void)snprintf(state->pending_role, sizeof(state->pending_role), "%s", action->role);
+    (void)snprintf(state->pending_notes, sizeof(state->pending_notes), "%s", action->notes);
+}
+
+static bool command_open_membership_end(shell_state *const state, const int64_t driver_id,
+                                        const char *const proposed_end, apl_error *const error)
+{
+    apl_membership *memberships = nullptr;
+    size_t count = 0;
+    if (apl_membership_service_list_for_driver(state->app, driver_id, &memberships, &count,
+                                               error) != APL_OK) {
+        return false;
+    }
+    int64_t membership_id = 0;
+    char start_date[APL_REFERENCE_DATE_MAX] = "";
+    for (size_t index = count; index > 0; --index) {
+        if (memberships[index - 1].end_date[0] == '\0') {
+            membership_id = memberships[index - 1].id;
+            (void)snprintf(start_date, sizeof(start_date), "%s", memberships[index - 1].start_date);
+            break;
+        }
+    }
+    apl_membership_service_free_list(memberships);
+    if (membership_id == 0) {
+        apl_error_set(error, APL_ERR_NOT_FOUND,
+                      "that driver has no current membership period to end");
+        return false;
+    }
+    open_membership_end_dialog(state, membership_id, start_date, proposed_end);
+    return true;
+}
+
+/** Resolve a driver by id/name/unique prefix. Returns true when the command was
+ *  handled (detail/form opened or an explicit choice presented). */
+static bool dispatch_driver_target(shell_state *const state, const char *const target,
+                                   const int mode, const apl_tui_action *const action,
+                                   apl_error *const error)
+{
+    apl_driver *drivers = nullptr;
+    size_t count = 0;
+    if (apl_driver_service_list(state->app, true, &drivers, &count, error) != APL_OK) {
+        return false;
+    }
+    const bool numeric = text_is_numeric(target);
+    const int64_t target_id = numeric ? strtoll(target, nullptr, 10) : 0;
+    size_t matches = 0;
+    size_t first_exact = SIZE_MAX;
+    size_t first_prefix = SIZE_MAX;
+    for (size_t index = 0; index < count; ++index) {
+        if (numeric) {
+            if (drivers[index].id == target_id) {
+                matches = 1;
+                first_exact = index;
+                break;
+            }
+            continue;
+        }
+        if (apl_tui_text_equal_ci(drivers[index].name, target)) {
+            if (first_exact == SIZE_MAX) {
+                first_exact = index;
+            }
+            ++matches;
+        } else if (apl_tui_text_starts_with_ci(drivers[index].name, target)) {
+            if (first_prefix == SIZE_MAX) {
+                first_prefix = index;
+            }
+        }
+    }
+    size_t chosen = SIZE_MAX;
+    if (matches == 1) {
+        chosen = first_exact;
+    } else if (!numeric && matches == 0 && first_prefix != SIZE_MAX) {
+        size_t prefix_count = 0;
+        for (size_t index = 0; index < count; ++index) {
+            if (apl_tui_text_starts_with_ci(drivers[index].name, target) &&
+                !apl_tui_text_equal_ci(drivers[index].name, target)) {
+                ++prefix_count;
+                chosen = index;
+            }
+        }
+        if (prefix_count > 1) {
+            chosen = SIZE_MAX;
+        }
+    }
+
+    if (chosen != SIZE_MAX) {
+        const int64_t driver_id = drivers[chosen].id;
+        apl_driver_service_free_list(drivers);
+        if (mode == 1 || mode == 3) {
+            copy_pending_membership_values(state, action);
+            if (mode == 1) {
+                open_membership_add_dialog(state, driver_id, state->pending_start,
+                                           state->pending_end, state->pending_role,
+                                           state->pending_notes);
+                return true;
+            }
+            state->dialog_driver_id = driver_id;
+            state->section = APL_TUI_SECTION_PEOPLE;
+            if (!perform_membership_add(state, action->start, action->end, action->role,
+                                        action->notes, error)) {
+                return false;
+            }
+            return true;
+        }
+        if (mode == 2 || mode == 4) {
+            copy_pending_membership_values(state, action);
+            if (mode == 2) {
+                return command_open_membership_end(state, driver_id, state->pending_end, error);
+            }
+            apl_driver driver = {};
+            if (apl_driver_service_get(state->app, driver_id, &driver, error) != APL_OK) {
+                return false;
+            }
+            state->driver_detail = driver;
+            state->section = APL_TUI_SECTION_PEOPLE;
+            apl_membership *memberships = nullptr;
+            size_t membership_count = 0;
+            if (apl_membership_service_list_for_driver(state->app, driver_id, &memberships,
+                                                       &membership_count, error) != APL_OK) {
+                return false;
+            }
+            int64_t membership_id = 0;
+            for (size_t index = membership_count; index > 0; --index) {
+                if (memberships[index - 1].end_date[0] == '\0') {
+                    membership_id = memberships[index - 1].id;
+                    break;
+                }
+            }
+            apl_membership_service_free_list(memberships);
+            if (membership_id == 0) {
+                apl_error_set(error, APL_ERR_NOT_FOUND,
+                              "that driver has no current membership period to end");
+                return false;
+            }
+            state->dialog_record_id = membership_id;
+            return perform_membership_end(state, action->end, error);
+        }
+        apl_driver driver = {};
+        if (apl_driver_service_get(state->app, driver_id, &driver, error) != APL_OK) {
+            return false;
+        }
+        open_person_detail(state, driver);
+        return true;
+    }
+
+    if (matches > 1 || (!numeric && first_prefix != SIZE_MAX)) {
+        copy_pending_membership_values(state, action);
+        open_driver_choice(state, drivers, count, (mode == 3) ? 1 : (mode == 4) ? 2 : mode);
+        apl_driver_service_free_list(drivers);
+        return true;
+    }
+
+    apl_driver_service_free_list(drivers);
+    apl_error_set(error, APL_ERR_NOT_FOUND, "no driver matches '%s'", target);
+    return false;
+}
+
+static bool dispatch_season_select(shell_state *const state, const char *const target,
+                                   apl_error *const error)
+{
+    char normalized[APL_REFERENCE_LABEL_MAX];
+    apl_status status = apl_reference_optional_normalize(target, "season target", normalized,
+                                                         sizeof(normalized), error);
+    if (status != APL_OK) {
+        return false;
+    }
+    const int64_t team_id = active_team_id(state);
+    apl_season *seasons = nullptr;
+    size_t count = 0;
+    if (apl_season_service_list(state->app, team_id, true, &seasons, &count, error) != APL_OK) {
+        return false;
+    }
+    const bool numeric = text_is_numeric(normalized);
+    const int64_t target_id = numeric ? strtoll(normalized, nullptr, 10) : 0;
+    size_t matches = 0;
+    size_t chosen = SIZE_MAX;
+    for (size_t index = 0; index < count; ++index) {
+        bool match = numeric ? seasons[index].id == target_id
+                             : apl_tui_text_equal_ci(seasons[index].label, normalized);
+        if (!match && !numeric) {
+            match = apl_tui_text_starts_with_ci(seasons[index].label, normalized);
+        }
+        if (match) {
+            ++matches;
+            chosen = index;
+        }
+    }
+    if (matches != 1) {
+        apl_season_service_free_list(seasons);
+        if (matches == 0) {
+            apl_error_set(error, APL_ERR_NOT_FOUND, "no season matches '%s'; use its label or id",
+                          normalized);
+        } else {
+            apl_error_set(error, APL_ERR_NOT_FOUND, "multiple seasons match '%s'; use the id",
+                          normalized);
+        }
+        return false;
+    }
+    const apl_season selected = seasons[chosen];
+    apl_season_service_free_list(seasons);
+    state->selected_season_id = selected.id;
+    state->season_detail = selected;
+    state->section = APL_TUI_SECTION_TEAMS;
+    state->screen = SHELL_SCREEN_SEASON_DETAIL;
+    sync_status_context(state);
+    set_status_success(state, "Current season context: %s.", selected.label);
+    return true;
+}
+
+static bool dispatch_car_show(shell_state *const state, const char *const target,
+                              apl_error *const error)
+{
+    const int64_t team_id = active_team_id(state);
+    apl_car *cars = nullptr;
+    size_t count = 0;
+    if (apl_car_service_list(state->app, team_id, true, &cars, &count, error) != APL_OK) {
+        return false;
+    }
+    const bool numeric = text_is_numeric(target);
+    const int64_t target_id = numeric ? strtoll(target, nullptr, 10) : 0;
+    size_t matches = 0;
+    apl_car chosen = {};
+    for (size_t index = 0; index < count; ++index) {
+        if ((numeric && cars[index].id == target_id) ||
+            (!numeric && apl_tui_text_equal_ci(cars[index].label, target))) {
+            chosen = cars[index];
+            ++matches;
+        }
+    }
+    apl_car_service_free_list(cars);
+    if (matches != 1) {
+        apl_error_set(error, APL_ERR_NOT_FOUND, "no unique car matches '%s'", target);
+        return false;
+    }
+    state->car_detail = chosen;
+    state->section = APL_TUI_SECTION_TEAMS;
+    state->screen = SHELL_SCREEN_CAR_DETAIL;
+    sync_status_context(state);
+    set_status(state, "Car %s. e edit, x archive, Esc back.", chosen.label);
+    return true;
 }
 
 static void execute_command_line(shell_state *const state)
@@ -1276,6 +2643,197 @@ static void execute_command_line(shell_state *const state)
         }
         return;
     }
+    case APL_TUI_ACTION_OPEN_DRIVER_LIST:
+        state->people_all_teams = false;
+        set_section(state, APL_TUI_SECTION_PEOPLE);
+        state->screen = SHELL_SCREEN_PEOPLE_LIST;
+        set_status(state, "People: drivers associated with the active team.");
+        return;
+    case APL_TUI_ACTION_OPEN_DRIVER_CREATE_FORM:
+        open_driver_dialog(state, false, "", "", "");
+        return;
+    case APL_TUI_ACTION_CREATE_DRIVER_DIRECT:
+        if (!perform_driver_create(state, action.value, action.notes, action.role, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_DRIVER_SHOW:
+        if (!dispatch_driver_target(state, action.value, 0, &action, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_MEMBERSHIP_ADD_FORM: {
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before adding a membership.");
+            return;
+        }
+        copy_pending_membership_values(state, &action);
+        if (action.driver[0] != '\0') {
+            if (!dispatch_driver_target(state, action.driver, 1, &action, &error)) {
+                show_error_dialog(state, &error);
+            }
+            return;
+        }
+        apl_driver *drivers = nullptr;
+        size_t count = 0;
+        if (apl_driver_service_list_for_team(state->app, active_team_id(state), false, &drivers,
+                                             &count, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        if (count == 0) {
+            apl_driver_service_free_list(drivers);
+            show_info_dialog(state, "No drivers",
+                             "Create a driver profile first, then add a team membership.");
+            return;
+        }
+        if (count == 1) {
+            const int64_t driver_id = drivers[0].id;
+            apl_driver_service_free_list(drivers);
+            open_membership_add_dialog(state, driver_id, state->pending_start, state->pending_end,
+                                       state->pending_role, state->pending_notes);
+            return;
+        }
+        open_driver_choice(state, drivers, count, 1);
+        apl_driver_service_free_list(drivers);
+        return;
+    }
+    case APL_TUI_ACTION_CREATE_MEMBERSHIP_DIRECT:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before adding a membership.");
+            return;
+        }
+        if (!dispatch_driver_target(state, action.driver, 3, &action, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_MEMBERSHIP_END_FORM: {
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before ending a membership.");
+            return;
+        }
+        copy_pending_membership_values(state, &action);
+        if (action.driver[0] != '\0') {
+            if (!dispatch_driver_target(state, action.driver, 2, &action, &error)) {
+                show_error_dialog(state, &error);
+            }
+            return;
+        }
+        apl_driver *drivers = nullptr;
+        size_t count = 0;
+        if (apl_driver_service_list_for_team(state->app, active_team_id(state), false, &drivers,
+                                             &count, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        if (count == 0) {
+            apl_driver_service_free_list(drivers);
+            show_info_dialog(state, "No drivers",
+                             "There are no active-team drivers with a membership to end.");
+            return;
+        }
+        if (count == 1) {
+            const int64_t driver_id = drivers[0].id;
+            apl_driver_service_free_list(drivers);
+            if (!command_open_membership_end(state, driver_id, state->pending_end, &error)) {
+                show_error_dialog(state, &error);
+            }
+            return;
+        }
+        open_driver_choice(state, drivers, count, 2);
+        apl_driver_service_free_list(drivers);
+        return;
+    }
+    case APL_TUI_ACTION_END_MEMBERSHIP_DIRECT:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before ending a membership.");
+            return;
+        }
+        if (!dispatch_driver_target(state, action.driver, 4, &action, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_SEASON_LIST:
+        state->section = APL_TUI_SECTION_TEAMS;
+        state->screen = SHELL_SCREEN_SEASON_LIST;
+        if (load_seasons(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Seasons/periods for the active team.");
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_SEASON_CREATE_FORM:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before creating a season.");
+            return;
+        }
+        open_season_dialog(state, false, "", "", "", "");
+        return;
+    case APL_TUI_ACTION_CREATE_SEASON_DIRECT:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before creating a season.");
+            return;
+        }
+        if (!perform_season_create(state, action.value, action.start, action.end, action.notes,
+                                   &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_SEASON_SELECT_TARGET:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before selecting a season.");
+            return;
+        }
+        if (!dispatch_season_select(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_CAR_LIST:
+        state->section = APL_TUI_SECTION_TEAMS;
+        state->screen = SHELL_SCREEN_CAR_LIST;
+        if (load_cars(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Cars/chassis for the active team.");
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_CAR_CREATE_FORM:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before creating a car.");
+            return;
+        }
+        open_car_dialog(state, false, "", "", "");
+        return;
+    case APL_TUI_ACTION_CREATE_CAR_DIRECT:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before creating a car.");
+            return;
+        }
+        if (!perform_car_create(state, action.value, action.notes, action.role, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_CAR_SHOW:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before opening a car.");
+            return;
+        }
+        if (!dispatch_car_show(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
     case APL_TUI_ACTION_OPEN_HELP: {
         char help[APL_TUI_COMMAND_HELP_MAX];
         const apl_tui_command_spec *spec = nullptr;
@@ -1410,22 +2968,57 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         return;
     }
 
+    size_t count = 0;
+    int64_t record_id = 0;
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        count = state->driver_count;
+    } else if (state->section == APL_TUI_SECTION_HISTORY) {
+        count = state->event_count;
+    } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
+        count = state->season_count;
+    } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
+        count = state->car_count;
+    } else {
+        count = state->team_count;
+    }
+
     const unsigned row = (unsigned)(input->y - (int)layout->body.y);
     const size_t index = state->list.offset + row;
-    if (index >= state->team_count) {
+    if (index >= count) {
         return;
     }
     apl_tui_list_select(&state->list, index);
 
-    const apl_team *const team = &state->teams[index];
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        record_id = state->drivers[index].id;
+    } else if (state->section == APL_TUI_SECTION_HISTORY) {
+        record_id = state->events[index].id;
+    } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
+        record_id = state->seasons[index].id;
+    } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
+        record_id = state->cars[index].id;
+    } else {
+        record_id = state->teams[index].id;
+    }
+
     const int64_t current = now_ms();
-    if (state->last_click_team_id == team->id &&
+    if (state->last_click_team_id == record_id &&
         current - state->last_click_ms <= APL_TUI_DOUBLE_CLICK_MS) {
         state->last_click_team_id = 0;
         state->last_click_ms = 0;
-        open_selected_detail(state);
+        if (state->section == APL_TUI_SECTION_PEOPLE) {
+            open_selected_person(state);
+        } else if (state->section == APL_TUI_SECTION_HISTORY) {
+            handle_history_input(state, NCKEY_ENTER);
+        } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
+            open_selected_season(state);
+        } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
+            open_selected_car(state);
+        } else {
+            open_selected_detail(state);
+        }
     } else {
-        state->last_click_team_id = team->id;
+        state->last_click_team_id = record_id;
         state->last_click_ms = current;
     }
 }
@@ -1524,11 +3117,25 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
         return;
     }
 
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        if (state->screen == SHELL_SCREEN_PEOPLE_LIST) {
+            handle_list_mouse(state, input);
+        }
+        return;
+    }
+    if (state->section == APL_TUI_SECTION_HISTORY) {
+        if (state->screen == SHELL_SCREEN_HISTORY_LIST) {
+            handle_list_mouse(state, input);
+        }
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return;
     }
     switch (state->screen) {
     case SHELL_SCREEN_TEAM_LIST:
+    case SHELL_SCREEN_SEASON_LIST:
+    case SHELL_SCREEN_CAR_LIST:
         handle_list_mouse(state, input);
         break;
     default:
@@ -1577,6 +3184,83 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
         finish_team_picker(state, result);
         return;
     }
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_DRIVER_PICKER) {
+        finish_driver_picker(state, result);
+        return;
+    }
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_ACTIVITY_DETAIL) {
+        close_shell_dialog(state);
+        return;
+    }
+
+    if (state->dialog_context >= SHELL_DIALOG_CONTEXT_SEASON_CREATE &&
+        state->dialog_context <= SHELL_DIALOG_CONTEXT_MEMBERSHIP_END) {
+        const shell_dialog_context context = state->dialog_context;
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Cancelled without writing.");
+            return;
+        }
+        bool saved = false;
+        if (context == SHELL_DIALOG_CONTEXT_SEASON_CREATE ||
+            context == SHELL_DIALOG_CONTEXT_SEASON_EDIT) {
+            const apl_tui_dialog_field *const label = apl_tui_dialog_field_at(&state->dialog, 0);
+            const apl_tui_dialog_field *const start = apl_tui_dialog_field_at(&state->dialog, 1);
+            const apl_tui_dialog_field *const end = apl_tui_dialog_field_at(&state->dialog, 2);
+            const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 3);
+            saved = (context == SHELL_DIALOG_CONTEXT_SEASON_CREATE)
+                        ? perform_season_create(state, label ? label->value : "",
+                                                start ? start->value : "", end ? end->value : "",
+                                                notes ? notes->value : "", &error)
+                        : perform_season_update(state, label ? label->value : "",
+                                                start ? start->value : "", end ? end->value : "",
+                                                notes ? notes->value : "", &error);
+        } else if (context == SHELL_DIALOG_CONTEXT_CAR_CREATE ||
+                   context == SHELL_DIALOG_CONTEXT_CAR_EDIT) {
+            const apl_tui_dialog_field *const label = apl_tui_dialog_field_at(&state->dialog, 0);
+            const apl_tui_dialog_field *const chassis = apl_tui_dialog_field_at(&state->dialog, 1);
+            const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 2);
+            saved = (context == SHELL_DIALOG_CONTEXT_CAR_CREATE)
+                        ? perform_car_create(state, label ? label->value : "",
+                                             chassis ? chassis->value : "",
+                                             notes ? notes->value : "", &error)
+                        : perform_car_update(state, label ? label->value : "",
+                                             chassis ? chassis->value : "",
+                                             notes ? notes->value : "", &error);
+        } else if (context == SHELL_DIALOG_CONTEXT_DRIVER_CREATE ||
+                   context == SHELL_DIALOG_CONTEXT_DRIVER_EDIT) {
+            const apl_tui_dialog_field *const name = apl_tui_dialog_field_at(&state->dialog, 0);
+            const apl_tui_dialog_field *const short_name =
+                apl_tui_dialog_field_at(&state->dialog, 1);
+            const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 2);
+            saved = (context == SHELL_DIALOG_CONTEXT_DRIVER_CREATE)
+                        ? perform_driver_create(state, name ? name->value : "",
+                                                short_name ? short_name->value : "",
+                                                notes ? notes->value : "", &error)
+                        : perform_driver_update(state, name ? name->value : "",
+                                                short_name ? short_name->value : "",
+                                                notes ? notes->value : "", &error);
+        } else if (context == SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD) {
+            const apl_tui_dialog_field *const start = apl_tui_dialog_field_at(&state->dialog, 0);
+            const apl_tui_dialog_field *const end = apl_tui_dialog_field_at(&state->dialog, 1);
+            const apl_tui_dialog_field *const role = apl_tui_dialog_field_at(&state->dialog, 2);
+            const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 3);
+            saved =
+                perform_membership_add(state, start ? start->value : "", end ? end->value : "",
+                                       role ? role->value : "", notes ? notes->value : "", &error);
+        } else if (context == SHELL_DIALOG_CONTEXT_MEMBERSHIP_END) {
+            const apl_tui_dialog_field *const end = apl_tui_dialog_field_at(&state->dialog, 1);
+            saved = perform_membership_end(state, end ? end->value : "", &error);
+        }
+        if (saved) {
+            close_shell_dialog(state);
+        } else if (state->dialog_context == context) {
+            apl_tui_dialog_set_field_error(&state->dialog,
+                                           reference_form_error_field(context, &error),
+                                           apl_error_message(&error));
+        }
+        return;
+    }
 
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_TEAM_CREATE ||
         state->dialog_context == SHELL_DIALOG_CONTEXT_TEAM_EDIT) {
@@ -1609,13 +3293,33 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
 
     const shell_pending_action pending = state->pending;
     const int64_t pending_team = state->pending_team_id;
+    const int64_t pending_record = state->pending_record_id;
     state->pending = SHELL_PENDING_NONE;
     state->pending_team_id = 0;
+    state->pending_record_id = 0;
     close_shell_dialog(state);
 
     if (pending == SHELL_PENDING_ARCHIVE_TEAM) {
         if (result == APL_TUI_DIALOG_ACCEPTED) {
             perform_archive(state, pending_team, &error);
+        } else {
+            set_status(state, "Archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_SEASON) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_season_archive(state, pending_record, &error);
+        } else {
+            set_status(state, "Archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_CAR) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_car_archive(state, pending_record, &error);
+        } else {
+            set_status(state, "Archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_DRIVER) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_driver_archive(state, pending_record, &error);
         } else {
             set_status(state, "Archive cancelled.");
         }
@@ -1633,6 +3337,48 @@ static void open_selected_detail(shell_state *const state)
     state->detail = *team;
     state->screen = SHELL_SCREEN_TEAM_DETAIL;
     set_status(state, "Press e to edit, s to set active, x to archive, Esc to go back.");
+}
+
+static void open_selected_season(shell_state *const state)
+{
+    if (state->season_count == 0 || state->list.selected >= state->season_count) {
+        return;
+    }
+    const apl_season selected = state->seasons[state->list.selected];
+    apl_error error;
+    apl_error_init(&error);
+    if (apl_season_service_get(state->app, active_team_id(state), selected.id,
+                               &state->season_detail, &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_SEASON_DETAIL;
+    set_status(state, "e edit, x archive, s select as current view context, Esc back.");
+}
+
+static void open_selected_car(shell_state *const state)
+{
+    if (state->car_count == 0 || state->list.selected >= state->car_count) {
+        return;
+    }
+    const apl_car selected = state->cars[state->list.selected];
+    apl_error error;
+    apl_error_init(&error);
+    if (apl_car_service_get(state->app, active_team_id(state), selected.id, &state->car_detail,
+                            &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_CAR_DETAIL;
+    set_status(state, "e edit, x archive, Esc back.");
+}
+
+static void open_selected_person(shell_state *const state)
+{
+    if (state->driver_count == 0 || state->list.selected >= state->driver_count) {
+        return;
+    }
+    open_person_detail(state, state->drivers[state->list.selected]);
 }
 
 static void handle_list_input(shell_state *const state, const uint32_t id)
@@ -1702,6 +3448,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
 {
     switch (id) {
     case NCKEY_ESC:
+        apl_tui_list_set_count(&state->list, state->team_count);
         state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
         return;
     case 'e':
@@ -1716,6 +3463,34 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
     case 'S':
         open_team_picker(state);
         return;
+    case 'p':
+    case 'P':
+        set_section(state, APL_TUI_SECTION_PEOPLE);
+        return;
+    case 'o':
+    case 'O': {
+        apl_error error;
+        apl_error_init(&error);
+        state->screen = SHELL_SCREEN_SEASON_LIST;
+        if (load_seasons(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Seasons/periods. n create, a include archived, Enter open.");
+        }
+        return;
+    }
+    case 'c':
+    case 'C': {
+        apl_error error;
+        apl_error_init(&error);
+        state->screen = SHELL_SCREEN_CAR_LIST;
+        if (load_cars(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Cars/chassis. n create, a include archived, Enter open.");
+        }
+        return;
+    }
     case 'x':
     case 'X':
         if (state->detail.archived) {
@@ -1765,6 +3540,422 @@ static void handle_welcome_input(shell_state *const state, const uint32_t id)
         switch_section(state, true);
         return;
     default:
+        return;
+    }
+}
+
+/** Shared arrow/page/home/end movement for any body list. */
+static bool handle_body_list_navigation(shell_state *const state, const uint32_t id)
+{
+    switch (id) {
+    case NCKEY_UP:
+        apl_tui_list_move(&state->list, -1);
+        return true;
+    case NCKEY_DOWN:
+        apl_tui_list_move(&state->list, 1);
+        return true;
+    case NCKEY_PGUP:
+        apl_tui_list_page(&state->list, -1);
+        return true;
+    case NCKEY_PGDOWN:
+        apl_tui_list_page(&state->list, 1);
+        return true;
+    case NCKEY_HOME:
+        apl_tui_list_home(&state->list);
+        return true;
+    case NCKEY_END:
+        apl_tui_list_end(&state->list);
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void handle_season_list_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+    if (handle_body_list_navigation(state, id)) {
+        return;
+    }
+    switch (id) {
+    case NCKEY_ESC:
+        state->screen = SHELL_SCREEN_TEAM_DETAIL;
+        return;
+    case 'n':
+    case 'N':
+        if (active_team_id(state) == 0) {
+            set_status_warning(state, "Select an active team before creating a season.");
+        } else {
+            open_season_dialog(state, false, "", "", "", "");
+        }
+        return;
+    case 'a':
+    case 'A':
+        state->include_archived_seasons = !state->include_archived_seasons;
+        if (load_seasons(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        set_status(state, state->include_archived_seasons ? "Including archived seasons."
+                                                          : "Hiding archived seasons.");
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id)) {
+        open_selected_season(state);
+    }
+}
+
+static void handle_season_detail_input(shell_state *const state, const uint32_t id)
+{
+    switch (id) {
+    case NCKEY_ESC: {
+        apl_error error;
+        apl_error_init(&error);
+        if (load_seasons(state, state->season_detail.id, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        state->screen = SHELL_SCREEN_SEASON_LIST;
+        return;
+    }
+    case 'e':
+    case 'E':
+        if (state->season_detail.archived) {
+            set_status_warning(state, "Archived seasons are read-only in this view.");
+        } else {
+            open_season_dialog(state, true, state->season_detail.label,
+                               state->season_detail.start_date, state->season_detail.end_date,
+                               state->season_detail.notes);
+        }
+        return;
+    case 'x':
+    case 'X':
+        if (state->season_detail.archived) {
+            set_status_warning(state, "This season is already archived.");
+        } else {
+            state->pending = SHELL_PENDING_ARCHIVE_SEASON;
+            state->pending_record_id = state->season_detail.id;
+            apl_tui_dialog_open_confirm(&state->dialog, "Archive season?",
+                                        "The season remains readable in archived/historical views. "
+                                        "No records are deleted.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+        }
+        return;
+    case 's':
+    case 'S':
+        state->selected_season_id = state->season_detail.id;
+        set_status(state, "Current season context: %s (view context only; records unchanged).",
+                   state->season_detail.label);
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        return;
+    }
+}
+
+static void handle_car_list_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+    if (handle_body_list_navigation(state, id)) {
+        return;
+    }
+    switch (id) {
+    case NCKEY_ESC:
+        state->screen = SHELL_SCREEN_TEAM_DETAIL;
+        return;
+    case 'n':
+    case 'N':
+        if (active_team_id(state) == 0) {
+            set_status_warning(state, "Select an active team before creating a car.");
+        } else {
+            open_car_dialog(state, false, "", "", "");
+        }
+        return;
+    case 'a':
+    case 'A':
+        state->include_archived_cars = !state->include_archived_cars;
+        if (load_cars(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        set_status(state, state->include_archived_cars ? "Including archived cars."
+                                                       : "Hiding archived cars.");
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id)) {
+        open_selected_car(state);
+    }
+}
+
+static void handle_car_detail_input(shell_state *const state, const uint32_t id)
+{
+    switch (id) {
+    case NCKEY_ESC: {
+        apl_error error;
+        apl_error_init(&error);
+        if (load_cars(state, state->car_detail.id, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        state->screen = SHELL_SCREEN_CAR_LIST;
+        return;
+    }
+    case 'e':
+    case 'E':
+        if (state->car_detail.archived) {
+            set_status_warning(state, "Archived cars are read-only in this view.");
+        } else {
+            open_car_dialog(state, true, state->car_detail.label, state->car_detail.chassis,
+                            state->car_detail.notes);
+        }
+        return;
+    case 'x':
+    case 'X':
+        if (state->car_detail.archived) {
+            set_status_warning(state, "This car is already archived.");
+        } else {
+            state->pending = SHELL_PENDING_ARCHIVE_CAR;
+            state->pending_record_id = state->car_detail.id;
+            apl_tui_dialog_open_confirm(&state->dialog, "Archive car?",
+                                        "The car remains available to historical references. "
+                                        "No part or performance data is created.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+        }
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        return;
+    }
+}
+
+static void handle_people_list_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+    if (handle_body_list_navigation(state, id)) {
+        return;
+    }
+    switch (id) {
+    case NCKEY_ESC:
+        set_section(state, APL_TUI_SECTION_TEAMS);
+        return;
+    case 'n':
+    case 'N':
+        open_driver_dialog(state, false, "", "", "");
+        return;
+    case 'a':
+    case 'A':
+        if (id == 'A') {
+            state->people_all_teams = !state->people_all_teams;
+            if (load_people(state, 0, &error) != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+            set_status(state, state->people_all_teams
+                                  ? "Showing the explicit all-teams driver directory."
+                                  : "Showing drivers associated with the active team.");
+        } else {
+            state->include_archived_drivers = !state->include_archived_drivers;
+            if (load_people(state, 0, &error) != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+            set_status(state, state->include_archived_drivers ? "Including archived drivers."
+                                                              : "Hiding archived drivers.");
+        }
+        return;
+    case 'm':
+    case 'M':
+        if (state->driver_count > 0 && state->list.selected < state->driver_count) {
+            open_membership_add_dialog(state, state->drivers[state->list.selected].id, "", "", "",
+                                       "");
+        }
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id)) {
+        open_selected_person(state);
+    }
+}
+
+static void handle_person_detail_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+    switch (id) {
+    case NCKEY_ESC:
+        if (load_people(state, state->driver_detail.id, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        state->screen = SHELL_SCREEN_PEOPLE_LIST;
+        return;
+    case 'm':
+    case 'M':
+        open_membership_add_dialog(state, state->driver_detail.id, "", "", "", "");
+        return;
+    case 'd':
+    case 'D': {
+        int64_t membership_id = 0;
+        char start_date[APL_REFERENCE_DATE_MAX] = "";
+        char end_date[APL_REFERENCE_DATE_MAX] = "";
+        for (size_t index = state->membership_count; index > 0; --index) {
+            if (state->memberships[index - 1].end_date[0] == '\0') {
+                membership_id = state->memberships[index - 1].id;
+                (void)snprintf(start_date, sizeof(start_date), "%s",
+                               state->memberships[index - 1].start_date);
+                (void)snprintf(end_date, sizeof(end_date), "%s",
+                               state->memberships[index - 1].end_date);
+                break;
+            }
+        }
+        if (membership_id == 0) {
+            set_status_warning(state, "No current membership period can be ended.");
+        } else {
+            open_membership_end_dialog(state, membership_id, start_date, end_date);
+        }
+        return;
+    }
+    case 'e':
+    case 'E':
+        if (state->driver_detail.archived) {
+            set_status_warning(state, "Archived drivers are read-only in this view.");
+        } else {
+            open_driver_dialog(state, true, state->driver_detail.name,
+                               state->driver_detail.short_name, state->driver_detail.notes);
+        }
+        return;
+    case 'x':
+    case 'X':
+        if (state->driver_detail.archived) {
+            set_status_warning(state, "This driver is already archived.");
+        } else {
+            state->pending = SHELL_PENDING_ARCHIVE_DRIVER;
+            state->pending_record_id = state->driver_detail.id;
+            apl_tui_dialog_open_confirm(&state->dialog, "Archive driver?",
+                                        "Historical memberships remain readable. The driver is "
+                                        "hidden from default current pickers.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+        }
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        return;
+    }
+}
+
+static void reload_history_with_status(shell_state *const state, const char *const message)
+{
+    apl_error error;
+    apl_error_init(&error);
+    if (load_history(state, &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    set_status(state, "%s", message);
+}
+
+static void handle_history_input(shell_state *const state, const uint32_t id)
+{
+    if (handle_body_list_navigation(state, id)) {
+        return;
+    }
+    switch (id) {
+    case NCKEY_ESC:
+        set_section(state, APL_TUI_SECTION_TEAMS);
+        return;
+    case 'a':
+    case 'A':
+        state->history_all_teams = !state->history_all_teams;
+        reload_history_with_status(state, state->history_all_teams
+                                              ? "History scope: all teams (explicit)."
+                                              : "History scope: active team.");
+        return;
+    case 'f':
+    case 'F':
+        state->history_entity_filter = (state->history_entity_filter + 1) % APL_TUI_HISTORY_FILTERS;
+        reload_history_with_status(state, "Entity filter changed.");
+        return;
+    case 'g':
+    case 'G':
+        state->history_action_filter = (state->history_action_filter + 1) % 4;
+        reload_history_with_status(state, "Action filter changed.");
+        return;
+    case 'd':
+    case 'D':
+        state->history_date_preset = (state->history_date_preset + 1) % 4;
+        reload_history_with_status(state, "Date filter changed.");
+        return;
+    case 'c':
+    case 'C':
+        state->history_all_teams = false;
+        state->history_entity_filter = 0;
+        state->history_action_filter = 0;
+        state->history_date_preset = 0;
+        reload_history_with_status(state, "History filters cleared; scope is the active team.");
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id) && state->event_count > 0 && state->list.selected < state->event_count) {
+        const int64_t event_id = state->events[state->list.selected].id;
+        apl_activity_event event = {};
+        apl_activity_change *changes = nullptr;
+        size_t change_count = 0;
+        apl_error error;
+        apl_error_init(&error);
+        if (apl_activity_service_get(state->app, event_id, &event, &changes, &change_count,
+                                     &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        char message[APL_TUI_DIALOG_MESSAGE_MAX];
+        int used =
+            snprintf(message, sizeof(message), "%s\nRecord: %s #%lld\nWhen: %s\n", event.summary,
+                     event.entity_type, (long long)event.entity_id, event.occurred_at);
+        for (size_t index = 0; index < change_count && used > 0 && (size_t)used < sizeof(message);
+             ++index) {
+            used += snprintf(message + (size_t)used, sizeof(message) - (size_t)used,
+                             "\n%s: %s -> %s", changes[index].field,
+                             changes[index].old_missing ? "(absent)" : changes[index].old_value,
+                             changes[index].new_missing ? "(absent)" : changes[index].new_value);
+        }
+        apl_activity_service_free_changes(changes);
+        apl_tui_dialog_open_error(&state->dialog, "Activity detail", message);
+        state->dialog_context = SHELL_DIALOG_CONTEXT_ACTIVITY_DETAIL;
+        apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         return;
     }
 }
@@ -1940,6 +4131,14 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         return;
     }
     if (id == 'm' || id == 'M') {
+        if (state->section == APL_TUI_SECTION_PEOPLE) {
+            if (state->screen == SHELL_SCREEN_PERSON_DETAIL) {
+                handle_person_detail_input(state, id);
+            } else {
+                handle_people_list_input(state, id);
+            }
+            return;
+        }
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
         apl_tui_menu_open(&state->menu, state->menu.group_focus);
         return;
@@ -1971,6 +4170,18 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
         return;
     }
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        if (state->screen == SHELL_SCREEN_PERSON_DETAIL) {
+            handle_person_detail_input(state, id);
+        } else {
+            handle_people_list_input(state, id);
+        }
+        return;
+    }
+    if (state->section == APL_TUI_SECTION_HISTORY) {
+        handle_history_input(state, id);
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         if (id == 'q' || id == 'Q') {
             state->quit = true;
@@ -1992,7 +4203,22 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     case SHELL_SCREEN_TEAM_DETAIL:
         handle_detail_input(state, id);
         break;
+    case SHELL_SCREEN_SEASON_LIST:
+        handle_season_list_input(state, id);
+        break;
+    case SHELL_SCREEN_SEASON_DETAIL:
+        handle_season_detail_input(state, id);
+        break;
+    case SHELL_SCREEN_CAR_LIST:
+        handle_car_list_input(state, id);
+        break;
+    case SHELL_SCREEN_CAR_DETAIL:
+        handle_car_detail_input(state, id);
+        break;
     case SHELL_SCREEN_PLACEHOLDER:
+    case SHELL_SCREEN_PEOPLE_LIST:
+    case SHELL_SCREEN_PERSON_DETAIL:
+    case SHELL_SCREEN_HISTORY_LIST:
         if (id == 'q' || id == 'Q') {
             state->quit = true;
         }
@@ -2006,6 +4232,12 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
     state->section = apl_tui_section_default();
     state->screen = SHELL_SCREEN_WELCOME;
     state->include_archived = false;
+    state->include_archived_seasons = false;
+    state->include_archived_cars = false;
+    state->include_archived_drivers = false;
+    state->people_all_teams = false;
+    state->history_all_teams = false;
+    state->selected_season_id = 0;
     apl_tui_list_init(&state->list, 10);
     apl_tui_list_init(&state->tabs, 6);
     apl_tui_list_set_count(&state->tabs, apl_tui_section_tab_count());
@@ -2139,6 +4371,7 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
     }
     apl_tui_frame_stop(&state.frame);
     apl_team_service_free_list(state.teams);
+    free_reference_lists(&state);
     free_picker_teams(&state);
     if (status == APL_OK) {
         apl_error_clear(error);

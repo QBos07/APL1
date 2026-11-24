@@ -124,5 +124,6 @@ bool apl_tui_section_from_name(const char *const name, apl_tui_section *const ou
 
 bool apl_tui_section_implemented(const apl_tui_section section)
 {
-    return section == APL_TUI_SECTION_TEAMS;
+    return section == APL_TUI_SECTION_TEAMS || section == APL_TUI_SECTION_PEOPLE ||
+           section == APL_TUI_SECTION_HISTORY;
 }

@@ -154,20 +154,36 @@ versus incomplete ex commands behave as documented without bypassing business lo
 
 Goal: add manually maintained people/season/car references and a user-inspectable, traceable history of team changes. Do not generate seasons, drivers, memberships, or cars.
 
-- [ ] **3.1 Add user-created season/period records.** [Work item](work-items/phase-3/3.1-season-records.md)
-- [ ] **3.2 Add driver profile records.** [Work item](work-items/phase-3/3.2-driver-profiles.md)
-- [ ] **3.3 Add dated team-driver membership records.** [Work item](work-items/phase-3/3.3-team-driver-membership.md)
-- [ ] **3.4 Add user-created car/chassis records.** [Work item](work-items/phase-3/3.4-car-records.md)
-- [ ] **3.5 Add the audit/activity schema and repository.** [Work item](work-items/phase-3/3.5-audit-schema-repository.md)
-- [ ] **3.6 Record team create/rename/archive activity.** [Work item](work-items/phase-3/3.6-team-audit-events.md)
-- [ ] **3.7 Define and record before/after values for team changes.** [Work item](work-items/phase-3/3.7-team-audit-change-policy.md)
-- [ ] **3.8 Build People views for drivers and team membership.** [Work item](work-items/phase-3/3.8-people-views.md)
-- [ ] **3.9 Build season/period views.** [Work item](work-items/phase-3/3.9-season-views.md)
-- [ ] **3.10 Build car/chassis reference views.** [Work item](work-items/phase-3/3.10-car-views.md)
-- [ ] **3.11 Add a team-scoped activity history view.** [Work item](work-items/phase-3/3.11-team-activity-history-view.md)
-- [ ] **3.12 Add commands for Phase 3 reference records.** [Work item](work-items/phase-3/3.12-reference-commands.md)
+- [x] **3.1 Add user-created season/period records.** [Work item](work-items/phase-3/3.1-season-records.md)
+- [x] **3.2 Add driver profile records.** [Work item](work-items/phase-3/3.2-driver-profiles.md)
+- [x] **3.3 Add dated team-driver membership records.** [Work item](work-items/phase-3/3.3-team-driver-membership.md)
+- [x] **3.4 Add user-created car/chassis records.** [Work item](work-items/phase-3/3.4-car-records.md)
+- [x] **3.5 Add the audit/activity schema and repository.** [Work item](work-items/phase-3/3.5-audit-schema-repository.md)
+- [x] **3.6 Record team create/rename/archive activity.** [Work item](work-items/phase-3/3.6-team-audit-events.md)
+- [x] **3.7 Define and record before/after values for team changes.** [Work item](work-items/phase-3/3.7-team-audit-change-policy.md)
+- [x] **3.8 Build People views for drivers and team membership.** [Work item](work-items/phase-3/3.8-people-views.md)
+- [x] **3.9 Build season/period views.** [Work item](work-items/phase-3/3.9-season-views.md)
+- [x] **3.10 Build car/chassis reference views.** [Work item](work-items/phase-3/3.10-car-views.md)
+- [x] **3.11 Add a team-scoped activity history view.** [Work item](work-items/phase-3/3.11-team-activity-history-view.md)
+- [x] **3.12 Add commands for Phase 3 reference records.** [Work item](work-items/phase-3/3.12-reference-commands.md)
 
 **Gate:** users can create and manage their own seasons, drivers, memberships, and cars; historical relationships remain intact; team changes are transactionally recorded and visible in History; and menus/dialogs/commands use the same operations.
+
+
+### Phase 3 verification (2026-11-24)
+
+- `ctest --test-dir cmake-build-debug --output-on-failure`: 2/2 CTest tests pass
+  (`apl1_unit_tests` 175 Criterion tests, `apl1_tui_tests` 97 Criterion tests).
+- New unit/integration coverage includes reference normalization and date rules,
+  season/driver/membership/car repositories, service validation and team scope,
+  append-only activity persistence and filters, and team audit create/rename/
+  archive/rollback behavior.
+- `python3 scripts/smoke_tui.py --app cmake-build-debug/apl1` passes the full
+  Phase 2 flow plus a user-entered driver and membership, a season, a car,
+  the team-scoped History view, and command routes, then verifies schema version
+  8 and the persisted rows.
+- `./scripts/check-format.sh` and `./scripts/check-static.sh` pass.
+
 
 ## Phase 4 — Money ledger and budgets
 

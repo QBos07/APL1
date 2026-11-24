@@ -553,8 +553,8 @@ class Smoke:
                 ).fetchone()[0]
         except sqlite3.Error as error:
             self.fail(f"database is not a usable migrated apl1 database: {error}")
-        if version != 3:
-            self.fail(f"database schema version is {version}, expected 3")
+        if version != 8:
+            self.fail(f"database schema version is {version}, expected 8")
 
         with sqlite3.connect(self.database_path) as connection:
             teams = connection.execute(
@@ -568,6 +568,28 @@ class Smoke:
             self.fail(f"unexpected team rows after smoke run: {teams!r}")
         if active != ("Ferrari",):
             self.fail(f"active team after smoke run is {active!r}, expected Ferrari")
+
+        with sqlite3.connect(self.database_path) as connection:
+            drivers = connection.execute("SELECT name, short_name FROM drivers").fetchall()
+            seasons = connection.execute("SELECT label, start_date, end_date FROM seasons").fetchall()
+            cars = connection.execute("SELECT label, chassis FROM cars").fetchall()
+            memberships = connection.execute(
+                "SELECT start_date, end_date, role FROM team_driver_memberships"
+            ).fetchall()
+            activity = connection.execute(
+                "SELECT action FROM activity_events ORDER BY id"
+            ).fetchall()
+        if drivers != [("Charles Leclerc", "CL")]:
+            self.fail(f"unexpected driver rows after smoke run: {drivers!r}")
+        if seasons != [("2026", "2026-01-01", "2026-12-31")]:
+            self.fail(f"unexpected season rows after smoke run: {seasons!r}")
+        if cars != [("SF-26", "C1")]:
+            self.fail(f"unexpected car rows after smoke run: {cars!r}")
+        if memberships != [("2026-01-01", None, "Race seat")]:
+            self.fail(f"unexpected membership rows after smoke run: {memberships!r}")
+        expected_team_events = [("team_created",), ("team_created",), ("team_created",)]
+        if activity != expected_team_events:
+            self.fail(f"unexpected activity rows after smoke run: {activity!r}")
 
         default_database = self.temp_dir / "xdg" / "apl1" / "apl1.sqlite3"
         if default_database.exists():
@@ -634,7 +656,10 @@ class Smoke:
             ("Teams", "People", "Money", "History"),
         )
         self.click_cell(3, 3)
-        self.wait_for_content("mouse tab switch", ("People is not implemented in this phase.",))
+        self.wait_for_content(
+            "mouse tab switch",
+            ("No active team. Select one, or press A for an explicit all-teams view.",),
+        )
         self.click_cell(2, 3)
         self.wait_for_content("tab return to Teams", ("No teams have been added yet.",))
         self.send_keys("Escape")
@@ -771,6 +796,54 @@ class Smoke:
         )
         self.send_keys("Escape")
         self.log("complete command created a team and switched teams")
+
+        # Phase 3 reference records: driver, dated membership, season, car, and
+        # the team-scoped activity history. Commands and dialogs use the same
+        # validated application services.
+        self.type_text(":")
+        self.type_text('driver new --name "Charles Leclerc" --short CL')
+        self.send_keys("Return")
+        self.wait_for_content("driver command detail", ("Name: Charles Leclerc",))
+        self.send_keys("m")
+        self.wait_for_content("membership form", ("Add team membership", "Start date:"))
+        self.type_text("2026-01-01")
+        self.send_keys("Tab", "Tab")
+        self.type_text("Race seat")
+        self.send_keys("Return")
+        self.wait_for_database(
+            "membership row",
+            lambda: self.database_query("SELECT COUNT(*) FROM team_driver_memberships;")
+            == (1,),
+        )
+        self.wait_for_content(
+            "person detail membership",
+            ("Name: Charles Leclerc", "2026-01-01 to open", "Race seat"),
+        )
+        self.log("created a driver and dated membership through the form")
+
+        self.type_text(":")
+        self.type_text("season new --label 2026 --start 2026-01-01 --end 2026-12-31")
+        self.send_keys("Return")
+        self.wait_for_content("season command detail", ("Label: 2026", "2026-12-31"))
+        self.type_text(":")
+        self.type_text("car new --label SF-26 --chassis C1")
+        self.send_keys("Return")
+        self.wait_for_content("car command detail", ("Identifier: SF-26", "Chassis: C1"))
+        self.type_text(":")
+        self.type_text("history")
+        self.send_keys("Return")
+        self.wait_for_content(
+            "history view", ("History: active team", "team_created", "Created team 'Ferrari'")
+        )
+        self.type_text(":")
+        self.type_text('driver show "Charles Leclerc"')
+        self.send_keys("Return")
+        self.wait_for_content("driver show command", ("Name: Charles Leclerc",))
+        self.type_text(":")
+        self.type_text("tl")
+        self.send_keys("Return")
+        self.wait_for_content("return to team list", ("Ferrari", "McLaren", "Red Bull"))
+        self.log("season, car, history, and driver-show command routes applied")
 
         self.type_text(":")
         self.type_text("team switch Missing")

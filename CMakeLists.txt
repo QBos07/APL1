@@ -55,17 +55,25 @@ if(BUILD_TESTING)
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
         tests/unit/test_args.c
+        tests/unit/test_reference.c
         tests/unit/test_team.c
         tests/integration/test_test_support.c
+        tests/integration/test_activity_repository.c
+        tests/integration/test_car_repository.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
         tests/integration/test_db_foreign_keys.c
         tests/integration/test_db_migrations.c
         tests/integration/test_db_initial_migration.c
         tests/integration/test_db_migration_rollback.c
+        tests/integration/test_driver_repository.c
+        tests/integration/test_membership_repository.c
+        tests/integration/test_reference_services.c
+        tests/integration/test_season_repository.c
         tests/integration/test_app_lifecycle.c
         tests/integration/test_cli.c
         tests/integration/test_settings_repository.c
+        tests/integration/test_team_audit.c
         tests/integration/test_team_repository.c
         tests/integration/test_team_isolation.c
         tests/integration/test_team_service.c
@@ -149,6 +157,7 @@ add_library(apl_core STATIC
 target_include_directories(apl_core PUBLIC src)
 
 add_library(apl_domain STATIC
+    src/domain/reference.c
     src/domain/team.c
 )
 
@@ -158,10 +167,15 @@ target_link_libraries(apl_domain PUBLIC
 )
 
 add_library(apl_db STATIC
+    src/db/activity_repository.c
+    src/db/car_repository.c
     src/db/connection.c
-    src/db/path.c
+    src/db/driver_repository.c
+    src/db/membership_repository.c
     src/db/migrations.c
     src/db/migrations_list.c
+    src/db/path.c
+    src/db/season_repository.c
     src/db/settings_repository.c
     src/db/team_repository.c
     src/db/transaction.c
@@ -200,9 +214,14 @@ target_link_libraries(apl_tui PUBLIC
 )
 
 add_library(apl_app STATIC
+    src/app/activity_service.c
     src/app/app.c
     src/app/args.c
+    src/app/car_service.c
+    src/app/driver_service.c
     src/app/exit_code.c
+    src/app/membership_service.c
+    src/app/season_service.c
     src/app/team_service.c
     src/app/version.c
 )

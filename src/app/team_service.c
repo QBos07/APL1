@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "db/activity_repository.h"
 #include "db/settings_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
@@ -42,6 +43,38 @@ static apl_status commit_transaction(apl_db_transaction *const transaction,
     return with_context(status, context, error);
 }
 
+/** Append one team activity event through the repository. The caller owns the
+ *  transaction, so team, settings, and audit rows commit together. */
+static apl_status append_team_event(apl_app *const app, const int64_t team_id,
+                                    const char *const action, const char *const summary,
+                                    const apl_activity_change *const changes,
+                                    const size_t change_count, apl_error *const error)
+{
+    apl_activity_event event = {};
+    event.team_id = team_id;
+    event.entity_id = team_id;
+    (void)snprintf(event.action, sizeof(event.action), "%s", action);
+    (void)snprintf(event.entity_type, sizeof(event.entity_type), "team");
+    (void)snprintf(event.summary, sizeof(event.summary), "%s", summary);
+    return apl_activity_repository_append(&app->db, &event, changes, change_count, nullptr, error);
+}
+
+static void set_change_text(apl_activity_change *const change, const char *const field,
+                            const char *const old_value, const bool old_missing,
+                            const char *const new_value, const bool new_missing)
+{
+    *change = (apl_activity_change){};
+    (void)snprintf(change->field, sizeof(change->field), "%s", field);
+    change->old_missing = old_missing;
+    change->new_missing = new_missing;
+    if (!old_missing) {
+        (void)snprintf(change->old_value, sizeof(change->old_value), "%s", old_value);
+    }
+    if (!new_missing) {
+        (void)snprintf(change->new_value, sizeof(change->new_value), "%s", new_value);
+    }
+}
+
 apl_status apl_team_service_create(apl_app *const app, const char *const name,
                                    const char *const notes, apl_team *const out_team,
                                    apl_error *const error)
@@ -72,6 +105,14 @@ apl_status apl_team_service_create(apl_app *const app, const char *const name,
         apl_team_repository_create(&app->db, normalized_name, normalized_notes, out_team, error);
     if (status == APL_OK) {
         status = apl_settings_repository_set_active_team_id(&app->db, out_team->id, error);
+    }
+    if (status == APL_OK) {
+        apl_activity_change changes[2] = {};
+        set_change_text(&changes[0], "name", "", true, out_team->name, false);
+        set_change_text(&changes[1], "notes", "", true, out_team->notes, false);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Created team '%s'", out_team->name);
+        status = append_team_event(app, out_team->id, "team_created", summary, changes, 2, error);
     }
 
     if (status != APL_OK) {
@@ -127,9 +168,57 @@ apl_status apl_team_service_update(apl_app *const app, const int64_t id, const c
         return with_context(status, "cannot update team", error);
     }
 
-    return with_context(apl_team_repository_update(&app->db, id, normalized_name, normalized_notes,
-                                                   out_team, error),
-                        "cannot update team", error);
+    apl_db_transaction transaction = {};
+    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot update team", error);
+    }
+
+    apl_team existing = {};
+    status = apl_team_repository_get(&app->db, id, &existing, error);
+    if (status != APL_OK) {
+        const apl_status original = status;
+        rollback_preserving_error(&transaction, original, error);
+        return with_context(original, "cannot update team", error);
+    }
+
+    const bool name_changed = strcmp(existing.name, normalized_name) != 0;
+    const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
+    if (!name_changed && !notes_changed) {
+        *out_team = existing;
+        return commit_transaction(&transaction, "cannot update team", error);
+    }
+
+    status = apl_team_repository_update(&app->db, id, normalized_name, normalized_notes, out_team,
+                                        error);
+    if (status == APL_OK) {
+        apl_activity_change changes[2] = {};
+        size_t change_count = 0;
+        if (name_changed) {
+            set_change_text(&changes[change_count++], "name", existing.name, false, out_team->name,
+                            false);
+        }
+        if (notes_changed) {
+            set_change_text(&changes[change_count++], "notes", existing.notes, false,
+                            out_team->notes, false);
+        }
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        if (name_changed) {
+            (void)snprintf(summary, sizeof(summary), "Renamed team '%s' to '%s'", existing.name,
+                           out_team->name);
+        } else {
+            (void)snprintf(summary, sizeof(summary), "Updated profile of team '%s'",
+                           out_team->name);
+        }
+        status = append_team_event(app, id, "team_renamed", summary, changes, change_count, error);
+    }
+
+    if (status != APL_OK) {
+        const apl_status original = status;
+        rollback_preserving_error(&transaction, original, error);
+        return with_context(original, "cannot update team", error);
+    }
+    return commit_transaction(&transaction, "cannot update team", error);
 }
 
 /** Choose the oldest-created non-archived team, with stable ID as tie-breaker. */
@@ -177,7 +266,13 @@ apl_status apl_team_service_archive(apl_app *const app, const int64_t id, apl_te
 
     apl_team existing = {};
     status = apl_team_repository_get(&app->db, id, &existing, error);
-    if (status == APL_OK && !existing.archived) {
+    if (status == APL_OK && existing.archived) {
+        /* Archive is idempotent: do not write a second misleading activity
+         * event or change the original archived_at timestamp. */
+        *out_team = existing;
+        return commit_transaction(&transaction, "cannot archive team", error);
+    }
+    if (status == APL_OK) {
         apl_team *active_teams = nullptr;
         size_t active_count = 0;
         status = apl_team_repository_list(&app->db, false, &active_teams, &active_count, error);
@@ -193,18 +288,34 @@ apl_status apl_team_service_archive(apl_app *const app, const int64_t id, apl_te
     if (status == APL_OK) {
         status = apl_settings_repository_get_active_team_id(&app->db, &active_team_id, error);
     }
+    apl_team fallback = {};
+    bool fallback_found = false;
     if (status == APL_OK) {
         status = apl_team_repository_archive(&app->db, id, out_team, error);
     }
     if (status == APL_OK && active_team_id == id) {
-        apl_team fallback = {};
-        bool found = false;
-        status = find_oldest_active_team(&app->db, &fallback, &found, error);
-        if (status == APL_OK && found) {
+        status = find_oldest_active_team(&app->db, &fallback, &fallback_found, error);
+        if (status == APL_OK && fallback_found) {
             status = apl_settings_repository_set_active_team_id(&app->db, fallback.id, error);
         } else if (status == APL_OK) {
             status = apl_settings_repository_clear_active_team_id(&app->db, error);
         }
+    }
+
+    if (status == APL_OK) {
+        apl_activity_change changes[1] = {};
+        set_change_text(&changes[0], "archived", "false", false, "true", false);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        if (active_team_id == id && fallback_found) {
+            (void)snprintf(summary, sizeof(summary), "Archived team '%s'; active team is now '%s'",
+                           existing.name, fallback.name);
+        } else if (active_team_id == id) {
+            (void)snprintf(summary, sizeof(summary), "Archived team '%s'; no active team remains",
+                           existing.name);
+        } else {
+            (void)snprintf(summary, sizeof(summary), "Archived team '%s'", existing.name);
+        }
+        status = append_team_event(app, id, "team_archived", summary, changes, 1, error);
     }
 
     if (status != APL_OK) {

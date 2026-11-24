@@ -16,13 +16,14 @@ The product requirements define the intended behavior and acceptance criteria: [
 
 ## Project status
 
-Phase 2 is implemented: the TUI has a modern shell with a window/menu bar,
-vertical view tabs, a persistent bottom status bar, a bottom-rail team switcher,
-interactive form/choice dialogs, and an ex-style command line. You can create
-teams, edit names/notes, archive teams, switch the active team, and reopen the
-database with the selected team still active. Navigation and team actions are
-available from menus, tabs, dialogs, mouse clicks, and typed commands that use
-the same use cases. Other sections currently show an honest placeholder until
+Phases 2 and 3 are implemented. The TUI has a modern shell with a window/menu
+bar, vertical view tabs, a persistent bottom status bar, a bottom-rail team
+switcher, interactive form/choice dialogs, and an ex-style command line. Teams,
+drivers, dated team memberships, seasons/periods, cars/chassis, and the
+team-scoped activity history are maintained through menus, dialogs, and commands
+that share the same use cases. Team create/rename/archive changes are recorded
+transactionally and remain visible in History. Reference records are never
+seeded or generated. Other sections currently show an honest placeholder until
 their phase lands. The remaining work is divided into small slices in
 [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md).
 

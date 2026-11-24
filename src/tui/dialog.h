@@ -30,7 +30,7 @@ typedef enum apl_tui_dialog_result {
 } apl_tui_dialog_result;
 
 constexpr size_t APL_TUI_DIALOG_TITLE_MAX = 96;
-constexpr size_t APL_TUI_DIALOG_MESSAGE_MAX = 2048;
+constexpr size_t APL_TUI_DIALOG_MESSAGE_MAX = 4096;
 constexpr size_t APL_TUI_DIALOG_FIELDS_MAX = 4;
 constexpr size_t APL_TUI_DIALOG_FIELD_LABEL_MAX = 48;
 constexpr size_t APL_TUI_DIALOG_FIELD_VALUE_MAX = 256;

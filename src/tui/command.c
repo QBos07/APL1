@@ -20,6 +20,11 @@ static const char *const VIEW_CHOICES[] = {
 
 static const char *const OVERVIEW_CHOICES[] = {"active", "all"};
 static const char *const TEAM_CREATE_OPTIONS[] = {"name", "notes"};
+static const char *const DRIVER_NEW_OPTIONS[] = {"name", "short", "notes"};
+static const char *const MEMBERSHIP_ADD_OPTIONS[] = {"driver", "start", "end", "role", "notes"};
+static const char *const MEMBERSHIP_END_OPTIONS[] = {"driver", "end"};
+static const char *const SEASON_NEW_OPTIONS[] = {"label", "start", "end", "notes"};
+static const char *const CAR_NEW_OPTIONS[] = {"label", "chassis", "notes"};
 
 static const apl_tui_command_spec COMMANDS[] = {
     {"view", "v", "view <overview|teams|people|events|money|development|parts|history|settings>",
@@ -37,6 +42,43 @@ static const apl_tui_command_spec COMMANDS[] = {
      "Create a team; without a name the form opens prefilled.", nullptr, TEAM_CREATE_OPTIONS,
      APL_TUI_COMMAND_TEAM_CREATE, 0, 1, 0,
      sizeof(TEAM_CREATE_OPTIONS) / sizeof(TEAM_CREATE_OPTIONS[0])},
+    {"driver list", "dl", "driver list", "Open People and list drivers for the active team.",
+     nullptr, nullptr, APL_TUI_COMMAND_DRIVER_LIST, 0, 0, 0, 0},
+    {"driver new", "dn", "driver new [--name <name>] [--short <name>] [--notes <notes>]",
+     "Create a driver profile; without a name the form opens.", nullptr, DRIVER_NEW_OPTIONS,
+     APL_TUI_COMMAND_DRIVER_NEW, 0, 0, 0,
+     sizeof(DRIVER_NEW_OPTIONS) / sizeof(DRIVER_NEW_OPTIONS[0])},
+    {"driver show", "ds", "driver show <id-or-name>",
+     "Open one driver; duplicate names open an explicit choice.", nullptr, nullptr,
+     APL_TUI_COMMAND_DRIVER_SHOW, 1, 1, 0, 0},
+    {"membership add", "ma",
+     "membership add [--driver <id-or-name>] [--start <date>] [--end <date>] "
+     "[--role <role>] [--notes <notes>]",
+     "Add a dated membership; missing driver/start opens the form.", nullptr,
+     MEMBERSHIP_ADD_OPTIONS, APL_TUI_COMMAND_MEMBERSHIP_ADD, 0, 0, 0,
+     sizeof(MEMBERSHIP_ADD_OPTIONS) / sizeof(MEMBERSHIP_ADD_OPTIONS[0])},
+    {"membership end", "me", "membership end [--driver <id-or-name>] [--end <date>]",
+     "End a current membership period; missing values open the form.", nullptr,
+     MEMBERSHIP_END_OPTIONS, APL_TUI_COMMAND_MEMBERSHIP_END, 0, 0, 0,
+     sizeof(MEMBERSHIP_END_OPTIONS) / sizeof(MEMBERSHIP_END_OPTIONS[0])},
+    {"season list", "sl", "season list", "Open the active team's seasons/periods.", nullptr,
+     nullptr, APL_TUI_COMMAND_SEASON_LIST, 0, 0, 0, 0},
+    {"season new", "sn",
+     "season new [--label <label>] [--start <date>] [--end <date>] [--notes <notes>]",
+     "Create a season/period; without a label the form opens.", nullptr, SEASON_NEW_OPTIONS,
+     APL_TUI_COMMAND_SEASON_NEW, 0, 0, 0,
+     sizeof(SEASON_NEW_OPTIONS) / sizeof(SEASON_NEW_OPTIONS[0])},
+    {"season select", "ss", "season select <label-or-id>",
+     "Select a season as the current view context; no record is edited.", nullptr, nullptr,
+     APL_TUI_COMMAND_SEASON_SELECT, 1, 1, 0, 0},
+    {"car list", "cl", "car list", "Open the active team's cars/chassis.", nullptr, nullptr,
+     APL_TUI_COMMAND_CAR_LIST, 0, 0, 0, 0},
+    {"car new", "cn", "car new [--label <identifier>] [--chassis <chassis>] [--notes <notes>]",
+     "Create a car/chassis reference; without a label the form opens.", nullptr, CAR_NEW_OPTIONS,
+     APL_TUI_COMMAND_CAR_NEW, 0, 0, 0, sizeof(CAR_NEW_OPTIONS) / sizeof(CAR_NEW_OPTIONS[0])},
+    {"car show", "cs", "car show <id-or-identifier>",
+     "Open one car; duplicate identifiers open an explicit choice.", nullptr, nullptr,
+     APL_TUI_COMMAND_CAR_SHOW, 1, 1, 0, 0},
     {"help", "h", "help [command ...]", "Show command help.", nullptr, nullptr,
      APL_TUI_COMMAND_HELP, 0, 8, 0, 0},
     {"about", "ab", "about", "Show application information.", nullptr, nullptr,
@@ -551,23 +593,30 @@ void apl_tui_command_registry_help(char *const out, const size_t out_size)
     }
     out[0] = '\0';
     (void)append_output(out, out_size, "Commands (open with :, Tab completes)\n\n");
-    (void)append_output(out, out_size,
-                        "Views\n"
-                        "- view <view>  (v)\n"
-                        "- overview [active|all]  (ov)\n"
-                        "\n"
-                        "Teams\n"
-                        "- team list  (tl)\n"
-                        "- team switch <name-or-id>  (ts)\n"
-                        "- team create [--name NAME] [--notes NOTES]  (tc)\n"
-                        "\n"
-                        "Other\n"
-                        "- help [command ...]  (h)\n"
-                        "- about  (ab)\n"
-                        "- version  (ver)\n"
-                        "- quit  (q)\n"
-                        "Shortcuts: :teams :people :events :money\n"
-                        ":development :parts :history :settings\n");
+    (void)append_output(
+        out, out_size,
+        "Views\n"
+        "- view <view>  (v)\n"
+        "- overview [active|all]  (ov)\n"
+        "Teams\n"
+        "- team list  (tl)\n"
+        "- team switch <name-or-id>  (ts)\n"
+        "- team create [--name NAME] [--notes NOTES]  (tc)\n"
+        "People\n"
+        "- driver list  (dl)\n"
+        "- driver new [--name NAME] [--short NAME] [--notes NOTES]  (dn)\n"
+        "- driver show <id-or-name>  (ds)\n"
+        "- membership add [--driver TARGET] [--start D] [--end D] [--role R]  (ma)\n"
+        "- membership end [--driver TARGET] [--end D]  (me)\n"
+        "Seasons and cars\n"
+        "- season list  (sl)\n"
+        "- season new [--label L] [--start D] [--end D] [--notes N]  (sn)\n"
+        "- season select <label-or-id>  (ss)\n"
+        "- car list  (cl)\n"
+        "- car new [--label ID] [--chassis C] [--notes N]  (cn)\n"
+        "- car show <id-or-identifier>  (cs)\n"
+        "Other: help [command ...] (h) - about (ab) - version (ver) - quit (q)\n"
+        "Shortcuts: :teams :people :history :settings\n");
 }
 
 static void append_candidate(char *const out, const size_t out_size, const char *const candidate)
@@ -608,6 +657,19 @@ static void complete_team_subcommand(char *const out, const size_t out_size, con
     }
 }
 
+static void complete_subcommands(char *const out, const size_t out_size, const char *const group,
+                                 const char *const *const subcommands, const size_t count,
+                                 const char *const word)
+{
+    for (size_t index = 0; index < count; ++index) {
+        if (apl_tui_text_starts_with_ci(subcommands[index], word)) {
+            char candidate[APL_TUI_COMMAND_NAME_MAX];
+            (void)snprintf(candidate, sizeof(candidate), "%s %s", group, subcommands[index]);
+            append_candidate(out, out_size, candidate);
+        }
+    }
+}
+
 void apl_tui_command_complete(const char *const prefix, char *const out, const size_t out_size)
 {
     if (out == nullptr || out_size == 0) {
@@ -626,9 +688,12 @@ void apl_tui_command_complete(const char *const prefix, char *const out, const s
     }
 
     if (*cursor == '\0') {
-        (void)snprintf(out, out_size,
-                       "view | overview | team list | team switch | team create | help | about | "
-                       "version | quit");
+        (void)snprintf(
+            out, out_size,
+            "view | overview | team list | team switch | team create | driver list | "
+            "driver new | driver show | membership add | membership end | season list | "
+            "season new | season select | car list | car new | car show | help | about | "
+            "version | quit");
         return;
     }
 
@@ -669,9 +734,65 @@ void apl_tui_command_complete(const char *const prefix, char *const out, const s
             complete_team_subcommand(out, out_size, word);
             return;
         }
+        if (apl_tui_text_equal_ci(command_part, "driver")) {
+            static const char *const SUBCOMMANDS[] = {"list", "new", "show"};
+            complete_subcommands(out, out_size, "driver", SUBCOMMANDS,
+                                 sizeof(SUBCOMMANDS) / sizeof(SUBCOMMANDS[0]), word);
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "membership")) {
+            static const char *const SUBCOMMANDS[] = {"add", "end"};
+            complete_subcommands(out, out_size, "membership", SUBCOMMANDS,
+                                 sizeof(SUBCOMMANDS) / sizeof(SUBCOMMANDS[0]), word);
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "season")) {
+            static const char *const SUBCOMMANDS[] = {"list", "new", "select"};
+            complete_subcommands(out, out_size, "season", SUBCOMMANDS,
+                                 sizeof(SUBCOMMANDS) / sizeof(SUBCOMMANDS[0]), word);
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "car")) {
+            static const char *const SUBCOMMANDS[] = {"list", "new", "show"};
+            complete_subcommands(out, out_size, "car", SUBCOMMANDS,
+                                 sizeof(SUBCOMMANDS) / sizeof(SUBCOMMANDS[0]), word);
+            return;
+        }
         if (apl_tui_text_equal_ci(command_part, "team create") && word[0] == '-') {
             append_candidate(out, out_size, "team create --name");
             append_candidate(out, out_size, "team create --notes");
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "driver new") && word[0] == '-') {
+            append_candidate(out, out_size, "driver new --name");
+            append_candidate(out, out_size, "driver new --short");
+            append_candidate(out, out_size, "driver new --notes");
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "season new") && word[0] == '-') {
+            append_candidate(out, out_size, "season new --label");
+            append_candidate(out, out_size, "season new --start");
+            append_candidate(out, out_size, "season new --end");
+            append_candidate(out, out_size, "season new --notes");
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "car new") && word[0] == '-') {
+            append_candidate(out, out_size, "car new --label");
+            append_candidate(out, out_size, "car new --chassis");
+            append_candidate(out, out_size, "car new --notes");
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "membership add") && word[0] == '-') {
+            append_candidate(out, out_size, "membership add --driver");
+            append_candidate(out, out_size, "membership add --start");
+            append_candidate(out, out_size, "membership add --end");
+            append_candidate(out, out_size, "membership add --role");
+            append_candidate(out, out_size, "membership add --notes");
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "membership end") && word[0] == '-') {
+            append_candidate(out, out_size, "membership end --driver");
+            append_candidate(out, out_size, "membership end --end");
             return;
         }
         const apl_tui_command_spec *const existing = apl_tui_command_lookup(command_part);
