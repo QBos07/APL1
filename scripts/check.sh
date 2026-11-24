@@ -41,7 +41,9 @@ cleanup() {
         rm -rf -- "$TEMP_BUILD_DIR"
     fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ -n "${APL1_CHECK_BUILD_DIR:-}" ]]; then
     BUILD_DIR="$APL1_CHECK_BUILD_DIR"
