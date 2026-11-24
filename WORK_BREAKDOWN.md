@@ -173,11 +173,15 @@ Goal: add manually maintained people/season/car references and a user-inspectabl
 ### Phase 3 verification (2026-11-24)
 
 - `ctest --test-dir cmake-build-debug --output-on-failure`: 2/2 CTest tests pass
-  (`apl1_unit_tests` 175 Criterion tests, `apl1_tui_tests` 97 Criterion tests).
+  (`apl1_unit_tests` 178 Criterion tests, `apl1_tui_tests` 98 Criterion tests).
 - New unit/integration coverage includes reference normalization and date rules,
   season/driver/membership/car repositories, service validation and team scope,
-  append-only activity persistence and filters, and team audit create/rename/
-  archive/rollback behavior.
+  append-only activity persistence and filters, team audit create/rename/
+  archive/rollback behavior, and reference/membership audit events.
+- Activity history records team create/rename/archive/selection plus season,
+  car, driver, and membership create/update/archive/end events. Teamless shared
+  driver events are visible in active-team history while remaining explicitly
+  attributed as shared identity events.
 - `python3 scripts/smoke_tui.py --app cmake-build-debug/apl1` passes the full
   Phase 2 flow plus a user-entered driver and membership, a season, a car,
   the team-scoped History view, and command routes, then verifies schema version

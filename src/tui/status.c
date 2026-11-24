@@ -50,6 +50,28 @@ void apl_tui_status_clear_team(apl_tui_status *const status)
     status->has_team = false;
 }
 
+void apl_tui_status_set_season(apl_tui_status *const status, const char *const season)
+{
+    if (status == nullptr) {
+        return;
+    }
+    if (season == nullptr || season[0] == '\0') {
+        apl_tui_status_clear_season(status);
+        return;
+    }
+    copy_text(status->season, sizeof(status->season), season);
+    status->has_season = true;
+}
+
+void apl_tui_status_clear_season(apl_tui_status *const status)
+{
+    if (status == nullptr) {
+        return;
+    }
+    status->season[0] = '\0';
+    status->has_season = false;
+}
+
 void apl_tui_status_set_context(apl_tui_status *const status, const char *const context)
 {
     if (status == nullptr) {
@@ -142,6 +164,9 @@ size_t apl_tui_status_render(const apl_tui_status *const status, const unsigned 
     const bool narrow = columns < HINT_MIN_COLUMNS;
     char line[STATUS_LINE_MAX] = "";
     append_segment(line, sizeof(line), status->has_team ? status->team : "(no active team)");
+    if (status->has_season && status->season[0] != '\0') {
+        append_segment(line, sizeof(line), status->season);
+    }
     if (!narrow) {
         append_segment(line, sizeof(line), status->context);
     }

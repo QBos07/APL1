@@ -23,6 +23,8 @@ Rules:
   `command.c` (registry/parser), `action.c` (typed command intents), `theme.c`
   (semantic style roles), `text.c` (UTF-8-safe helpers), and `focus.c`.
 - `frame.c` owns planes and drawing helpers; `shell.c` composes the frame with
-  menus, tabs, team screens, dialogs, commands, and app use cases.
+  menus, tabs, team screens, dialogs, commands, and app use cases. Each body
+  view reserves its last row for contextual key hints; the window-bar `[Keys]`
+  button opens the same keyboard/mouse help dialog.
 - Long status/command-line rendering must stay UTF-8-safe and width-bounded;
   colors are never the only signal for focus/status.

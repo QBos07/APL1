@@ -96,11 +96,11 @@ Test(tui_command_line, renders_prompt_and_completion_within_width)
 
     char rendered[256];
     (void)apl_tui_command_line_render(&line, 80, rendered, sizeof(rendered));
-    cr_assert_str_eq(rendered, ":team c   team create [--name <name>]");
+    cr_assert_str_eq(rendered, ":team c|   team create [--name <name>]");
 
     (void)apl_tui_command_line_render(&line, 10, rendered, sizeof(rendered));
     cr_assert_leq(strlen(rendered), 10);
-    cr_assert_str_eq(rendered, ":team c");
+    cr_assert_str_eq(rendered, ":team c|");
 
     const size_t length = strlen(rendered);
     cr_assert_neq((unsigned char)rendered[length - 1] & 0xC0U, 0x80U);

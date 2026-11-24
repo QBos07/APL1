@@ -16,6 +16,7 @@
 #define APL_TUI_STATUS_MESSAGE_MAX 320
 #define APL_TUI_STATUS_CONTEXT_MAX 64
 #define APL_TUI_STATUS_TEAM_MAX 128
+#define APL_TUI_STATUS_SEASON_MAX 96
 
 typedef enum apl_tui_status_level {
     APL_TUI_STATUS_INFO = 0,
@@ -27,6 +28,8 @@ typedef enum apl_tui_status_level {
 typedef struct apl_tui_status {
     char team[APL_TUI_STATUS_TEAM_MAX];
     bool has_team;
+    char season[APL_TUI_STATUS_SEASON_MAX];
+    bool has_season;
     char context[APL_TUI_STATUS_CONTEXT_MAX];
     char message[APL_TUI_STATUS_MESSAGE_MAX];
     apl_tui_status_level level;
@@ -38,6 +41,10 @@ void apl_tui_status_init(apl_tui_status *status);
 /** Set/clear the active-team identity. */
 void apl_tui_status_set_team(apl_tui_status *status, const char *team);
 void apl_tui_status_clear_team(apl_tui_status *status);
+
+/** Set/clear the selected season/period shown next to the team. */
+void apl_tui_status_set_season(apl_tui_status *status, const char *season);
+void apl_tui_status_clear_season(apl_tui_status *status);
 
 /** Set the current view/context label (empty clears it). */
 void apl_tui_status_set_context(apl_tui_status *status, const char *context);

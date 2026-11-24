@@ -1,6 +1,11 @@
 #include "app/driver_service.h"
 
+#include <stdio.h>
+#include <string.h>
+
+#include "app/audit.h"
 #include "db/driver_repository.h"
+#include "db/transaction.h"
 
 static apl_status with_context(const apl_status status, const char *const context,
                                apl_error *const error)
@@ -9,6 +14,30 @@ static apl_status with_context(const apl_status status, const char *const contex
         apl_error_prefix(error, status, context);
     }
     return status;
+}
+
+static apl_status rollback(apl_db_transaction *const transaction, const apl_status status,
+                           const char *const context, apl_error *const error)
+{
+    apl_error rollback_error;
+    apl_error_init(&rollback_error);
+    if (apl_db_transaction_rollback(transaction, &rollback_error) != APL_OK) {
+        char detail[160];
+        (void)snprintf(detail, sizeof(detail), "rollback failed: %s",
+                       apl_error_message(&rollback_error));
+        apl_error_prefix(error, status, detail);
+    }
+    return with_context(status, context, error);
+}
+
+static apl_status commit(apl_db_transaction *const transaction, const char *const context,
+                         apl_error *const error)
+{
+    const apl_status status = apl_db_transaction_commit(transaction, error);
+    if (status != APL_OK && transaction->active) {
+        (void)rollback(transaction, status, context, error);
+    }
+    return with_context(status, context, error);
 }
 
 static apl_status normalize_fields(const char *const name, const char *const short_name,
@@ -29,6 +58,17 @@ static apl_status normalize_fields(const char *const name, const char *const sho
     return status;
 }
 
+static apl_status append_event(apl_app *const app, const char *const action,
+                               const int64_t driver_id, const char *const summary,
+                               const apl_activity_change *const changes, const size_t count,
+                               apl_error *const error)
+{
+    /* The driver directory is a shared identity, not team-owned data. A null
+     * team scope keeps it visible through the explicit all-teams history and
+     * through the shared-event path in an active-team history view. */
+    return apl_audit_append(app, 0, action, "driver", driver_id, summary, changes, count, error);
+}
+
 apl_status apl_driver_service_create(apl_app *const app, const char *const name,
                                      const char *const short_name, const char *const notes,
                                      apl_driver *const out_driver, apl_error *const error)
@@ -45,9 +85,28 @@ apl_status apl_driver_service_create(apl_app *const app, const char *const name,
     if (status != APL_OK) {
         return with_context(status, "cannot create driver", error);
     }
-    return with_context(apl_driver_repository_create(&app->db, normalized_name, normalized_short,
-                                                     normalized_notes, out_driver, error),
-                        "cannot create driver", error);
+
+    apl_db_transaction transaction = {};
+    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot create driver", error);
+    }
+    status = apl_driver_repository_create(&app->db, normalized_name, normalized_short,
+                                          normalized_notes, out_driver, error);
+    if (status == APL_OK) {
+        apl_activity_change changes[3] = {};
+        apl_audit_change_text(&changes[0], "name", nullptr, true, out_driver->name, false);
+        apl_audit_change_text(&changes[1], "short_name", nullptr, true, out_driver->short_name,
+                              false);
+        apl_audit_change_text(&changes[2], "notes", nullptr, true, out_driver->notes, false);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Created driver '%s'", out_driver->name);
+        status = append_event(app, "driver_created", out_driver->id, summary, changes, 3, error);
+    }
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot create driver", error);
+    }
+    return commit(&transaction, "cannot create driver", error);
 }
 
 apl_status apl_driver_service_get(apl_app *const app, const int64_t id,
@@ -77,10 +136,49 @@ apl_status apl_driver_service_update(apl_app *const app, const int64_t id, const
     if (status != APL_OK) {
         return with_context(status, "cannot update driver", error);
     }
-    return with_context(apl_driver_repository_update(&app->db, id, normalized_name,
-                                                     normalized_short, normalized_notes, out_driver,
-                                                     error),
-                        "cannot update driver", error);
+
+    apl_db_transaction transaction = {};
+    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot update driver", error);
+    }
+    apl_driver existing = {};
+    status = apl_driver_repository_get(&app->db, id, &existing, error);
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot update driver", error);
+    }
+    const bool name_changed = strcmp(existing.name, normalized_name) != 0;
+    const bool short_changed = strcmp(existing.short_name, normalized_short) != 0;
+    const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
+    if (!name_changed && !short_changed && !notes_changed) {
+        *out_driver = existing;
+        return commit(&transaction, "cannot update driver", error);
+    }
+    status = apl_driver_repository_update(&app->db, id, normalized_name, normalized_short,
+                                          normalized_notes, out_driver, error);
+    if (status == APL_OK) {
+        apl_activity_change changes[3] = {};
+        size_t count = 0;
+        if (name_changed) {
+            apl_audit_change_text(&changes[count++], "name", existing.name, false, out_driver->name,
+                                  false);
+        }
+        if (short_changed) {
+            apl_audit_change_text(&changes[count++], "short_name", existing.short_name, false,
+                                  out_driver->short_name, false);
+        }
+        if (notes_changed) {
+            apl_audit_change_text(&changes[count++], "notes", existing.notes, false,
+                                  out_driver->notes, false);
+        }
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Updated driver '%s'", out_driver->name);
+        status = append_event(app, "driver_updated", id, summary, changes, count, error);
+    }
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot update driver", error);
+    }
+    return commit(&transaction, "cannot update driver", error);
 }
 
 apl_status apl_driver_service_archive(apl_app *const app, const int64_t id,
@@ -90,8 +188,31 @@ apl_status apl_driver_service_archive(apl_app *const app, const int64_t id,
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "driver archive arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_driver_repository_archive(&app->db, id, out_driver, error),
-                        "cannot archive driver", error);
+    apl_db_transaction transaction = {};
+    apl_status status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot archive driver", error);
+    }
+    apl_driver existing = {};
+    status = apl_driver_repository_get(&app->db, id, &existing, error);
+    if (status == APL_OK && existing.archived) {
+        *out_driver = existing;
+        return commit(&transaction, "cannot archive driver", error);
+    }
+    if (status == APL_OK) {
+        status = apl_driver_repository_archive(&app->db, id, out_driver, error);
+    }
+    if (status == APL_OK) {
+        apl_activity_change change = {};
+        apl_audit_change_bool(&change, "archived", false, true);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Archived driver '%s'", out_driver->name);
+        status = append_event(app, "driver_archived", id, summary, &change, 1, error);
+    }
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot archive driver", error);
+    }
+    return commit(&transaction, "cannot archive driver", error);
 }
 
 apl_status apl_driver_service_list(apl_app *const app, const bool include_archived,

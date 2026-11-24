@@ -1,6 +1,11 @@
 #include "app/car_service.h"
 
+#include <stdio.h>
+#include <string.h>
+
+#include "app/audit.h"
 #include "db/car_repository.h"
+#include "db/transaction.h"
 
 static apl_status with_context(const apl_status status, const char *const context,
                                apl_error *const error)
@@ -9,6 +14,30 @@ static apl_status with_context(const apl_status status, const char *const contex
         apl_error_prefix(error, status, context);
     }
     return status;
+}
+
+static apl_status rollback(apl_db_transaction *const transaction, const apl_status status,
+                           const char *const context, apl_error *const error)
+{
+    apl_error rollback_error;
+    apl_error_init(&rollback_error);
+    if (apl_db_transaction_rollback(transaction, &rollback_error) != APL_OK) {
+        char detail[160];
+        (void)snprintf(detail, sizeof(detail), "rollback failed: %s",
+                       apl_error_message(&rollback_error));
+        apl_error_prefix(error, status, detail);
+    }
+    return with_context(status, context, error);
+}
+
+static apl_status commit(apl_db_transaction *const transaction, const char *const context,
+                         apl_error *const error)
+{
+    const apl_status status = apl_db_transaction_commit(transaction, error);
+    if (status != APL_OK && transaction->active) {
+        (void)rollback(transaction, status, context, error);
+    }
+    return with_context(status, context, error);
 }
 
 static apl_status normalize_fields(const char *const label, const char *const chassis,
@@ -29,6 +58,14 @@ static apl_status normalize_fields(const char *const label, const char *const ch
     return status;
 }
 
+static apl_status append_event(apl_app *const app, const int64_t team_id, const char *const action,
+                               const int64_t car_id, const char *const summary,
+                               const apl_activity_change *const changes, const size_t count,
+                               apl_error *const error)
+{
+    return apl_audit_append(app, team_id, action, "car", car_id, summary, changes, count, error);
+}
+
 apl_status apl_car_service_create(apl_app *const app, const int64_t team_id,
                                   const char *const label, const char *const chassis,
                                   const char *const notes, apl_car *const out_car,
@@ -46,10 +83,27 @@ apl_status apl_car_service_create(apl_app *const app, const int64_t team_id,
     if (status != APL_OK) {
         return with_context(status, "cannot create car", error);
     }
-    return with_context(apl_car_repository_create(&app->db, team_id, normalized_label,
-                                                  normalized_chassis, normalized_notes, out_car,
-                                                  error),
-                        "cannot create car", error);
+
+    apl_db_transaction transaction = {};
+    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot create car", error);
+    }
+    status = apl_car_repository_create(&app->db, team_id, normalized_label, normalized_chassis,
+                                       normalized_notes, out_car, error);
+    if (status == APL_OK) {
+        apl_activity_change changes[3] = {};
+        apl_audit_change_text(&changes[0], "label", nullptr, true, out_car->label, false);
+        apl_audit_change_text(&changes[1], "chassis", nullptr, true, out_car->chassis, false);
+        apl_audit_change_text(&changes[2], "notes", nullptr, true, out_car->notes, false);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Created car '%s'", out_car->label);
+        status = append_event(app, team_id, "car_created", out_car->id, summary, changes, 3, error);
+    }
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot create car", error);
+    }
+    return commit(&transaction, "cannot create car", error);
 }
 
 apl_status apl_car_service_get(apl_app *const app, const int64_t team_id, const int64_t id,
@@ -80,10 +134,49 @@ apl_status apl_car_service_update(apl_app *const app, const int64_t team_id, con
     if (status != APL_OK) {
         return with_context(status, "cannot update car", error);
     }
-    return with_context(apl_car_repository_update(&app->db, team_id, id, normalized_label,
-                                                  normalized_chassis, normalized_notes, out_car,
-                                                  error),
-                        "cannot update car", error);
+
+    apl_db_transaction transaction = {};
+    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot update car", error);
+    }
+    apl_car existing = {};
+    status = apl_car_repository_get(&app->db, team_id, id, &existing, error);
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot update car", error);
+    }
+    const bool label_changed = strcmp(existing.label, normalized_label) != 0;
+    const bool chassis_changed = strcmp(existing.chassis, normalized_chassis) != 0;
+    const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
+    if (!label_changed && !chassis_changed && !notes_changed) {
+        *out_car = existing;
+        return commit(&transaction, "cannot update car", error);
+    }
+    status = apl_car_repository_update(&app->db, team_id, id, normalized_label, normalized_chassis,
+                                       normalized_notes, out_car, error);
+    if (status == APL_OK) {
+        apl_activity_change changes[3] = {};
+        size_t count = 0;
+        if (label_changed) {
+            apl_audit_change_text(&changes[count++], "label", existing.label, false, out_car->label,
+                                  false);
+        }
+        if (chassis_changed) {
+            apl_audit_change_text(&changes[count++], "chassis", existing.chassis, false,
+                                  out_car->chassis, false);
+        }
+        if (notes_changed) {
+            apl_audit_change_text(&changes[count++], "notes", existing.notes, false, out_car->notes,
+                                  false);
+        }
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Updated car '%s'", out_car->label);
+        status = append_event(app, team_id, "car_updated", id, summary, changes, count, error);
+    }
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot update car", error);
+    }
+    return commit(&transaction, "cannot update car", error);
 }
 
 apl_status apl_car_service_archive(apl_app *const app, const int64_t team_id, const int64_t id,
@@ -93,8 +186,31 @@ apl_status apl_car_service_archive(apl_app *const app, const int64_t team_id, co
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "car archive arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_car_repository_archive(&app->db, team_id, id, out_car, error),
-                        "cannot archive car", error);
+    apl_db_transaction transaction = {};
+    apl_status status = apl_db_transaction_begin(&transaction, &app->db, error);
+    if (status != APL_OK) {
+        return with_context(status, "cannot archive car", error);
+    }
+    apl_car existing = {};
+    status = apl_car_repository_get(&app->db, team_id, id, &existing, error);
+    if (status == APL_OK && existing.archived) {
+        *out_car = existing;
+        return commit(&transaction, "cannot archive car", error);
+    }
+    if (status == APL_OK) {
+        status = apl_car_repository_archive(&app->db, team_id, id, out_car, error);
+    }
+    if (status == APL_OK) {
+        apl_activity_change change = {};
+        apl_audit_change_bool(&change, "archived", false, true);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Archived car '%s'", out_car->label);
+        status = append_event(app, team_id, "car_archived", id, summary, &change, 1, error);
+    }
+    if (status != APL_OK) {
+        return rollback(&transaction, status, "cannot archive car", error);
+    }
+    return commit(&transaction, "cannot archive car", error);
 }
 
 apl_status apl_car_service_list(apl_app *const app, const int64_t team_id,

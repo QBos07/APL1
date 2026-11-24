@@ -1,3 +1,4 @@
+#include <sqlite3.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -8,6 +9,7 @@
 #include "app/driver_service.h"
 #include "app/membership_service.h"
 #include "app/season_service.h"
+#include "db/activity_repository.h"
 #include "app/team_service.h"
 #include "test_support.h"
 
@@ -234,6 +236,107 @@ Test(driver_service, duplicate_names_are_not_merged_and_team_list_uses_membershi
     cr_assert_eq(apl_driver_service_list(&app, true, &drivers, &count, &err), APL_OK);
     cr_assert_eq(count, 2);
     apl_driver_service_free_list(drivers);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(reference_services, mutations_append_activity_and_shared_driver_events_are_visible)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, "Ferrari", &err);
+
+    apl_season season = {};
+    cr_assert_eq(apl_season_service_create(&app, team.id, "2026", "", "", "", &season, &err),
+                 APL_OK);
+    apl_car car = {};
+    cr_assert_eq(apl_car_service_create(&app, team.id, "SF-26", "", "", &car, &err), APL_OK);
+    const apl_driver driver = make_driver(&app, "Driver One", &err);
+    apl_membership membership = {};
+    cr_assert_eq(apl_membership_service_create(&app, team.id, driver.id, "2026-01-01", "", "", "",
+                                               &membership, &err),
+                 APL_OK);
+    cr_assert_eq(
+        apl_membership_service_end(&app, team.id, membership.id, "2026-06-30", &membership, &err),
+        APL_OK);
+
+    apl_activity_event *events = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_activity_repository_list(&app.db, nullptr, &events, &count, &err), APL_OK);
+    cr_assert_geq(count, 6);
+    cr_assert_str_eq(events[0].action, "membership_ended");
+    bool saw_season = false;
+    bool saw_car = false;
+    bool saw_driver = false;
+    bool saw_membership = false;
+    for (size_t index = 0; index < count; ++index) {
+        saw_season = saw_season || strcmp(events[index].action, "season_created") == 0;
+        saw_car = saw_car || strcmp(events[index].action, "car_created") == 0;
+        saw_driver = saw_driver || strcmp(events[index].action, "driver_created") == 0;
+        saw_membership = saw_membership || strcmp(events[index].action, "membership_added") == 0;
+    }
+    cr_assert(saw_season);
+    cr_assert(saw_car);
+    cr_assert(saw_driver);
+    cr_assert(saw_membership);
+    apl_activity_repository_free_events(events);
+
+    apl_activity_filter filter = {.team_id = team.id};
+    events = nullptr;
+    count = 0;
+    cr_assert_eq(apl_activity_repository_list(&app.db, &filter, &events, &count, &err), APL_OK);
+    bool team_only_driver = false;
+    for (size_t index = 0; index < count; ++index) {
+        team_only_driver = team_only_driver || strcmp(events[index].action, "driver_created") == 0;
+    }
+    cr_assert_not(team_only_driver);
+    apl_activity_repository_free_events(events);
+
+    filter.include_teamless = true;
+    events = nullptr;
+    count = 0;
+    cr_assert_eq(apl_activity_repository_list(&app.db, &filter, &events, &count, &err), APL_OK);
+    bool shared_driver = false;
+    for (size_t index = 0; index < count; ++index) {
+        shared_driver = shared_driver || strcmp(events[index].action, "driver_created") == 0;
+    }
+    cr_assert(shared_driver);
+    apl_activity_repository_free_events(events);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(reference_services, failed_audit_rolls_back_reference_write)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, "Ferrari", &err);
+
+    char *sqlite_error = nullptr;
+    cr_assert_eq(sqlite3_exec(apl_db_handle(&app.db),
+                              "CREATE TRIGGER fail_activity BEFORE INSERT ON activity_events "
+                              "BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END;",
+                              nullptr, nullptr, &sqlite_error),
+                 SQLITE_OK);
+    sqlite3_free(sqlite_error);
+
+    apl_season season = {};
+    cr_assert_eq(apl_season_service_create(&app, team.id, "2026", "", "", "", &season, &err),
+                 APL_ERR_DB_QUERY);
+
+    size_t count = 1;
+    apl_season *seasons = nullptr;
+    cr_assert_eq(apl_season_service_list(&app, team.id, true, &seasons, &count, &err), APL_OK);
+    cr_assert_eq(count, 0);
+    apl_season_service_free_list(seasons);
 
     close_test_app(&app, dir, &err);
 }

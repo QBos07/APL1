@@ -316,8 +316,30 @@ static apl_status refresh_active(shell_state *const state, apl_error *const erro
     return status;
 }
 
+static const char *selected_season_label(const shell_state *const state)
+{
+    if (state->selected_season_id == 0) {
+        return nullptr;
+    }
+    if (state->season_detail.id == state->selected_season_id) {
+        return state->season_detail.label;
+    }
+    for (size_t index = 0; index < state->season_count; ++index) {
+        if (state->seasons[index].id == state->selected_season_id) {
+            return state->seasons[index].label;
+        }
+    }
+    return nullptr;
+}
+
 static void sync_status_context(shell_state *const state)
 {
+    const char *const season = selected_season_label(state);
+    if (season != nullptr && season[0] != '\0') {
+        apl_tui_status_set_season(&state->status, season);
+    } else {
+        apl_tui_status_clear_season(&state->status);
+    }
     apl_tui_status_set_context(&state->status, apl_tui_section_label(state->section));
 }
 
@@ -509,8 +531,35 @@ static const char *history_entity_filter_name(const unsigned index)
 
 static const char *history_action_filter_name(const unsigned index)
 {
-    static const char *const NAMES[] = {"", "team_created", "team_renamed", "team_archived"};
+    static const char *const NAMES[] = {
+        "",
+        "team_created",
+        "team_renamed",
+        "team_archived",
+        "team_selected",
+        "season_created",
+        "season_updated",
+        "season_archived",
+        "car_created",
+        "car_updated",
+        "car_archived",
+        "driver_created",
+        "driver_updated",
+        "driver_archived",
+        "membership_added",
+        "membership_updated",
+        "membership_ended",
+    };
     return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "";
+}
+
+static unsigned history_action_filter_count(void)
+{
+    unsigned count = 0;
+    while (history_action_filter_name(count)[0] != '\0') {
+        ++count;
+    }
+    return count + 1;
 }
 
 static apl_status load_history(shell_state *const state, apl_error *const error)
@@ -518,6 +567,7 @@ static apl_status load_history(shell_state *const state, apl_error *const error)
     apl_activity_filter filter = {};
     if (!state->history_all_teams) {
         filter.team_id = active_team_id(state);
+        filter.include_teamless = true;
     }
     (void)snprintf(filter.entity_type, sizeof(filter.entity_type), "%s",
                    history_entity_filter_name(state->history_entity_filter));
@@ -638,6 +688,7 @@ static bool perform_create(shell_state *const state, const char *const name,
 
     state->any_teams = true;
     state->detail = created;
+    state->selected_season_id = 0;
     apl_error_init(error);
     apl_status reload = refresh_active(state, error);
     if (reload == APL_OK) {
@@ -697,6 +748,9 @@ static void perform_archive(shell_state *const state, const int64_t team_id, apl
         return;
     }
 
+    if (was_active) {
+        state->selected_season_id = 0;
+    }
     apl_error_init(error);
     apl_status reload = refresh_active(state, error);
     if (reload == APL_OK) {
@@ -706,6 +760,7 @@ static void perform_archive(shell_state *const state, const int64_t team_id, apl
         show_error_dialog(state, error);
         return;
     }
+    sync_status_context(state);
     state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
     if (was_active && active_status_has_team(state->active_status)) {
         set_status_success(state, "Team archived. Active team switched to '%s'.",
@@ -727,10 +782,12 @@ static void perform_set_active(shell_state *const state, const int64_t team_id,
         return;
     }
     apl_error_init(error);
+    state->selected_season_id = 0;
     if (refresh_active(state, error) != APL_OK) {
         show_error_dialog(state, error);
         return;
     }
+    sync_status_context(state);
     set_status_success(state, "Active team: %s", state->active_team.name);
 }
 
@@ -882,6 +939,10 @@ static void perform_season_archive(shell_state *const state, const int64_t id,
         APL_OK) {
         show_error_dialog(state, error);
         return;
+    }
+    if (state->selected_season_id == id) {
+        state->selected_season_id = 0;
+        sync_status_context(state);
     }
     if (load_seasons(state, 0, error) != APL_OK) {
         show_error_dialog(state, error);
@@ -1383,6 +1444,12 @@ static void handle_menu_action(shell_state *const state, const apl_tui_menu_acti
     }
 }
 
+static unsigned keys_button_start(const unsigned columns)
+{
+    constexpr unsigned KEY_LABEL_WIDTH = 6; /* "[Keys]" */
+    return (columns > KEY_LABEL_WIDTH + 2) ? columns - KEY_LABEL_WIDTH - 1 : columns;
+}
+
 static void draw_window_bar(shell_state *const state)
 {
     struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_WINDOW);
@@ -1403,6 +1470,10 @@ static void draw_window_bar(shell_state *const state)
                             focused ? APL_TUI_ROLE_WINDOW_FOCUS : APL_TUI_ROLE_WINDOW_BAR);
         apl_tui_frame_draw_text(plane, 0, (int)apl_tui_menu_heading_offset(group),
                                 apl_tui_menu_group_label(group));
+    }
+    if (layout->window.cols > 42) {
+        apl_tui_theme_apply(&state->theme, plane, APL_TUI_ROLE_WINDOW_FOCUS);
+        apl_tui_frame_draw_text(plane, 0, (int)keys_button_start(layout->window.cols), "[Keys]");
     }
     apl_tui_theme_reset(plane);
 }
@@ -1884,6 +1955,83 @@ static void draw_person_detail(shell_state *const state)
     apl_tui_frame_draw_line(body, row++, "e edit driver   x archive   Esc back to people");
 }
 
+static const char *history_entity_filter_short_name(const unsigned index)
+{
+    static const char *const NAMES[] = {"all", "team", "season", "driver", "member", "car"};
+    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "all";
+}
+
+static const char *history_action_filter_short_name(const unsigned index)
+{
+    static const char *const NAMES[] = {
+        "all",
+        "team:created",
+        "team:renamed",
+        "team:archived",
+        "team:selected",
+        "season:created",
+        "season:updated",
+        "season:archived",
+        "car:created",
+        "car:updated",
+        "car:archived",
+        "driver:created",
+        "driver:updated",
+        "driver:archived",
+        "member:added",
+        "member:updated",
+        "member:ended",
+    };
+    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "all";
+}
+
+static const char *history_date_filter_short_name(const unsigned preset)
+{
+    switch (preset) {
+    case 1:
+        return "7d";
+    case 2:
+        return "30d";
+    case 3:
+        return "365d";
+    default:
+        return "all";
+    }
+}
+
+static void append_history_filter_button(char *const out, const size_t out_size,
+                                         unsigned *const cursor, unsigned starts[5],
+                                         unsigned ends[5], const unsigned index,
+                                         const char *const label)
+{
+    starts[index] = *cursor;
+    (void)apl_tui_text_append(out, out_size - *cursor, label);
+    *cursor = (unsigned)strlen(out);
+    ends[index] = *cursor;
+    (void)apl_tui_text_append(out, out_size - *cursor, "  ");
+    *cursor = (unsigned)strlen(out);
+}
+
+static void build_history_filter_bar(const shell_state *const state, char *const out,
+                                     const size_t out_size, unsigned starts[5], unsigned ends[5])
+{
+    out[0] = '\0';
+    unsigned cursor = 0;
+    char label[96];
+    (void)snprintf(label, sizeof(label), "Team:%s", state->history_all_teams ? "all" : "active");
+    append_history_filter_button(out, out_size, &cursor, starts, ends, 0, label);
+    (void)snprintf(label, sizeof(label), "Ent:%s",
+                   history_entity_filter_short_name(state->history_entity_filter));
+    append_history_filter_button(out, out_size, &cursor, starts, ends, 1, label);
+    (void)snprintf(label, sizeof(label), "Act:%s",
+                   history_action_filter_short_name(state->history_action_filter));
+    append_history_filter_button(out, out_size, &cursor, starts, ends, 2, label);
+    (void)snprintf(label, sizeof(label), "Date:%s",
+                   history_date_filter_short_name(state->history_date_preset));
+    append_history_filter_button(out, out_size, &cursor, starts, ends, 3, label);
+    append_history_filter_button(out, out_size, &cursor, starts, ends, 4, "Clear");
+}
+
 static void draw_history_list(shell_state *const state)
 {
     struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
@@ -1892,28 +2040,24 @@ static void draw_history_list(shell_state *const state)
     }
     const char *const scope = state->history_all_teams ? "all teams" : "active team";
     char header[256];
-    (void)snprintf(
-        header, sizeof(header), "History: %s | entity: %s | action: %s | dates: %s", scope,
-        history_entity_filter_name(state->history_entity_filter)[0] != '\0'
-            ? history_entity_filter_name(state->history_entity_filter)
-            : "all",
-        history_action_filter_name(state->history_action_filter)[0] != '\0'
-            ? history_action_filter_name(state->history_action_filter)
-            : "all",
-        state->history_date_preset == 0
-            ? "all"
-            : (state->history_date_preset == 1
-                   ? "last 7 days"
-                   : (state->history_date_preset == 2 ? "last 30 days" : "last 365 days")));
+    (void)snprintf(header, sizeof(header), "History: %s (%zu events)", scope, state->event_count);
     apl_tui_frame_draw_line(body, 0, header);
+
+    unsigned starts[5] = {};
+    unsigned ends[5] = {};
+    char filters[512];
+    build_history_filter_bar(state, filters, sizeof(filters), starts, ends);
+    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_BODY);
+    apl_tui_frame_draw_line(body, 1, filters);
+    apl_tui_theme_reset(body);
+
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
     if (state->event_count == 0) {
-        apl_tui_frame_draw_line(body, 2, "No activity matches the current filters.");
-        apl_tui_frame_draw_line(body, 4, "a all teams   f entity   g action   d date   c clear");
+        apl_tui_frame_draw_line(body, 3, "No activity matches the current filters.");
         return;
     }
-    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
     const size_t visible = apl_tui_list_visible_count(&state->list);
-    for (size_t offset = 0; offset < visible && offset + 1 < rows; ++offset) {
+    for (size_t offset = 0; offset < visible && offset + 3 < rows - 1; ++offset) {
         const size_t index = state->list.offset + offset;
         const apl_activity_event *const event = &state->events[index];
         const bool focused = index == state->list.selected;
@@ -1924,9 +2068,60 @@ static void draw_history_list(shell_state *const state)
                        event->action, event->summary);
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
-        apl_tui_frame_draw_line(body, (int)(offset + 1), line);
+        apl_tui_frame_draw_line(body, (int)(offset + 3), line);
         apl_tui_theme_reset(body);
     }
+}
+
+static const char *context_key_hint(const shell_state *const state)
+{
+    if (state->section == APL_TUI_SECTION_PEOPLE) {
+        return (state->screen == SHELL_SCREEN_PERSON_DETAIL)
+                   ? "m membership | d end | e edit | x archive | Esc back"
+                   : "n new | Enter open | m membership | a archived | A all teams";
+    }
+    if (state->section == APL_TUI_SECTION_HISTORY) {
+        return "a scope | f entity | g action | d dates | c clear | Enter detail";
+    }
+    if (state->section != APL_TUI_SECTION_TEAMS) {
+        return ", . views | : commands | m menu | q quit";
+    }
+    switch (state->screen) {
+    case SHELL_SCREEN_WELCOME:
+        return "n new team | q quit | : commands";
+    case SHELL_SCREEN_TEAM_LIST:
+        return "n new | Enter open | s switch | a archived";
+    case SHELL_SCREEN_TEAM_DETAIL:
+        return "e edit | x archive | o seasons | c cars | p people | s switch";
+    case SHELL_SCREEN_SEASON_LIST:
+        return "n new | Enter open | a archived | Esc team";
+    case SHELL_SCREEN_SEASON_DETAIL:
+        return "e edit | x archive | s select | Esc seasons";
+    case SHELL_SCREEN_CAR_LIST:
+        return "n new | Enter open | a archived | Esc team";
+    case SHELL_SCREEN_CAR_DETAIL:
+        return "e edit | x archive | Esc cars";
+    case SHELL_SCREEN_PLACEHOLDER:
+    case SHELL_SCREEN_PEOPLE_LIST:
+    case SHELL_SCREEN_PERSON_DETAIL:
+    case SHELL_SCREEN_HISTORY_LIST:
+        break;
+    }
+    return ", . views | : commands | m menu | q quit";
+}
+
+static void draw_key_hints(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (body == nullptr || layout == nullptr || layout->body.rows == 0) {
+        return;
+    }
+    char line[320];
+    (void)snprintf(line, sizeof(line), "Keys: %s", context_key_hint(state));
+    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_MUTED);
+    apl_tui_frame_draw_line(body, (int)(layout->body.rows - 1), line);
+    apl_tui_theme_reset(body);
 }
 
 static void draw_placeholder(shell_state *const state)
@@ -2016,9 +2211,10 @@ static void draw_dialog(shell_state *const state)
             }
             const apl_tui_dialog_field *const field = &state->dialog.fields[index];
             const bool focused = state->dialog.focus == index;
-            char line[APL_TUI_DIALOG_FIELD_LABEL_MAX + APL_TUI_DIALOG_FIELD_VALUE_MAX + 16];
-            (void)snprintf(line, sizeof(line), "%c %s: %s%s", focused ? '>' : ' ', field->label,
-                           field->value, field->invalid ? "  !" : "");
+            char line[APL_TUI_DIALOG_FIELD_LABEL_MAX + APL_TUI_DIALOG_FIELD_VALUE_MAX + 24];
+            (void)snprintf(line, sizeof(line), "%c %s: %s%s%s", focused ? '>' : ' ', field->label,
+                           field->value, focused ? "\xe2\x96\x88" : "",
+                           field->invalid ? "  !" : "");
             apl_tui_theme_apply(&state->theme, overlay,
                                 field->invalid
                                     ? APL_TUI_ROLE_ERROR
@@ -2153,6 +2349,8 @@ static void draw_screen(shell_state *const state)
             break;
         }
     }
+
+    draw_key_hints(state);
 
     struct ncplane *const status = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_STATUS);
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
@@ -2983,7 +3181,29 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
     }
 
     const unsigned row = (unsigned)(input->y - (int)layout->body.y);
-    const size_t index = state->list.offset + row;
+    unsigned row_offset = 0;
+    if (state->section == APL_TUI_SECTION_HISTORY) {
+        if (row == 1) {
+            unsigned starts[5] = {};
+            unsigned ends[5] = {};
+            char filters[512];
+            build_history_filter_bar(state, filters, sizeof(filters), starts, ends);
+            const unsigned column = (unsigned)(input->x - (int)layout->body.x);
+            static const uint32_t FILTER_KEYS[] = {'a', 'f', 'g', 'd', 'c'};
+            for (unsigned button = 0; button < 5; ++button) {
+                if (column >= starts[button] && column < ends[button] + 2) {
+                    handle_history_input(state, FILTER_KEYS[button]);
+                    return;
+                }
+            }
+            return;
+        }
+        if (row < 3) {
+            return;
+        }
+        row_offset = 3;
+    }
+    const size_t index = state->list.offset + row - row_offset;
     if (index >= count) {
         return;
     }
@@ -3113,6 +3333,9 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
             apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
             apl_tui_menu_focus_group(&state->menu, group);
             apl_tui_menu_open(&state->menu, group);
+        } else if (layout->window.cols > 42 &&
+                   (unsigned)input->x >= keys_button_start(layout->window.cols)) {
+            handle_menu_action(state, APL_TUI_MENU_ACTION_HELP_KEYBOARD);
         }
         return;
     }
@@ -3651,8 +3874,11 @@ static void handle_season_detail_input(shell_state *const state, const uint32_t 
     case 's':
     case 'S':
         state->selected_season_id = state->season_detail.id;
-        set_status(state, "Current season context: %s (view context only; records unchanged).",
-                   state->season_detail.label);
+        sync_status_context(state);
+        set_status_success(state,
+                           "Selected season '%s' for the active team; view context only, no "
+                           "records changed.",
+                           state->season_detail.label);
         return;
     case 'q':
     case 'Q':
@@ -3906,7 +4132,8 @@ static void handle_history_input(shell_state *const state, const uint32_t id)
         return;
     case 'g':
     case 'G':
-        state->history_action_filter = (state->history_action_filter + 1) % 4;
+        state->history_action_filter =
+            (state->history_action_filter + 1) % history_action_filter_count();
         reload_history_with_status(state, "Action filter changed.");
         return;
     case 'd':
@@ -3942,9 +4169,9 @@ static void handle_history_input(shell_state *const state, const uint32_t id)
             return;
         }
         char message[APL_TUI_DIALOG_MESSAGE_MAX];
-        int used =
-            snprintf(message, sizeof(message), "%s\nRecord: %s #%lld\nWhen: %s\n", event.summary,
-                     event.entity_type, (long long)event.entity_id, event.occurred_at);
+        int used = snprintf(
+            message, sizeof(message), "%s\nAction: %s\nRecord: %s #%lld\nWhen: %s\n", event.summary,
+            event.action, event.entity_type, (long long)event.entity_id, event.occurred_at);
         for (size_t index = 0; index < change_count && used > 0 && (size_t)used < sizeof(message);
              ++index) {
             used += snprintf(message + (size_t)used, sizeof(message) - (size_t)used,
@@ -4328,7 +4555,12 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
                     break;
                 }
             }
-            apl_tui_list_set_viewport_rows(&state.list, layout->body.rows);
+            unsigned list_rows =
+                (layout->body.rows > 1) ? layout->body.rows - 1 : layout->body.rows;
+            if (state.section == APL_TUI_SECTION_HISTORY) {
+                list_rows = (layout->body.rows > 4) ? layout->body.rows - 4 : 0;
+            }
+            apl_tui_list_set_viewport_rows(&state.list, list_rows);
             apl_tui_frame_begin(&state.frame);
             draw_screen(&state);
         }

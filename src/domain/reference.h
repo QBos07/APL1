@@ -126,6 +126,7 @@ typedef struct apl_activity_event {
  *  team_id 0 means all teams (an explicit all-team history request). */
 typedef struct apl_activity_filter {
     int64_t team_id;
+    bool include_teamless;
     char action[APL_ACTIVITY_ACTION_MAX];
     char entity_type[APL_ACTIVITY_ENTITY_MAX];
     char from_date[APL_REFERENCE_DATE_MAX];

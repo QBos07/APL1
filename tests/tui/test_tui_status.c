@@ -99,3 +99,21 @@ Test(tui_status, markers_are_distinct_without_color)
     cr_assert_str_eq(apl_tui_status_level_marker(APL_TUI_STATUS_INFO), "[i] ");
     cr_assert_str_eq(apl_tui_status_level_name(APL_TUI_STATUS_ERROR), "error");
 }
+
+Test(tui_status, selected_season_is_shown_next_to_team)
+{
+    apl_tui_status status;
+    apl_tui_status_init(&status);
+    apl_tui_status_set_team(&status, "Ferrari");
+    apl_tui_status_set_season(&status, "2026");
+    apl_tui_status_set_context(&status, "Teams");
+
+    char line[256];
+    (void)apl_tui_status_render(&status, 70, line, sizeof(line));
+    cr_assert_str_eq(line, "Ferrari \xc2\xb7 2026 \xc2\xb7 Teams \xc2\xb7 : commands");
+    cr_assert_eq(apl_tui_status_team_hit_width(&status, 120), strlen("Ferrari"));
+
+    apl_tui_status_clear_season(&status);
+    (void)apl_tui_status_render(&status, 70, line, sizeof(line));
+    cr_assert_str_eq(line, "Ferrari \xc2\xb7 Teams \xc2\xb7 : commands");
+}

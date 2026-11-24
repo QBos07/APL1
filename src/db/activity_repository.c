@@ -221,7 +221,7 @@ apl_status apl_activity_repository_list(apl_db_connection *const connection,
     sqlite3_stmt *statement = nullptr;
     apl_status status = prepare(handle,
                                 "SELECT " EVENT_COLUMNS " FROM activity_events "
-                                "WHERE (?1 = 0 OR team_id = ?1) "
+                                "WHERE (?1 = 0 OR team_id = ?1 OR (?6 = 1 AND team_id IS NULL)) "
                                 "AND (?2 = '' OR action = ?2) "
                                 "AND (?3 = '' OR entity_type = ?3) "
                                 "AND (?4 = '' OR substr(occurred_at, 1, 10) >= ?4) "
@@ -245,6 +245,9 @@ apl_status apl_activity_repository_list(apl_db_connection *const connection,
     }
     if (bind_status == SQLITE_OK) {
         bind_status = sqlite3_bind_text(statement, 5, active_filter->to_date, -1, SQLITE_TRANSIENT);
+    }
+    if (bind_status == SQLITE_OK) {
+        bind_status = sqlite3_bind_int(statement, 6, active_filter->include_teamless ? 1 : 0);
     }
     if (bind_status != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot bind activity filters: %s",

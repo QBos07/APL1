@@ -137,8 +137,8 @@ size_t apl_tui_command_line_render(const apl_tui_command_line *const line, const
     if (line == nullptr || columns == 0) {
         return 0;
     }
-    char rendered[APL_TUI_COMMAND_LINE_TEXT_MAX + APL_TUI_COMMAND_LINE_SUGGESTION_MAX + 8];
-    (void)snprintf(rendered, sizeof(rendered), ":%s%s%s", line->text,
+    char rendered[APL_TUI_COMMAND_LINE_TEXT_MAX + APL_TUI_COMMAND_LINE_SUGGESTION_MAX + 16];
+    (void)snprintf(rendered, sizeof(rendered), ":%s|%s%s", line->text,
                    line->suggestion[0] != '\0' ? "   " : "",
                    line->suggestion[0] != '\0' ? line->suggestion : "");
     (void)snprintf(out, out_size, "%s", rendered);

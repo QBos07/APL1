@@ -216,6 +216,7 @@ target_link_libraries(apl_tui PUBLIC
 add_library(apl_app STATIC
     src/app/activity_service.c
     src/app/app.c
+    src/app/audit.c
     src/app/args.c
     src/app/car_service.c
     src/app/driver_service.c

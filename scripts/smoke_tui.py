@@ -587,8 +587,18 @@ class Smoke:
             self.fail(f"unexpected car rows after smoke run: {cars!r}")
         if memberships != [("2026-01-01", None, "Race seat")]:
             self.fail(f"unexpected membership rows after smoke run: {memberships!r}")
-        expected_team_events = [("team_created",), ("team_created",), ("team_created",)]
-        if activity != expected_team_events:
+        expected_activity = [
+            ("team_created",),
+            ("team_created",),
+            ("team_selected",),
+            ("team_created",),
+            ("team_selected",),
+            ("driver_created",),
+            ("membership_added",),
+            ("season_created",),
+            ("car_created",),
+        ]
+        if activity != expected_activity:
             self.fail(f"unexpected activity rows after smoke run: {activity!r}")
 
         default_database = self.temp_dir / "xdg" / "apl1" / "apl1.sqlite3"
@@ -676,6 +686,12 @@ class Smoke:
         self.wait_for_content("mouse menu dropdown", ("Active team overview",))
         self.send_keys("Escape", "Escape")
         self.log("opened and closed the window menu by mouse")
+
+        columns = self.terminal_columns()
+        self.click_cell(0, columns - 3)
+        self.wait_for_content("window-bar keys button", ("Keyboard and mouse help",))
+        self.send_keys("Escape")
+        self.log("opened contextual keyboard help from the window bar")
 
         self.send_keys("m", "Right", "Return")
         self.wait_for_content("database information dialog", ("Database information",))
@@ -833,8 +849,18 @@ class Smoke:
         self.type_text("history")
         self.send_keys("Return")
         self.wait_for_content(
-            "history view", ("History: active team", "team_created", "Created team 'Ferrari'")
+            "history view",
+            ("History: active team", "team_created", "driver_created", "Created team 'Ferrari'"),
         )
+        self.click_cell(2, 36)
+        self.wait_for_content("history filter changed by mouse", ("Ent:team",))
+        self.click_cell(2, 64)
+        self.wait_for_content("history filter cleared by mouse", ("Ent:all",))
+        self.click_cell(4, 25)
+        self.send_keys("Return")
+        self.wait_for_content("history row mouse detail", ("Activity detail", "car_created"))
+        self.send_keys("Escape")
+        self.log("history filters and first row responded to mouse")
         self.type_text(":")
         self.type_text('driver show "Charles Leclerc"')
         self.send_keys("Return")
@@ -890,7 +916,7 @@ class Smoke:
         rows = self.terminal_rows()
         columns = self.terminal_columns()
         self.click_cell(rows - 1, columns - 3)
-        self.wait_for_content("mouse command prompt", (":   view",))
+        self.wait_for_content("mouse command prompt", (":|   view",))
         self.send_keys("Escape")
         self.log("opened the command prompt from the status hint by mouse")
 

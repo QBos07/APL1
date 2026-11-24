@@ -21,8 +21,10 @@ bar, vertical view tabs, a persistent bottom status bar, a bottom-rail team
 switcher, interactive form/choice dialogs, and an ex-style command line. Teams,
 drivers, dated team memberships, seasons/periods, cars/chassis, and the
 team-scoped activity history are maintained through menus, dialogs, and commands
-that share the same use cases. Team create/rename/archive changes are recorded
-transactionally and remain visible in History. Reference records are never
+that share the same use cases. Team create/rename/archive/selection and
+reference/membership changes are recorded transactionally and remain visible in
+History. Contextual key hints appear in the body footer and the window-bar Keys
+button opens keyboard help. Reference records are never
 seeded or generated. Other sections currently show an honest placeholder until
 their phase lands. The remaining work is divided into small slices in
 [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md).
