@@ -4,7 +4,7 @@
 
 static char ascii_lower(const char value)
 {
-    return (value >= 'A' && value <= 'Z') ? (char)(value - 'A' + 'a') : value;
+    return (char)((value >= 'A' && value <= 'Z') ? (value - 'A' + 'a') : value);
 }
 
 size_t apl_tui_text_append(char *const destination, const size_t capacity, const char *const source)
