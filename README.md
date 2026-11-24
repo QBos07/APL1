@@ -86,10 +86,10 @@ xdotool.
 
 ### Continuous integration
 
-`.github/workflows/ci.yml` and `.gitlab-ci.yml` run the same
-`scripts/check.sh` configure/build/CTest command. They install the documented
-toolchain, keep the build tree for diagnostics, and do not run the interactive
-TUI smoke test.
+`.github/workflows/ci.yml` runs the formatting check, clang-tidy baseline, and
+`scripts/check.sh` with the opt-in TUI smoke test enabled on `ubuntu-26.04`.
+It installs the documented toolchain and uploads build/test/smoke logs as
+artifacts.
 
 Run the application from an interactive terminal with:
 

@@ -15,12 +15,13 @@ concurrency:
 
 jobs:
   check:
-    name: Configure, build, and test
+    name: Format, analyze, build, and test
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
-      # Keep the build tree so logs can be uploaded when the check fails.
+      # Keep the build tree so logs can be uploaded when a step fails.
       APL1_CHECK_BUILD_DIR: ci-build
+      APL1_CHECK_CMAKE_ARGS: -DAPL1_ENABLE_TUI_SMOKE=ON
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -31,19 +32,35 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential \
             ca-certificates \
+            clang-format \
+            clang-tidy \
             cmake \
             git \
             libcriterion-dev \
             libnotcurses-dev \
             libsqlite3-dev \
-            pkg-config
+            pkg-config \
+            python3 \
+            xfonts-base \
+            xterm \
+            xdotool \
+            xvfb
 
       - name: Show toolchain versions
         run: |
           cmake --version
           gcc --version | head -1
+          clang-format --version
+          clang-tidy --version | head -1
+          python3 --version
 
-      - name: Run clean check
+      - name: Check formatting
+        run: scripts/check-format.sh
+
+      - name: Static analysis
+        run: scripts/check-static.sh
+
+      - name: Configure, build, and test (including TUI smoke)
         run: scripts/check.sh
 
       - name: Upload check logs
@@ -54,5 +71,6 @@ jobs:
           path: |
             ci-build/Testing/Temporary/
             ci-build/CMakeFiles/CMakeConfigureLog.yaml
+            ci-build/apl1-tui-smoke.log
           if-no-files-found: ignore
           retention-days: 7

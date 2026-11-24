@@ -29,8 +29,9 @@
 - Formatted the maintained C sources, headers, and tests in a formatting-only
   change (37 files).
 - Added `scripts/check-format.sh` (read-only, `--dry-run --Werror`) and
-  `scripts/format.sh` (rewrite). Neither is part of `scripts/check.sh`, and
-  clang-format is documented as an explicit optional dependency.
+  `scripts/format.sh` (rewrite). Neither is part of `scripts/check.sh`;
+  clang-format is documented as an explicit dependency and the GitHub workflow
+  runs the check as a separate step.
 - The configuration targets clang-format 21; exact output can differ across
   major versions, which is documented in CONTRIBUTING.
 

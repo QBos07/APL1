@@ -49,7 +49,7 @@ Phase 0 and Phase 1 are implemented, but the implementation review found reprodu
 
 - [x] **FH-01 Reproducible TUI smoke harness.** Replace the temporary pty responder with a checked-in script using tmux or a fuller terminal emulator. [Work item](work-items/foundation-hardening/FH-01-reproducible-tui-smoke.md)
 - [x] **FH-03 Clean check script.** Automate fresh configure → build → CTest. [Work item](work-items/foundation-hardening/FH-03-clean-check-script.md)
-- [x] **FH-04 CI.** Run the same check script in GitLab CI and GitHub Actions. [Work item](work-items/foundation-hardening/FH-04-gitlab-ci.md)
+- [x] **FH-04 CI.** Run formatting, static analysis, build/tests, and the TUI smoke test in GitHub Actions. [Work item](work-items/foundation-hardening/FH-04-continuous-integration.md)
 - [x] **FH-05 Test-support target.** Remove integration-test headers from `apl_db`'s public include paths. [Work item](work-items/foundation-hardening/FH-05-test-support-library.md)
 - [x] **FH-06 Temporary test directories.** Honor `TMPDIR` and clean nested test artifacts safely. [Work item](work-items/foundation-hardening/FH-06-test-temp-directories.md)
 - [ ] **2.0.1 TUI plane/resize decision.** Decide the screen layout and resize/re-render model before building Phase 2 screens. [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)

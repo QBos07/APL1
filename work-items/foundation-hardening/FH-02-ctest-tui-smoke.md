@@ -35,7 +35,8 @@
   `apl1_tui_tests`; the regular suite remains headless.
 - `-DAPL1_ENABLE_TUI_SMOKE=ON` registers `apl1_tui_smoke`; it passes under
   CTest with the same assertions as the direct script run.
-- The opt-in test is not added to the GitLab CI job.
+- The GitHub CI workflow installs Xvfb, xterm, and xdotool and enables this
+  opt-in test, so the smoke check runs headlessly there as well.
 
 ## Dependencies / boundaries
 

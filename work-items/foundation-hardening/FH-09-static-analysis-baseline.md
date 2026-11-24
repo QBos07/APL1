@@ -31,7 +31,8 @@
   CERT aliases. No broad “ignore all” suppression is used.
 - Added `scripts/check-static.sh`, which configures a compile-commands database
   (`$TMPDIR/apl1-tidy-build` by default) and analyzes production `src/*.c`
-  files. It is an optional local check, not a build dependency or CI gate.
+  files. It is not a build dependency; the GitHub workflow runs it as a
+  separate step.
 
 ## Verification record (2026-11-24)
 

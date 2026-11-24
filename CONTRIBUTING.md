@@ -81,7 +81,7 @@ checks added during foundation hardening.
 - `scripts/check.sh` is the one-command clean check (fresh temporary build
   directory, configure with tests, build, CTest). It never deletes an existing
   build directory; `APL1_CHECK_BUILD_DIR` opts into reusing a specific one.
-  CI runs this same script via `.github/workflows/ci.yml` and `.gitlab-ci.yml`.
+  CI runs this same script via `.github/workflows/ci.yml`.
 - The interactive TUI smoke test (`scripts/smoke_tui.py`) uses xterm on a
   private Xvfb display because Notcurses interrogates the terminal palette and
   a detached tmux/screen server does not answer those queries. It is opt-in at
@@ -101,16 +101,16 @@ checks added during foundation hardening.
   clang-format 21; other major versions may report output differences, so the
   check uses whatever `clang-format` is installed.
 - `scripts/check-format.sh` checks without modifying files. `scripts/format.sh`
-  rewrites them. Both are explicit developer tools: clang-format is not a
-  normal build dependency and is not required by `scripts/check.sh` or CI.
+  rewrites them. clang-format is not a normal build dependency; CI runs the
+  check as a separate step, and `scripts/check.sh` does not require it.
 - Keep formatting-only changes separate from behavior changes.
 
 ## Static analysis
 
-- `scripts/check-static.sh` is an optional clang-tidy baseline over production
-  sources in `src/`. It configures a compile-commands database (default build
-  directory `$TMPDIR/apl1-tidy-build`) and uses the checked-in `.clang-tidy`.
-  clang-tidy is not a build dependency or a CI gate.
+- `scripts/check-static.sh` is an optional local check and also runs as a
+  separate CI step. It analyzes production sources in `src/`, configures a
+  compile-commands database (default build directory `$TMPDIR/apl1-tidy-build`),
+  and uses the checked-in `.clang-tidy`. clang-tidy is not a build dependency.
 - The configuration limits checks to high-signal families and excludes noisy
   standard-C false positives documented in the FH-09 work item. Findings should
   be fixed or handled with a narrow, explained exclusion rather than a broad

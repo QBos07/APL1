@@ -109,6 +109,7 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/smoke_tui.py
                 --app $<TARGET_FILE:apl1>
                 --timeout 20
+                --output ${CMAKE_CURRENT_BINARY_DIR}/apl1-tui-smoke.log
         )
 
         set_tests_properties(apl1_tui_smoke PROPERTIES
