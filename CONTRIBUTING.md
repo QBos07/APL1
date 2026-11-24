@@ -81,6 +81,7 @@ checks added during foundation hardening.
 - `scripts/check.sh` is the one-command clean check (fresh temporary build
   directory, configure with tests, build, CTest). It never deletes an existing
   build directory; `APL1_CHECK_BUILD_DIR` opts into reusing a specific one.
+  CI runs this same script via `.github/workflows/ci.yml` and `.gitlab-ci.yml`.
 - The interactive TUI smoke test (`scripts/smoke_tui.py`) uses xterm on a
   private Xvfb display because Notcurses interrogates the terminal palette and
   a detached tmux/screen server does not answer those queries. It is opt-in at

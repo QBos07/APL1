@@ -84,6 +84,13 @@ ctest --test-dir build -R apl1_tui_smoke --output-on-failure
 The regular test suite stays headless and does not require Xvfb, xterm, or
 xdotool.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` and `.gitlab-ci.yml` run the same
+`scripts/check.sh` configure/build/CTest command. They install the documented
+toolchain, keep the build tree for diagnostics, and do not run the interactive
+TUI smoke test.
+
 Run the application from an interactive terminal with:
 
 ```sh
