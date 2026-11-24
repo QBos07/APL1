@@ -67,6 +67,7 @@ if(BUILD_TESTING)
         tests/integration/test_cli.c
         tests/integration/test_settings_repository.c
         tests/integration/test_team_repository.c
+        tests/integration/test_team_service.c
         tests/integration/test_transaction.c
     )
 
@@ -176,6 +177,7 @@ add_library(apl_app STATIC
     src/app/app.c
     src/app/args.c
     src/app/exit_code.c
+    src/app/team_service.c
 )
 
 target_include_directories(apl_app PUBLIC src)
