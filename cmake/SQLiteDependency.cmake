@@ -14,6 +14,13 @@ option(USE_BUNDLED_SQLITE
 
 if(NOT USE_BUNDLED_SQLITE)
     find_package(SQLite3 QUIET)
+
+    # CMake 4.4 renamed the imported target to SQLite3::SQLite3 and kept
+    # SQLite::SQLite3 as a deprecated alias. Normalize older find modules so
+    # the rest of the project can always link the canonical name.
+    if(NOT TARGET SQLite3::SQLite3 AND TARGET SQLite::SQLite3)
+        add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+    endif()
 endif()
 
 if(SQLite3_FOUND AND NOT USE_BUNDLED_SQLITE)
@@ -94,6 +101,6 @@ else()
     # Common target
     # --------------------------------------------------
 
-    add_library(SQLite::SQLite3 ALIAS sqlite3_vendor)
+    add_library(SQLite3::SQLite3 ALIAS sqlite3_vendor)
 
 endif()

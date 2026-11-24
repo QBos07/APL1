@@ -47,7 +47,7 @@ if(BUILD_TESTING)
     target_link_libraries(apl_test_support PRIVATE
         apl_core
         apl_db
-        SQLite::SQLite3
+        SQLite3::SQLite3
     )
 
     add_executable(apl1_tests
@@ -81,7 +81,7 @@ if(BUILD_TESTING)
         apl_app
         apl_test_support
         Criterion::Criterion
-        SQLite::SQLite3
+        SQLite3::SQLite3
     )
 
     add_test(
@@ -171,7 +171,7 @@ target_include_directories(apl_db PUBLIC src)
 target_link_libraries(apl_db PUBLIC
     apl_core
     apl_domain
-    SQLite::SQLite3
+    SQLite3::SQLite3
 )
 
 add_library(apl_tui STATIC
