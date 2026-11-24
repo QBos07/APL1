@@ -67,7 +67,7 @@ void apl_app_args_print_usage(FILE *const stream, const char *const program_name
         return;
     }
     const char *const name =
-            (program_name != nullptr && program_name[0] != '\0') ? program_name : "apl1";
+        (program_name != nullptr && program_name[0] != '\0') ? program_name : "apl1";
     (void)fprintf(stream,
                   "Usage: %s [--database <path>] [--help]\n"
                   "\n"

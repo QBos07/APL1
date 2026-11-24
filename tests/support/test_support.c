@@ -39,15 +39,15 @@ static apl_status copy_path(char *const out, const size_t out_size, const char *
     }
     const int written = snprintf(out, out_size, "%s", source);
     if (written < 0 || (size_t)written >= out_size) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
-                      "temporary path does not fit in %zu bytes", out_size);
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "temporary path does not fit in %zu bytes",
+                      out_size);
         return APL_ERR_INVALID_ARGUMENT;
     }
     return APL_OK;
 }
 
-apl_status apl_test_temp_base_ex(const char *const tmpdir, char *const out,
-                                 const size_t out_size, apl_error *const error)
+apl_status apl_test_temp_base_ex(const char *const tmpdir, char *const out, const size_t out_size,
+                                 apl_error *const error)
 {
     if (tmpdir != nullptr && is_absolute_path(tmpdir) && is_writable_directory(tmpdir)) {
         return copy_path(out, out_size, tmpdir, error);
@@ -75,8 +75,8 @@ apl_status apl_test_temp_dir_in(const char *const base, char *const buf, const s
     }
 
     char template_path[APL_TEST_PATH_MAX];
-    const int written = snprintf(template_path, sizeof(template_path), "%s%s", base,
-                                 APL_TEST_DIR_TEMPLATE);
+    const int written =
+        snprintf(template_path, sizeof(template_path), "%s%s", base, APL_TEST_DIR_TEMPLATE);
     if (written < 0 || (size_t)written >= sizeof(template_path)) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
                       "temporary-directory template does not fit in %zu bytes",
@@ -90,8 +90,8 @@ apl_status apl_test_temp_dir_in(const char *const base, char *const buf, const s
     }
 
     if (mkdtemp(template_path) == nullptr) {
-        apl_error_set(error, APL_ERR_IO, "cannot create temporary directory beneath '%s': %s",
-                      base, strerror(errno));
+        apl_error_set(error, APL_ERR_IO, "cannot create temporary directory beneath '%s': %s", base,
+                      strerror(errno));
         return APL_ERR_IO;
     }
 
@@ -165,8 +165,7 @@ static apl_status remove_tree(const char *const path, apl_error *const error)
     }
 
     if (rmdir(path) != 0) {
-        apl_error_set(error, APL_ERR_IO, "cannot remove directory '%s': %s", path,
-                      strerror(errno));
+        apl_error_set(error, APL_ERR_IO, "cannot remove directory '%s': %s", path, strerror(errno));
         return APL_ERR_IO;
     }
     return APL_OK;

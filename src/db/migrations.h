@@ -42,8 +42,7 @@ apl_status apl_db_migrate(apl_db_connection *connection, apl_error *error);
  *  apl_db_migrate; tests use this entry point to exercise the runner with
  *  their own (including deliberately failing) lists. */
 apl_status apl_db_migrations_run_list(apl_db_connection *connection,
-                                      const apl_db_migration *migrations,
-                                      size_t count,
+                                      const apl_db_migration *migrations, size_t count,
                                       apl_error *error);
 
 /** Report the current schema version (0 for a fresh, unmigrated database). */

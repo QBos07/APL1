@@ -1,0 +1,45 @@
+---
+# Project formatting base for apl1 (FH-08).
+#
+# The style follows the existing code: 4-space indent, 100-column limit,
+# function braces on their own line, control-statement braces attached, and
+# right-aligned pointers (`char *const`). Developed with clang-format 21; the
+# configuration uses stable options, but exact output can differ across major
+# clang-format releases, so the check uses the installed version.
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+DerivePointerAlignment: false
+IndentCaseLabels: false
+SortIncludes: Never
+AlignAfterOpenBracket: Align
+SpaceBeforeParens: ControlStatements
+MaxEmptyLinesToKeep: 1
+BreakStringLiterals: false

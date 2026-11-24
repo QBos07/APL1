@@ -56,8 +56,9 @@ Test(db_migration_rollback, failing_migration_leaves_no_partial_schema_or_versio
     cr_assert_eq(version, 1);
 
     int version_rows = -1;
-    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;",
-                           &version_rows), APL_OK);
+    cr_assert_eq(
+        query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows),
+        APL_OK);
     cr_assert_eq(version_rows, 1);
 
     /* The failed migration's schema change is gone and its version is not recorded. */
@@ -65,13 +66,15 @@ Test(db_migration_rollback, failing_migration_leaves_no_partial_schema_or_versio
     cr_assert_eq(query_int(&connection,
                            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
                            " AND name = 'apl_roll_second';",
-                           &partial_tables), APL_OK);
+                           &partial_tables),
+                 APL_OK);
     cr_assert_eq(partial_tables, 0);
 
     int recorded_second = -1;
     cr_assert_eq(query_int(&connection,
                            "SELECT COUNT(*) FROM apl_schema_migrations WHERE version = 2;",
-                           &recorded_second), APL_OK);
+                           &recorded_second),
+                 APL_OK);
     cr_assert_eq(recorded_second, 0);
 
     apl_db_close(&connection);
@@ -112,15 +115,17 @@ Test(db_migration_rollback, corrected_migration_recovers_on_the_same_database)
     cr_assert_eq(version, 2);
 
     int version_rows = -1;
-    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;",
-                           &version_rows), APL_OK);
+    cr_assert_eq(
+        query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows),
+        APL_OK);
     cr_assert_eq(version_rows, 2);
 
     int second_tables = -1;
     cr_assert_eq(query_int(&connection,
                            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
                            " AND name = 'apl_roll_second';",
-                           &second_tables), APL_OK);
+                           &second_tables),
+                 APL_OK);
     cr_assert_eq(second_tables, 1);
 
     apl_db_close(&connection);

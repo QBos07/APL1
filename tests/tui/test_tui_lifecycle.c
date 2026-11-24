@@ -45,6 +45,5 @@ Test(tui_lifecycle, failed_start_needs_no_stop)
     }
 
     cr_assert_null(tui.notcurses);
-    cr_assert_neq(strstr(apl_error_message(&err), "Notcurses initialization failed"),
-                  nullptr);
+    cr_assert_neq(strstr(apl_error_message(&err), "Notcurses initialization failed"), nullptr);
 }

@@ -33,15 +33,13 @@ constexpr size_t APL_TEST_DIR_MAX = 2048;
 /** Resolve the temporary-directory base from an explicit `TMPDIR` value
  *  (testable variant; never reads the process environment). Always writes an
  *  absolute, usable base on success. */
-apl_status apl_test_temp_base_ex(const char *tmpdir, char *out, size_t out_size,
-                                 apl_error *error);
+apl_status apl_test_temp_base_ex(const char *tmpdir, char *out, size_t out_size, apl_error *error);
 
 /** Create a unique directory beneath `base`; `buf` receives the path.
  *
  * `base` must be an absolute path naming an existing directory. The result is
  * NUL-terminated and fits in `buf`. */
-apl_status apl_test_temp_dir_in(const char *base, char *buf, size_t buf_size,
-                                apl_error *error);
+apl_status apl_test_temp_dir_in(const char *base, char *buf, size_t buf_size, apl_error *error);
 
 /** Create a unique directory beneath the configured base (see the policy
  *  above). `buf` must be at least `APL_TEST_DIR_MAX` bytes for long TMPDIR

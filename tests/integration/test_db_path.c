@@ -16,7 +16,8 @@ Test(db_path, explicit_override_wins)
     apl_error_init(&err);
 
     cr_assert_eq(apl_db_resolve_path_ex("/tmp/explicit/custom.sqlite3", "/tmp/xdg", "/home/user",
-                                        resolved, sizeof(resolved), &err), APL_OK);
+                                        resolved, sizeof(resolved), &err),
+                 APL_OK);
     cr_assert_str_eq(resolved, "/tmp/explicit/custom.sqlite3");
 }
 
@@ -27,8 +28,9 @@ Test(db_path, absolute_xdg_data_home_is_used)
     apl_error err;
     apl_error_init(&err);
 
-    cr_assert_eq(apl_db_resolve_path_ex(nullptr, "/data", "/home/user", resolved, sizeof(resolved),
-                                        &err), APL_OK);
+    cr_assert_eq(
+        apl_db_resolve_path_ex(nullptr, "/data", "/home/user", resolved, sizeof(resolved), &err),
+        APL_OK);
     cr_assert_str_eq(resolved, "/data/apl1/apl1.sqlite3");
 }
 
@@ -41,7 +43,8 @@ Test(db_path, relative_xdg_falls_back_to_home)
 
     /* XDG spec violation: a relative XDG_DATA_HOME is ignored. */
     cr_assert_eq(apl_db_resolve_path_ex(nullptr, "relative/data", "/home/user", resolved,
-                                        sizeof(resolved), &err), APL_OK);
+                                        sizeof(resolved), &err),
+                 APL_OK);
     cr_assert_str_eq(resolved, "/home/user/.local/share/apl1/apl1.sqlite3");
 }
 
@@ -52,8 +55,9 @@ Test(db_path, home_fallback_without_xdg)
     apl_error err;
     apl_error_init(&err);
 
-    cr_assert_eq(apl_db_resolve_path_ex(nullptr, nullptr, "/home/user", resolved, sizeof(resolved),
-                                        &err), APL_OK);
+    cr_assert_eq(
+        apl_db_resolve_path_ex(nullptr, nullptr, "/home/user", resolved, sizeof(resolved), &err),
+        APL_OK);
     cr_assert_str_eq(resolved, "/home/user/.local/share/apl1/apl1.sqlite3");
 }
 
@@ -77,8 +81,9 @@ Test(db_path, missing_environment_fails_instead_of_creating_cwd_database)
     apl_error err;
     apl_error_init(&err);
 
-    cr_assert_eq(apl_db_resolve_path_ex(nullptr, nullptr, nullptr, resolved, sizeof(resolved), &err),
-                 APL_ERR_NOT_FOUND);
+    cr_assert_eq(
+        apl_db_resolve_path_ex(nullptr, nullptr, nullptr, resolved, sizeof(resolved), &err),
+        APL_ERR_NOT_FOUND);
 }
 
 Test(db_path, too_small_buffer_is_rejected_not_truncated)
@@ -89,7 +94,8 @@ Test(db_path, too_small_buffer_is_rejected_not_truncated)
     apl_error_init(&err);
 
     cr_assert_eq(apl_db_resolve_path_ex("/tmp/explicit/custom.sqlite3", nullptr, nullptr, tiny,
-                                        sizeof(tiny), &err), APL_ERR_INVALID_ARGUMENT);
+                                        sizeof(tiny), &err),
+                 APL_ERR_INVALID_ARGUMENT);
 }
 
 Test(db_path, ensure_parent_directory_creates_missing_directories)

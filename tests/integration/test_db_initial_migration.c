@@ -53,8 +53,9 @@ Test(db_initial_migration, new_database_is_marked_at_initial_version)
     cr_assert_eq(version, 1);
 
     int version_rows = -1;
-    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;",
-                           &version_rows), APL_OK);
+    cr_assert_eq(
+        query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows),
+        APL_OK);
     cr_assert_eq(version_rows, 1);
 
     apl_db_close(&connection);
@@ -74,16 +75,17 @@ Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
 
     /* Only the migration infrastructure table exists. */
     int table_count = -1;
-    cr_assert_eq(query_int(&connection,
-                           "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table';",
-                           &table_count), APL_OK);
+    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table';",
+                           &table_count),
+                 APL_OK);
     cr_assert_eq(table_count, 1);
 
     int domain_tables = -1;
     cr_assert_eq(query_int(&connection,
                            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
                            " AND name NOT IN ('apl_schema_migrations');",
-                           &domain_tables), APL_OK);
+                           &domain_tables),
+                 APL_OK);
     cr_assert_eq(domain_tables, 0);
 
     apl_db_close(&connection);
@@ -102,8 +104,9 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
     cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
 
     int version_rows_before = -1;
-    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;",
-                           &version_rows_before), APL_OK);
+    cr_assert_eq(
+        query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows_before),
+        APL_OK);
 
     cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
 
@@ -112,8 +115,9 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
     cr_assert_eq(version, 1);
 
     int version_rows_after = -1;
-    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;",
-                           &version_rows_after), APL_OK);
+    cr_assert_eq(
+        query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows_after),
+        APL_OK);
     cr_assert_eq(version_rows_after, version_rows_before);
 
     apl_db_close(&connection);

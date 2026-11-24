@@ -32,18 +32,12 @@ constexpr size_t APL_DB_PATH_MAX = 4096;
  *
  * `out` must be at least APL_DB_PATH_MAX bytes; the result is always
  * NUL-terminated. On failure `out` is not written. */
-apl_status apl_db_resolve_path_ex(const char *explicit_path,
-                                  const char *xdg_data_home,
-                                  const char *home,
-                                  char *out,
-                                  size_t out_size,
-                                  apl_error *error);
+apl_status apl_db_resolve_path_ex(const char *explicit_path, const char *xdg_data_home,
+                                  const char *home, char *out, size_t out_size, apl_error *error);
 
 /** Production convenience wrapper: resolves per the policy above using
  *  XDG_DATA_HOME and HOME from the environment. */
-apl_status apl_db_resolve_path(const char *explicit_path,
-                               char *out,
-                               size_t out_size,
+apl_status apl_db_resolve_path(const char *explicit_path, char *out, size_t out_size,
                                apl_error *error);
 
 /** Create missing parent directories of `path` (mkdir -p behavior for every

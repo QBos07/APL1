@@ -52,12 +52,13 @@ Test(db_connection, open_creates_usable_database)
 
     char *sqlite_error = nullptr;
     sqlite3 *const handle = apl_db_handle(&connection);
-    cr_assert_eq(sqlite3_exec(handle,
-                              "CREATE TABLE t (x INTEGER); INSERT INTO t (x) VALUES (42);",
-                              nullptr, nullptr, &sqlite_error), SQLITE_OK);
+    cr_assert_eq(sqlite3_exec(handle, "CREATE TABLE t (x INTEGER); INSERT INTO t (x) VALUES (42);",
+                              nullptr, nullptr, &sqlite_error),
+                 SQLITE_OK);
     int value = -1;
-    cr_assert_eq(sqlite3_exec(handle, "SELECT x FROM t;", first_int_callback, &value,
-                              &sqlite_error), SQLITE_OK);
+    cr_assert_eq(
+        sqlite3_exec(handle, "SELECT x FROM t;", first_int_callback, &value, &sqlite_error),
+        SQLITE_OK);
     cr_assert_eq(value, 42);
 
     apl_db_close(&connection);
@@ -79,14 +80,16 @@ Test(db_connection, reopen_persists_data)
     cr_assert_eq(apl_db_open(&connection, path, &err), APL_OK);
     char *sqlite_error = nullptr;
     cr_assert_eq(sqlite3_exec(apl_db_handle(&connection),
-                              "CREATE TABLE t (x INTEGER); INSERT INTO t (x) VALUES (7);",
-                              nullptr, nullptr, &sqlite_error), SQLITE_OK);
+                              "CREATE TABLE t (x INTEGER); INSERT INTO t (x) VALUES (7);", nullptr,
+                              nullptr, &sqlite_error),
+                 SQLITE_OK);
     apl_db_close(&connection);
 
     cr_assert_eq(apl_db_open(&connection, path, &err), APL_OK);
     int value = -1;
-    cr_assert_eq(sqlite3_exec(apl_db_handle(&connection), "SELECT x FROM t;",
-                              first_int_callback, &value, &sqlite_error), SQLITE_OK);
+    cr_assert_eq(sqlite3_exec(apl_db_handle(&connection), "SELECT x FROM t;", first_int_callback,
+                              &value, &sqlite_error),
+                 SQLITE_OK);
     cr_assert_eq(value, 7);
 
     apl_db_close(&connection);

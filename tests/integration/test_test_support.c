@@ -57,7 +57,10 @@ Test(test_support, unset_or_invalid_tmpdir_falls_back_to_tmp)
 
     char base[APL_TEST_PATH_MAX];
     const char *const invalid[] = {
-            nullptr, "", "relative/path", "/definitely/not/a/real/tmpdir-for-apl1-tests",
+        nullptr,
+        "",
+        "relative/path",
+        "/definitely/not/a/real/tmpdir-for-apl1-tests",
     };
     for (size_t index = 0; index < sizeof(invalid) / sizeof(invalid[0]); ++index) {
         cr_assert_eq(apl_test_temp_base_ex(invalid[index], base, sizeof(base), &err), APL_OK);

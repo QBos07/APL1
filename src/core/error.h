@@ -18,20 +18,20 @@
 /** Stable application-wide status codes. Values are part of the public
  *  contract: append new codes at the end and never renumber. */
 typedef enum apl_status {
-    APL_OK = 0,                 /**< Success. */
-    APL_ERR_UNKNOWN = 1,        /**< Failure without a more specific cause. */
+    APL_OK = 0,                   /**< Success. */
+    APL_ERR_UNKNOWN = 1,          /**< Failure without a more specific cause. */
     APL_ERR_INVALID_ARGUMENT = 2, /**< Caller passed an invalid value. */
-    APL_ERR_NOT_FOUND = 3,      /**< A requested record/path does not exist. */
-    APL_ERR_IO = 4,             /**< Filesystem/path failure (permissions, missing directory). */
-    APL_ERR_OUT_OF_MEMORY = 5,  /**< Allocation failed. */
-    APL_ERR_DB_OPEN = 6,        /**< SQLite connection could not be opened/initialized. */
-    APL_ERR_DB_QUERY = 7,       /**< SQLite statement execution failed. */
-    APL_ERR_DB_FOREIGN_KEYS = 8,/**< Foreign-key enforcement could not be enabled/verified. */
-    APL_ERR_DB_MIGRATION = 9,   /**< A schema migration failed or the list is invalid. */
+    APL_ERR_NOT_FOUND = 3,        /**< A requested record/path does not exist. */
+    APL_ERR_IO = 4,               /**< Filesystem/path failure (permissions, missing directory). */
+    APL_ERR_OUT_OF_MEMORY = 5,    /**< Allocation failed. */
+    APL_ERR_DB_OPEN = 6,          /**< SQLite connection could not be opened/initialized. */
+    APL_ERR_DB_QUERY = 7,         /**< SQLite statement execution failed. */
+    APL_ERR_DB_FOREIGN_KEYS = 8,  /**< Foreign-key enforcement could not be enabled/verified. */
+    APL_ERR_DB_MIGRATION = 9,     /**< A schema migration failed or the list is invalid. */
     APL_ERR_DB_SCHEMA_TOO_NEW = 10, /**< Database was written by a newer application. */
-    APL_ERR_TUI_INIT = 11,      /**< Notcurses initialization failed. */
-    APL_ERR_TUI_RENDER = 12,    /**< A screen frame could not be drawn. */
-    APL_ERR_TUI_INPUT = 13,     /**< Terminal input became unavailable. */
+    APL_ERR_TUI_INIT = 11,          /**< Notcurses initialization failed. */
+    APL_ERR_TUI_RENDER = 12,        /**< A screen frame could not be drawn. */
+    APL_ERR_TUI_INPUT = 13,         /**< Terminal input became unavailable. */
 } apl_status;
 
 /** Maximum length of an apl_error message, including the terminating NUL. */

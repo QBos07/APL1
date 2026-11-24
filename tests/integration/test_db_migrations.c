@@ -72,8 +72,11 @@ Test(db_migrations, first_run_creates_version_table_and_reaches_latest)
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
     cr_assert_eq(version, 2);
     expect_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", 2);
-    expect_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations WHERE applied_at IS NOT NULL;", 2);
-    expect_int(&connection, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'probe%';", 2);
+    expect_int(&connection,
+               "SELECT COUNT(*) FROM apl_schema_migrations WHERE applied_at IS NOT NULL;", 2);
+    expect_int(&connection,
+               "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'probe%';",
+               2);
 
     apl_db_close(&connection);
     apl_error_init(&err);
@@ -96,7 +99,8 @@ Test(db_migrations, repeated_run_is_a_noop)
 
     int tables_before = 0;
     cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table';",
-                           &tables_before), APL_OK);
+                           &tables_before),
+                 APL_OK);
 
     /* Second run: schema version, schema, and records must be unchanged. */
     cr_assert_eq(apl_db_migrations_run_list(&connection, list, 1, &err), APL_OK);
@@ -107,7 +111,8 @@ Test(db_migrations, repeated_run_is_a_noop)
 
     int tables_after = 0;
     cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table';",
-                           &tables_after), APL_OK);
+                           &tables_after),
+                 APL_OK);
     cr_assert_eq(tables_after, tables_before);
 
     apl_db_close(&connection);
@@ -134,12 +139,11 @@ Test(db_migrations, newer_database_is_reported_and_not_modified)
     cr_assert_eq(sqlite3_exec(apl_db_handle(&connection),
                               "INSERT INTO apl_schema_migrations (version, applied_at)"
                               " VALUES (99, '2030-01-01T00:00:00.000Z');",
-                              nullptr, nullptr, &sqlite_error), SQLITE_OK);
+                              nullptr, nullptr, &sqlite_error),
+                 SQLITE_OK);
 
-    cr_assert_eq(apl_db_migrations_run_list(&connection, list, 1, &err),
-                 APL_ERR_DB_SCHEMA_TOO_NEW);
-    cr_assert_neq(strstr(apl_error_message(&err), "newer than this application supports"),
-                  nullptr);
+    cr_assert_eq(apl_db_migrations_run_list(&connection, list, 1, &err), APL_ERR_DB_SCHEMA_TOO_NEW);
+    cr_assert_neq(strstr(apl_error_message(&err), "newer than this application supports"), nullptr);
 
     /* Only the two pre-existing version rows exist; nothing else was touched. */
     expect_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", 2);

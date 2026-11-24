@@ -44,8 +44,8 @@ Test(args, database_option_equals_form_is_accepted)
 
 Test(args, last_database_option_wins)
 {
-    char *const argv[] = {"apl1", "--database", "/tmp/one.sqlite3", "--database",
-                          "/tmp/two.sqlite3", nullptr};
+    char *const argv[] = {"apl1",       "--database",       "/tmp/one.sqlite3",
+                          "--database", "/tmp/two.sqlite3", nullptr};
 
     apl_app_args args;
     apl_error err;

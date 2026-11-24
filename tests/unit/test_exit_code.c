@@ -23,9 +23,10 @@ Test(exit_code, terminal_failures_are_distinct)
 Test(exit_code, application_and_database_failures_are_runtime_failures)
 {
     const apl_status statuses[] = {
-            APL_ERR_UNKNOWN,        APL_ERR_IO,          APL_ERR_OUT_OF_MEMORY,
-            APL_ERR_DB_OPEN,        APL_ERR_DB_QUERY,    APL_ERR_DB_FOREIGN_KEYS,
-            APL_ERR_DB_MIGRATION,   APL_ERR_DB_SCHEMA_TOO_NEW,
+        APL_ERR_UNKNOWN,       APL_ERR_IO,
+        APL_ERR_OUT_OF_MEMORY, APL_ERR_DB_OPEN,
+        APL_ERR_DB_QUERY,      APL_ERR_DB_FOREIGN_KEYS,
+        APL_ERR_DB_MIGRATION,  APL_ERR_DB_SCHEMA_TOO_NEW,
     };
     for (size_t index = 0; index < sizeof(statuses) / sizeof(statuses[0]); ++index) {
         cr_assert_eq(apl_exit_code_for_status(statuses[index]), APL_EXIT_APPLICATION_FAILURE);

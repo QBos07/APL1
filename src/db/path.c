@@ -28,11 +28,8 @@ static apl_status join_path(char *const out, const size_t out_size, const char *
     return APL_OK;
 }
 
-apl_status apl_db_resolve_path_ex(const char *const explicit_path,
-                                  const char *const xdg_data_home,
-                                  const char *const home,
-                                  char *const out,
-                                  const size_t out_size,
+apl_status apl_db_resolve_path_ex(const char *const explicit_path, const char *const xdg_data_home,
+                                  const char *const home, char *const out, const size_t out_size,
                                   apl_error *const error)
 {
     if (out == nullptr || out_size < 2) {
@@ -59,8 +56,8 @@ apl_status apl_db_resolve_path_ex(const char *const explicit_path,
     return APL_ERR_NOT_FOUND;
 }
 
-apl_status apl_db_resolve_path(const char *const explicit_path, char *const out, const size_t out_size,
-                               apl_error *const error)
+apl_status apl_db_resolve_path(const char *const explicit_path, char *const out,
+                               const size_t out_size, apl_error *const error)
 {
     const char *const xdg = getenv("XDG_DATA_HOME");
     const char *const home = getenv("HOME");

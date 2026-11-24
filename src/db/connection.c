@@ -10,7 +10,8 @@
 static apl_status enable_foreign_keys(sqlite3 *const handle, apl_error *const error)
 {
     char *sqlite_error = nullptr;
-    if (sqlite3_exec(handle, "PRAGMA foreign_keys = ON;", nullptr, nullptr, &sqlite_error) != SQLITE_OK) {
+    if (sqlite3_exec(handle, "PRAGMA foreign_keys = ON;", nullptr, nullptr, &sqlite_error) !=
+        SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_FOREIGN_KEYS, "cannot enable foreign keys: %s",
                       (sqlite_error != nullptr) ? sqlite_error : "unknown error");
         sqlite3_free(sqlite_error);
@@ -19,9 +20,10 @@ static apl_status enable_foreign_keys(sqlite3 *const handle, apl_error *const er
     sqlite3_free(sqlite_error);
 
     sqlite3_stmt *verification = nullptr;
-    if (sqlite3_prepare_v2(handle, "PRAGMA foreign_keys;", -1, &verification, nullptr) != SQLITE_OK) {
-        apl_error_set(error, APL_ERR_DB_FOREIGN_KEYS,
-                      "cannot verify foreign-key enforcement: %s", sqlite3_errmsg(handle));
+    if (sqlite3_prepare_v2(handle, "PRAGMA foreign_keys;", -1, &verification, nullptr) !=
+        SQLITE_OK) {
+        apl_error_set(error, APL_ERR_DB_FOREIGN_KEYS, "cannot verify foreign-key enforcement: %s",
+                      sqlite3_errmsg(handle));
         return APL_ERR_DB_FOREIGN_KEYS;
     }
 
@@ -60,9 +62,9 @@ apl_status apl_db_open(apl_db_connection *const connection, const char *const pa
     if (result != SQLITE_OK) {
         /* Capture the message before releasing the (possibly non-nullptr) handle. */
         const char *sqlite_message =
-                (handle != nullptr) ? sqlite3_errmsg(handle) : sqlite3_errstr(result);
-        apl_error_set(error, APL_ERR_DB_OPEN, "cannot open database '%s': %s",
-                      path, (sqlite_message != nullptr) ? sqlite_message : "unknown error");
+            (handle != nullptr) ? sqlite3_errmsg(handle) : sqlite3_errstr(result);
+        apl_error_set(error, APL_ERR_DB_OPEN, "cannot open database '%s': %s", path,
+                      (sqlite_message != nullptr) ? sqlite_message : "unknown error");
         sqlite3_close(handle);
         connection->handle = nullptr;
         return APL_ERR_DB_OPEN;

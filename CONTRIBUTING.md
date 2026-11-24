@@ -94,6 +94,16 @@ adopted.
   ctest --test-dir build-sanitize --output-on-failure
   ```
 
+## Formatting
+
+- The repository uses one `.clang-format` at the project root. It targets
+  clang-format 21; other major versions may report output differences, so the
+  check uses whatever `clang-format` is installed.
+- `scripts/check-format.sh` checks without modifying files. `scripts/format.sh`
+  rewrites them. Both are explicit developer tools: clang-format is not a
+  normal build dependency and is not required by `scripts/check.sh` or CI.
+- Keep formatting-only changes separate from behavior changes.
+
 ## Boundaries recap
 
 - Keep Notcurses out of business-logic tests; keep SQL inside `src/db`.
