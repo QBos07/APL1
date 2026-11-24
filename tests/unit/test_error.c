@@ -52,6 +52,7 @@ Test(error, oversize_message_is_truncated_and_terminated)
 
     char long_detail[APL_ERROR_MESSAGE_MAX * 2];
     memset(long_detail, 'x', sizeof(long_detail));
+    long_detail[sizeof(long_detail) - 1] = '\0';
 
     apl_error_set(&err, APL_ERR_IO, "path too long: %s", long_detail);
 
