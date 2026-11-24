@@ -1,0 +1,11 @@
+# CMake build output
+build/
+cmake-build-*/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Editor/OS noise
+.idea/workspace.xml
+.DS_Store
