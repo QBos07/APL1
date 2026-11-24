@@ -37,6 +37,19 @@ Test(tui_command_line, colon_is_ordinary_text_and_backspace_handles_utf8)
     cr_assert_str_eq(line.text, ":litera ");
 }
 
+Test(tui_command_line, completion_can_replace_the_prompt_text)
+{
+    apl_tui_command_line line;
+    apl_tui_command_line_init(&line);
+    apl_tui_command_line_open(&line);
+    apl_tui_command_line_insert(&line, "view t");
+    apl_tui_command_line_set_suggestion(&line, "view teams");
+    cr_assert_str_eq(line.suggestion, "view teams");
+
+    apl_tui_command_line_set_text(&line, line.suggestion);
+    cr_assert_str_eq(line.text, "view teams");
+}
+
 Test(tui_command_line, history_is_session_local_and_wraps_to_empty)
 {
     apl_tui_command_line line;

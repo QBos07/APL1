@@ -1104,7 +1104,18 @@ static void update_command_suggestion(shell_state *const state)
 {
     char suggestion[APL_TUI_COMMAND_SUGGESTION_MAX];
     apl_tui_command_complete(state->command_line.text, suggestion, sizeof(suggestion));
+    if (strcmp(suggestion, state->command_line.text) == 0) {
+        suggestion[0] = '\0';
+    }
     apl_tui_command_line_set_suggestion(&state->command_line, suggestion);
+}
+
+static bool command_suggestion_applicable(const shell_state *const state)
+{
+    const char *const suggestion = state->command_line.suggestion;
+    return suggestion[0] != '\0' && strcmp(suggestion, state->command_line.text) != 0 &&
+           strstr(suggestion, " | ") == nullptr && strchr(suggestion, '<') == nullptr &&
+           strchr(suggestion, '[') == nullptr;
 }
 
 static void open_command_line(shell_state *const state)
@@ -1319,6 +1330,13 @@ static void handle_command_line_input(shell_state *const state, const ncinput *c
     if (id == NCKEY_BACKSPACE || id == 127) {
         apl_tui_command_line_backspace(&state->command_line);
         update_command_suggestion(state);
+        return;
+    }
+    if (id == NCKEY_TAB) {
+        if (command_suggestion_applicable(state)) {
+            apl_tui_command_line_set_text(&state->command_line, state->command_line.suggestion);
+            update_command_suggestion(state);
+        }
         return;
     }
     if (id >= 0x20 && id < PRETERUNICODEBASE && input->utf8[0] != '\0') {

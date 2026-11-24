@@ -44,6 +44,9 @@ void apl_tui_command_line_insert(apl_tui_command_line *line, const char *text);
 /** Remove one UTF-8 code point. */
 void apl_tui_command_line_backspace(apl_tui_command_line *line);
 
+/** Replace the current prompt text (used when accepting a completion). */
+void apl_tui_command_line_set_text(apl_tui_command_line *line, const char *text);
+
 /** Replace the inline suggestion (empty clears it). */
 void apl_tui_command_line_set_suggestion(apl_tui_command_line *line, const char *suggestion);
 

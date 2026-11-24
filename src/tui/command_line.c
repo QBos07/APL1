@@ -57,6 +57,15 @@ void apl_tui_command_line_backspace(apl_tui_command_line *const line)
     (void)apl_tui_text_backspace(line->text);
 }
 
+void apl_tui_command_line_set_text(apl_tui_command_line *const line, const char *const text)
+{
+    if (line == nullptr || !line->open) {
+        return;
+    }
+    (void)snprintf(line->text, sizeof(line->text), "%s", (text != nullptr) ? text : "");
+    line->history_cursor = line->history_count;
+}
+
 void apl_tui_command_line_set_suggestion(apl_tui_command_line *const line,
                                          const char *const suggestion)
 {

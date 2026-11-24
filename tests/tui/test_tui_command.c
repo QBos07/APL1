@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include <criterion/criterion.h>
@@ -38,6 +39,50 @@ Test(tui_command, overview_defaults_and_values)
     const apl_tui_command_parse_result bad = apl_tui_command_parse("overview seasons");
     cr_assert_eq(bad.status, APL_TUI_COMMAND_INVALID);
     cr_assert_neq(strstr(bad.suggestion, "active, all"), nullptr);
+}
+
+Test(tui_command, view_and_overview_accept_unambiguous_prefixes)
+{
+    const apl_tui_command_parse_result teams = apl_tui_command_parse("view t");
+    cr_assert_eq(teams.status, APL_TUI_COMMAND_OK);
+    cr_assert_str_eq(teams.request.positionals[0], "teams");
+
+    const apl_tui_command_parse_result money = apl_tui_command_parse("v m");
+    cr_assert_eq(money.status, APL_TUI_COMMAND_OK);
+    cr_assert_str_eq(money.request.positionals[0], "money");
+
+    const apl_tui_command_parse_result people = apl_tui_command_parse("view peo");
+    cr_assert_eq(people.status, APL_TUI_COMMAND_OK);
+    cr_assert_str_eq(people.request.positionals[0], "people");
+
+    const apl_tui_command_parse_result ambiguous = apl_tui_command_parse("view p");
+    cr_assert_eq(ambiguous.status, APL_TUI_COMMAND_INVALID);
+    cr_assert_neq(strstr(ambiguous.error, "Ambiguous"), nullptr);
+    cr_assert_neq(strstr(ambiguous.suggestion, "people"), nullptr);
+    cr_assert_neq(strstr(ambiguous.suggestion, "parts"), nullptr);
+
+    const apl_tui_command_parse_result all = apl_tui_command_parse("overview al");
+    cr_assert_eq(all.status, APL_TUI_COMMAND_OK);
+    cr_assert_str_eq(all.request.positionals[0], "all");
+}
+
+Test(tui_command, direct_view_shortcuts_parse_as_view_commands)
+{
+    const char *const shortcuts[] = {"teams",       "people", "events",  "money",
+                                     "development", "parts",  "history", "settings"};
+    for (size_t index = 0; index < sizeof(shortcuts) / sizeof(shortcuts[0]); ++index) {
+        char line[32];
+        (void)snprintf(line, sizeof(line), ":%s", shortcuts[index]);
+        const apl_tui_command_parse_result result = apl_tui_command_parse(line);
+        cr_assert_eq(result.status, APL_TUI_COMMAND_OK);
+        cr_assert_eq(result.request.id, APL_TUI_COMMAND_VIEW);
+        cr_assert_str_eq(result.request.positionals[0], shortcuts[index]);
+    }
+
+    const apl_tui_command_parse_result alias = apl_tui_command_parse(":drivers");
+    cr_assert_eq(alias.status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(alias.request.id, APL_TUI_COMMAND_VIEW);
+    cr_assert_str_eq(alias.request.positionals[0], "drivers");
 }
 
 Test(tui_command, quoted_team_names_are_one_value)
@@ -148,9 +193,23 @@ Test(tui_command, help_and_completion_come_from_the_registry)
 
     char completion[APL_TUI_COMMAND_SUGGESTION_MAX];
     apl_tui_command_complete("team c", completion, sizeof(completion));
-    cr_assert_neq(strstr(completion, "team create"), nullptr);
-    apl_tui_command_complete(":", completion, sizeof(completion));
-    cr_assert_neq(strstr(completion, "view"), nullptr);
+    cr_assert_str_eq(completion, "team create");
+    apl_tui_command_complete("vi", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "view");
+    apl_tui_command_complete("view t", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "view teams");
+    apl_tui_command_complete("v m", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "v money");
+    apl_tui_command_complete("view p", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "view people | view parts");
+    apl_tui_command_complete("view ", completion, sizeof(completion));
+    cr_assert_neq(strstr(completion, "view teams"), nullptr);
+    apl_tui_command_complete("team s", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "team switch");
+    apl_tui_command_complete("teams", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "teams");
+    apl_tui_command_complete("tl", completion, sizeof(completion));
+    cr_assert_str_eq(completion, "team list");
     apl_tui_command_complete("bogus", completion, sizeof(completion));
     cr_assert_str_empty(completion);
 }

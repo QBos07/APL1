@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "tui/navigation.h"
 #include "tui/text.h"
 
 #define TOKEN_COUNT_MAX 32
@@ -245,16 +246,6 @@ static bool option_present(const apl_tui_command_request *const request, const c
     return false;
 }
 
-static bool choice_present(const apl_tui_command_spec *const spec, const char *const value)
-{
-    for (unsigned index = 0; index < spec->choice_count; ++index) {
-        if (apl_tui_text_equal_ci(spec->choices[index], value)) {
-            return true;
-        }
-    }
-    return false;
-}
-
 static void build_choice_list(const apl_tui_command_spec *const spec, char *const out,
                               const size_t out_size)
 {
@@ -350,6 +341,19 @@ apl_tui_command_parse_result apl_tui_command_parse(const char *const line)
     const apl_tui_command_spec *const spec = find_matching_spec(&tokens, &matched);
     if (spec == nullptr || matched == 0) {
         const apl_tui_command_spec *const incomplete = find_incomplete_spec(&tokens);
+        if (incomplete == nullptr && tokens.count == 1) {
+            apl_tui_section section = APL_TUI_SECTION_COUNT;
+            if (apl_tui_section_from_name(tokens.tokens[0], &section)) {
+                result.spec = apl_tui_command_by_id(APL_TUI_COMMAND_VIEW);
+                result.request.id = APL_TUI_COMMAND_VIEW;
+                (void)snprintf(result.request.command, sizeof(result.request.command), "view");
+                result.request.positional_count = 1;
+                (void)snprintf(result.request.positionals[0], APL_TUI_COMMAND_WORD_MAX, "%s",
+                               tokens.tokens[0]);
+                result.status = APL_TUI_COMMAND_OK;
+                return result;
+            }
+        }
         result.status =
             (incomplete != nullptr) ? APL_TUI_COMMAND_INCOMPLETE : APL_TUI_COMMAND_UNKNOWN;
         if (incomplete != nullptr) {
@@ -446,16 +450,45 @@ apl_tui_command_parse_result apl_tui_command_parse(const char *const line)
         return result;
     }
 
-    if (spec->choice_count > 0 && result.request.positional_count > 0 &&
-        !choice_present(spec, result.request.positionals[0])) {
-        char choices[APL_TUI_COMMAND_SUGGESTION_MAX];
-        build_choice_list(spec, choices, sizeof(choices));
-        (void)snprintf(result.error, sizeof(result.error), "Unknown value '%.180s'.",
-                       result.request.positionals[0]);
-        (void)snprintf(result.suggestion, sizeof(result.suggestion), "Valid values: %.220s",
-                       choices);
-        result.status = APL_TUI_COMMAND_INVALID;
-        return result;
+    if (spec->choice_count > 0 && result.request.positional_count > 0) {
+        const char *const value = result.request.positionals[0];
+        const char *resolved = nullptr;
+        unsigned matches = 0;
+        for (unsigned index = 0; index < spec->choice_count; ++index) {
+            if (apl_tui_text_equal_ci(spec->choices[index], value)) {
+                resolved = spec->choices[index];
+                matches = 1;
+                break;
+            }
+            if (apl_tui_text_starts_with_ci(spec->choices[index], value)) {
+                resolved = spec->choices[index];
+                ++matches;
+            }
+        }
+        if (matches == 1 && resolved != nullptr) {
+            (void)snprintf(result.request.positionals[0], APL_TUI_COMMAND_WORD_MAX, "%s", resolved);
+        } else if (matches > 1) {
+            char choices[APL_TUI_COMMAND_SUGGESTION_MAX] = "";
+            for (unsigned index = 0; index < spec->choice_count; ++index) {
+                if (apl_tui_text_starts_with_ci(spec->choices[index], value)) {
+                    (void)append_output(choices, sizeof(choices), "%s%s",
+                                        choices[0] != '\0' ? ", " : "", spec->choices[index]);
+                }
+            }
+            (void)snprintf(result.error, sizeof(result.error), "Ambiguous value '%.120s'.", value);
+            (void)snprintf(result.suggestion, sizeof(result.suggestion), "Matches: %.220s",
+                           choices);
+            result.status = APL_TUI_COMMAND_INVALID;
+            return result;
+        } else {
+            char choices[APL_TUI_COMMAND_SUGGESTION_MAX];
+            build_choice_list(spec, choices, sizeof(choices));
+            (void)snprintf(result.error, sizeof(result.error), "Unknown value '%.180s'.", value);
+            (void)snprintf(result.suggestion, sizeof(result.suggestion), "Valid values: %.220s",
+                           choices);
+            result.status = APL_TUI_COMMAND_INVALID;
+            return result;
+        }
     }
 
     if (spec->id == APL_TUI_COMMAND_TEAM_CREATE) {
@@ -517,7 +550,7 @@ void apl_tui_command_registry_help(char *const out, const size_t out_size)
         return;
     }
     out[0] = '\0';
-    (void)append_output(out, out_size, "Commands (open with : then Enter)\n\n");
+    (void)append_output(out, out_size, "Commands (open with :, Tab completes)\n\n");
     (void)append_output(out, out_size,
                         "Views\n"
                         "- view <view>  (v)\n"
@@ -532,7 +565,47 @@ void apl_tui_command_registry_help(char *const out, const size_t out_size)
                         "- help [command ...]  (h)\n"
                         "- about  (ab)\n"
                         "- version  (ver)\n"
-                        "- quit  (q)\n");
+                        "- quit  (q)\n"
+                        "Shortcuts: :teams :people :events :money\n"
+                        ":development :parts :history :settings\n");
+}
+
+static void append_candidate(char *const out, const size_t out_size, const char *const candidate)
+{
+    const size_t length = strlen(out);
+    (void)snprintf(out + length, out_size - length, "%s%s", (length > 0) ? " | " : "", candidate);
+}
+
+static bool append_choice_completion(char *const out, const size_t out_size,
+                                     const char *const command_part, const char *const spec_usage,
+                                     const char *const *const choices, const unsigned choice_count,
+                                     const char *const word)
+{
+    unsigned matches = 0;
+    for (unsigned index = 0; index < choice_count; ++index) {
+        if (apl_tui_text_starts_with_ci(choices[index], word)) {
+            char candidate[APL_TUI_COMMAND_WORD_MAX];
+            (void)snprintf(candidate, sizeof(candidate), "%s %s", command_part, choices[index]);
+            append_candidate(out, out_size, candidate);
+            ++matches;
+        }
+    }
+    if (matches == 0) {
+        (void)snprintf(out, out_size, "%s", spec_usage);
+    }
+    return matches > 0;
+}
+
+static void complete_team_subcommand(char *const out, const size_t out_size, const char *const word)
+{
+    static const char *const SUBCOMMANDS[] = {"list", "switch", "create"};
+    for (size_t index = 0; index < sizeof(SUBCOMMANDS) / sizeof(SUBCOMMANDS[0]); ++index) {
+        if (apl_tui_text_starts_with_ci(SUBCOMMANDS[index], word)) {
+            char candidate[APL_TUI_COMMAND_NAME_MAX];
+            (void)snprintf(candidate, sizeof(candidate), "team %s", SUBCOMMANDS[index]);
+            append_candidate(out, out_size, candidate);
+        }
+    }
 }
 
 void apl_tui_command_complete(const char *const prefix, char *const out, const size_t out_size)
@@ -559,11 +632,67 @@ void apl_tui_command_complete(const char *const prefix, char *const out, const s
         return;
     }
 
-    for (size_t index = 0; index < COMMAND_COUNT; ++index) {
-        if (apl_tui_text_starts_with_ci(COMMANDS[index].name, cursor) ||
-            apl_tui_text_starts_with_ci(COMMANDS[index].alias, cursor)) {
-            (void)snprintf(out, out_size, "%s", COMMANDS[index].usage);
+    const char *const last_space = strrchr(cursor, ' ');
+    char command_part[APL_TUI_COMMAND_NAME_MAX] = "";
+    const char *word = cursor;
+    if (last_space != nullptr) {
+        size_t length = (size_t)(last_space - cursor);
+        while (length > 0 && is_space(cursor[length - 1])) {
+            --length;
+        }
+        if (length >= sizeof(command_part)) {
+            length = sizeof(command_part) - 1;
+        }
+        memcpy(command_part, cursor, length);
+        command_part[length] = '\0';
+        word = last_space + 1;
+    }
+
+    if (command_part[0] != '\0') {
+        if (apl_tui_text_equal_ci(command_part, "view") ||
+            apl_tui_text_equal_ci(command_part, "v")) {
+            (void)append_choice_completion(out, out_size, command_part,
+                                           "view <overview|teams|people|events|money|development|"
+                                           "parts|history|settings>",
+                                           VIEW_CHOICES,
+                                           sizeof(VIEW_CHOICES) / sizeof(VIEW_CHOICES[0]), word);
             return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "overview") ||
+            apl_tui_text_equal_ci(command_part, "ov")) {
+            (void)append_choice_completion(
+                out, out_size, command_part, "overview [active|all]", OVERVIEW_CHOICES,
+                sizeof(OVERVIEW_CHOICES) / sizeof(OVERVIEW_CHOICES[0]), word);
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "team")) {
+            complete_team_subcommand(out, out_size, word);
+            return;
+        }
+        if (apl_tui_text_equal_ci(command_part, "team create") && word[0] == '-') {
+            append_candidate(out, out_size, "team create --name");
+            append_candidate(out, out_size, "team create --notes");
+            return;
+        }
+        const apl_tui_command_spec *const existing = apl_tui_command_lookup(command_part);
+        if (existing != nullptr) {
+            (void)snprintf(out, out_size, "%s", existing->usage);
+            return;
+        }
+    }
+
+    static const char *const VIEW_SHORTCUTS[] = {
+        "teams", "people", "events", "money", "development", "parts", "history", "settings",
+    };
+    for (size_t index = 0; index < COMMAND_COUNT; ++index) {
+        if (apl_tui_text_starts_with_ci(COMMANDS[index].name, word) ||
+            apl_tui_text_starts_with_ci(COMMANDS[index].alias, word)) {
+            append_candidate(out, out_size, COMMANDS[index].name);
+        }
+    }
+    for (size_t index = 0; index < sizeof(VIEW_SHORTCUTS) / sizeof(VIEW_SHORTCUTS[0]); ++index) {
+        if (apl_tui_text_starts_with_ci(VIEW_SHORTCUTS[index], word)) {
+            append_candidate(out, out_size, VIEW_SHORTCUTS[index]);
         }
     }
 }
