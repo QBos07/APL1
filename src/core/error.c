@@ -46,16 +46,19 @@ void apl_error_prefix(apl_error *const error, const apl_status code, const char 
         return;
     }
 
-    /* Copy the detail before rewriting the error: apl_error_set must never
-     * read the same buffer it is formatting into. */
+    /* Copy both inputs before rewriting the error: apl_error_set must never
+     * read the same buffer it is formatting into, and the context may itself
+     * alias the current message. */
     char detail[APL_ERROR_MESSAGE_MAX];
     snprintf(detail, sizeof(detail), "%s", error->message);
+    char context_copy[APL_ERROR_MESSAGE_MAX];
+    snprintf(context_copy, sizeof(context_copy), "%s", context);
 
     if (detail[0] == '\0') {
-        apl_error_set(error, code, "%s", context);
+        apl_error_set(error, code, "%s", context_copy);
         return;
     }
-    apl_error_set(error, code, "%s: %s", context, detail);
+    apl_error_set(error, code, "%s: %s", context_copy, detail);
 }
 
 apl_status apl_error_code(const apl_error *const error)

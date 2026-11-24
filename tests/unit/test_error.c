@@ -131,6 +131,17 @@ Test(error, prefix_truncates_long_combined_message_safely)
     cr_assert_eq(message[APL_ERROR_MESSAGE_MAX - 1], '\0');
 }
 
+Test(error, prefix_handles_context_aliasing_the_current_message)
+{
+    apl_error err;
+    apl_error_init(&err);
+    apl_error_set(&err, APL_ERR_DB_QUERY, "disk I/O error");
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, apl_error_message(&err));
+
+    cr_assert_str_eq(apl_error_message(&err), "disk I/O error: disk I/O error");
+}
+
 Test(error, prefix_handles_repeated_prefixing)
 {
     apl_error err;
