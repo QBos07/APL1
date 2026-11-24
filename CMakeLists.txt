@@ -39,6 +39,7 @@ if(BUILD_TESTING)
     add_executable(apl1_tests
         tests/test_main.c
         tests/unit/test_error.c
+        tests/unit/test_exit_code.c
         tests/integration/test_test_support.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
@@ -115,6 +116,7 @@ target_link_libraries(apl_tui PUBLIC
 
 add_library(apl_app STATIC
     src/app/app.c
+    src/app/exit_code.c
 )
 
 target_include_directories(apl_app PUBLIC src)
