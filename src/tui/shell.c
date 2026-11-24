@@ -797,12 +797,72 @@ static void draw_dialog(shell_state *const state)
     apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG_TITLE);
     apl_tui_frame_draw_text(overlay, 1, 2, state->dialog.title);
     apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG);
-    const unsigned message_rows = apl_tui_frame_draw_wrapped(
-        overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
-    (void)message_rows;
+    apl_tui_frame_draw_text(overlay, 2, 2, state->dialog.message);
 
     const int button_row = (int)rows - 2;
-    if (state->dialog.kind == APL_TUI_DIALOG_CONFIRM) {
+    switch (state->dialog.kind) {
+    case APL_TUI_DIALOG_FORM: {
+        for (unsigned index = 0; index < state->dialog.field_count; ++index) {
+            const unsigned row = APL_TUI_DIALOG_CONTENT_ROW + index;
+            if (row >= (unsigned)button_row) {
+                break;
+            }
+            const apl_tui_dialog_field *const field = &state->dialog.fields[index];
+            const bool focused = state->dialog.focus == index;
+            char line[APL_TUI_DIALOG_FIELD_LABEL_MAX + APL_TUI_DIALOG_FIELD_VALUE_MAX + 16];
+            (void)snprintf(line, sizeof(line), "%c %s: %s%s", focused ? '>' : ' ', field->label,
+                           field->value, field->invalid ? "  !" : "");
+            apl_tui_theme_apply(&state->theme, overlay,
+                                 field->invalid
+                                     ? APL_TUI_ROLE_ERROR
+                                     : (focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY));
+            apl_tui_frame_draw_text(overlay, (int)row, 2, line);
+        }
+        if (rows > 4 && state->dialog.validation[0] != '\0') {
+            apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_ERROR);
+            apl_tui_frame_draw_text(overlay, (int)rows - 3, 2, state->dialog.validation);
+        }
+        apl_tui_theme_apply(&state->theme, overlay,
+                             state->dialog.focus == state->dialog.field_count
+                                 ? APL_TUI_ROLE_SELECTION
+                                 : APL_TUI_ROLE_DIALOG);
+        apl_tui_frame_draw_text(overlay, button_row, 2, "[ Save ]");
+        apl_tui_theme_apply(&state->theme, overlay,
+                             state->dialog.focus == state->dialog.field_count + 1
+                                 ? APL_TUI_ROLE_SELECTION
+                                 : APL_TUI_ROLE_DIALOG);
+        apl_tui_frame_draw_text(overlay, button_row, 14, "[ Cancel ]");
+        break;
+    }
+    case APL_TUI_DIALOG_CHOICE: {
+        const unsigned visible = apl_tui_dialog_visible_options(&state->dialog, rows);
+        apl_tui_dialog_set_viewport_rows(&state->dialog, visible);
+        for (unsigned offset = 0; offset < visible; ++offset) {
+            const unsigned index = state->dialog.option_offset + offset;
+            const apl_tui_dialog_option *const option =
+                apl_tui_dialog_option_at(&state->dialog, index);
+            if (option == nullptr) {
+                break;
+            }
+            const bool focused = state->dialog.focus == index;
+            char line[APL_TUI_DIALOG_OPTION_LABEL_MAX + 8];
+            (void)snprintf(line, sizeof(line), "%c%c %s", focused ? '>' : ' ',
+                           option->active ? '*' : ' ', option->label);
+            apl_tui_theme_apply(&state->theme, overlay,
+                                 !option->enabled
+                                     ? APL_TUI_ROLE_MENU_DISABLED
+                                     : (focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY));
+            apl_tui_frame_draw_text(overlay, (int)(APL_TUI_DIALOG_CONTENT_ROW + offset), 2, line);
+        }
+        apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_MUTED);
+        apl_tui_frame_draw_text(overlay, button_row, 2,
+                                "Up/Down select   Enter choose   Esc cancel");
+        break;
+    }
+    case APL_TUI_DIALOG_CONFIRM: {
+        const unsigned message_rows = apl_tui_frame_draw_wrapped(
+            overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
+        (void)message_rows;
         apl_tui_theme_apply(&state->theme, overlay,
                              state->dialog.focus == 0 ? APL_TUI_ROLE_SELECTION
                                                       : APL_TUI_ROLE_DIALOG);
@@ -811,9 +871,18 @@ static void draw_dialog(shell_state *const state)
                              state->dialog.focus == 1 ? APL_TUI_ROLE_SELECTION
                                                       : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 15, "[ Confirm ]");
-    } else {
+        break;
+    }
+    case APL_TUI_DIALOG_ERROR: {
+        const unsigned message_rows = apl_tui_frame_draw_wrapped(
+            overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
+        (void)message_rows;
         apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_SELECTION);
         apl_tui_frame_draw_text(overlay, button_row, 2, "[ OK ]");
+        break;
+    }
+    case APL_TUI_DIALOG_NONE:
+        break;
     }
     apl_tui_theme_reset(overlay);
 }
@@ -903,34 +972,33 @@ static bool point_in_rect(const apl_tui_rect rect, const int y, const int x)
 static void handle_dialog_mouse(shell_state *const state, const ncinput *const input)
 {
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
-    if (layout == nullptr) {
+    if (layout == nullptr || input->id != NCKEY_BUTTON1) {
         return;
     }
     const apl_tui_rect overlay = layout->overlay;
-    const int button_row = (int)(overlay.y + overlay.rows) - 2;
-    if (input->y != button_row) {
+    if (!point_in_rect(overlay, input->y, input->x)) {
+        return;
+    }
+    const unsigned local_row = (unsigned)(input->y - (int)overlay.y);
+    const unsigned local_col = (unsigned)(input->x - (int)overlay.x);
+    const unsigned control = apl_tui_dialog_control_at(
+        &state->dialog, overlay.rows, overlay.cols, local_row, local_col);
+    if (control == UINT_MAX) {
         return;
     }
 
-    if (state->dialog.kind == APL_TUI_DIALOG_ERROR) {
-        if (input->x >= (int)overlay.x + 2 && input->x < (int)overlay.x + 8) {
-            ncinput escape = {.id = NCKEY_ESC};
-            handle_dialog_input(state, &escape);
+    if (state->dialog.kind == APL_TUI_DIALOG_CHOICE) {
+        apl_tui_dialog_select_option(&state->dialog, control);
+    } else {
+        if (state->dialog.kind == APL_TUI_DIALOG_FORM && control < state->dialog.field_count) {
+            state->dialog.focus = control;
+            return;
         }
-        return;
-    }
-    if (state->dialog.kind != APL_TUI_DIALOG_CONFIRM) {
-        return;
+        state->dialog.focus = control;
     }
 
     ncinput enter = {.id = NCKEY_ENTER};
-    if (input->x >= (int)overlay.x + 2 && input->x < (int)overlay.x + 12) {
-        state->dialog.focus = 0;
-        handle_dialog_input(state, &enter);
-    } else if (input->x >= (int)overlay.x + 15 && input->x < (int)overlay.x + 26) {
-        state->dialog.focus = 1;
-        handle_dialog_input(state, &enter);
-    }
+    handle_dialog_input(state, &enter);
 }
 
 static void handle_form_mouse(shell_state *const state, const ncinput *const input)
@@ -1098,16 +1166,24 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
 static void handle_dialog_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
-    if (id == NCKEY_LEFT) {
+    if (id == NCKEY_LEFT || id == NCKEY_UP) {
         apl_tui_dialog_move_focus(&state->dialog, -1);
         return;
     }
-    if (id == NCKEY_RIGHT) {
+    if (id == NCKEY_RIGHT || id == NCKEY_DOWN) {
         apl_tui_dialog_move_focus(&state->dialog, 1);
         return;
     }
     if (id == NCKEY_TAB) {
         apl_tui_dialog_move_focus(&state->dialog, ncinput_shift_p(input) ? -1 : 1);
+        return;
+    }
+    if (id == NCKEY_BACKSPACE || id == 127) {
+        apl_tui_dialog_backspace(&state->dialog);
+        return;
+    }
+    if (id >= 0x20 && id < PRETERUNICODEBASE && input->utf8[0] != '\0') {
+        apl_tui_dialog_insert_text(&state->dialog, input->utf8);
         return;
     }
 
