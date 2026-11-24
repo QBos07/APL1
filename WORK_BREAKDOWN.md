@@ -137,7 +137,7 @@ commands open prefilled dialogs; complete valid commands execute the shared acti
 - [x] **2.19 Add the vertical view-tab rail.** [Work item](work-items/phase-2/2.19-vertical-view-tabs.md)
 - [ ] **2.20 Anchor the team switcher at the bottom of the tab rail.** [Work item](work-items/phase-2/2.20-team-switcher-rail.md)
 - [x] **2.21 Implement the persistent status bar.** [Work item](work-items/phase-2/2.21-status-bar.md)
-- [ ] **2.22 Add a consistent color theme.** [Work item](work-items/phase-2/2.22-color-theme.md)
+- [x] **2.22 Add a consistent color theme.** [Work item](work-items/phase-2/2.22-color-theme.md)
 - [ ] **2.23 Extend dialogs to support interactive forms.** [Work item](work-items/phase-2/2.23-interactive-form-dialogs.md)
 - [ ] **2.24 Move team create/edit/switch flows into dialogs.** [Work item](work-items/phase-2/2.24-team-flows-as-dialogs.md)
 - [ ] **2.25 Add the ex-style command line surface.** [Work item](work-items/phase-2/2.25-ex-command-line-ui.md)

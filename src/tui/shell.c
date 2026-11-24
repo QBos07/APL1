@@ -17,6 +17,8 @@
 #include "tui/menu.h"
 #include "tui/navigation.h"
 #include "tui/status.h"
+#include "tui/text.h"
+#include "tui/theme.h"
 
 typedef enum shell_screen {
     SHELL_SCREEN_WELCOME = 0,
@@ -65,6 +67,7 @@ typedef struct shell_state {
     apl_tui_menu menu;
     apl_tui_focus focus;
     apl_tui_status status;
+    apl_tui_theme theme;
     shell_pending_action pending;
     int64_t pending_team_id;
     int64_t last_click_team_id;
@@ -511,19 +514,25 @@ static void backspace_utf8(char *const buffer)
 static void draw_window_bar(shell_state *const state)
 {
     struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_WINDOW);
-    if (plane == nullptr) {
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (plane == nullptr || layout == nullptr) {
         return;
+    }
+    apl_tui_theme_apply(&state->theme, plane, APL_TUI_ROLE_WINDOW_BAR);
+    for (unsigned column = 0; column < layout->window.cols; ++column) {
+        (void)ncplane_putchar_yx(plane, 0, (int)column, ' ');
     }
     for (size_t index = 0; index < APL_TUI_MENU_GROUP_COUNT; ++index) {
         const apl_tui_menu_group group = (apl_tui_menu_group)index;
         const bool focused = state->focus.region == APL_TUI_FOCUS_WINDOW &&
                              (state->menu.open ? state->menu.group == group
                                                : state->menu.group_focus == group);
-        apl_tui_frame_set_styles(plane, focused ? NCSTYLE_BOLD : 0);
+        apl_tui_theme_apply(&state->theme, plane,
+                             focused ? APL_TUI_ROLE_WINDOW_FOCUS : APL_TUI_ROLE_WINDOW_BAR);
         apl_tui_frame_draw_text(plane, 0, (int)apl_tui_menu_heading_offset(group),
                                 apl_tui_menu_group_label(group));
     }
-    apl_tui_frame_set_styles(plane, 0);
+    apl_tui_theme_reset(plane);
 }
 
 static void draw_menu_popup(shell_state *const state)
@@ -540,6 +549,13 @@ static void draw_menu_popup(shell_state *const state)
     ncplane_dim_yx(popup, &rows, &cols);
     if (rows < 3 || cols < 4) {
         return;
+    }
+
+    apl_tui_theme_apply(&state->theme, popup, APL_TUI_ROLE_MENU);
+    for (unsigned y = 0; y < rows; ++y) {
+        for (unsigned x = 0; x < cols; ++x) {
+            (void)ncplane_putchar_yx(popup, (int)y, (int)x, ' ');
+        }
     }
 
     for (unsigned x = 1; x + 1 < cols; ++x) {
@@ -561,10 +577,13 @@ static void draw_menu_popup(shell_state *const state)
         const bool focused = index == state->menu.item_focus;
         char line[160];
         (void)snprintf(line, sizeof(line), "%c %s", focused ? '>' : ' ', item->label);
-        apl_tui_frame_set_styles(popup, item->enabled && focused ? NCSTYLE_BOLD : 0);
+        apl_tui_theme_apply(&state->theme, popup,
+                             !item->enabled
+                                 ? APL_TUI_ROLE_MENU_DISABLED
+                                 : (focused ? APL_TUI_ROLE_MENU_FOCUS : APL_TUI_ROLE_MENU));
         apl_tui_frame_draw_text(popup, (int)(index + 1), 1, line);
     }
-    apl_tui_frame_set_styles(popup, 0);
+    apl_tui_theme_reset(popup);
 }
 
 static void draw_tab_rail(shell_state *const state)
@@ -601,10 +620,13 @@ static void draw_tab_rail(shell_state *const state)
         char line[64];
         (void)snprintf(line, sizeof(line), "%c%c %s", active ? '*' : ' ', focused ? '>' : ' ',
                        label);
-        apl_tui_frame_set_styles(rail, (active || focused) ? NCSTYLE_BOLD : 0);
+        apl_tui_theme_apply(&state->theme, rail,
+                             focused ? APL_TUI_ROLE_TAB_FOCUS
+                                     : (active ? APL_TUI_ROLE_TAB_ACTIVE
+                                               : APL_TUI_ROLE_TAB_INACTIVE));
         apl_tui_frame_draw_line(rail, (int)offset, line);
     }
-    apl_tui_frame_set_styles(rail, 0);
+    apl_tui_theme_reset(rail);
 }
 
 static void draw_welcome(shell_state *const state)
@@ -649,9 +671,10 @@ static void draw_team_list(shell_state *const state)
         (void)snprintf(line, sizeof(line), "%c%c %s%s%s%s", focused ? '>' : ' ', active ? '*' : ' ',
                        team->name, team->archived ? " [archived]" : "",
                        team->notes[0] != '\0' ? "  -  " : "", team->notes);
-        apl_tui_frame_set_styles(body, focused ? NCSTYLE_BOLD : 0);
+        apl_tui_theme_apply(&state->theme, body,
+                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)offset, line);
-        apl_tui_frame_set_styles(body, 0);
+        apl_tui_theme_reset(body);
     }
 }
 
@@ -707,15 +730,17 @@ static void draw_team_form(shell_state *const state)
     int row = 2;
     (void)snprintf(line, sizeof(line), "%c Name (required): %s", state->form.focus == 0 ? '>' : ' ',
                    state->form.name);
-    apl_tui_frame_set_styles(body, state->form.focus == 0 ? NCSTYLE_BOLD : 0);
+    apl_tui_theme_apply(&state->theme, body,
+                         state->form.focus == 0 ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
     apl_tui_frame_draw_line(body, row++, line);
-    apl_tui_frame_set_styles(body, 0);
+    apl_tui_theme_reset(body);
 
     (void)snprintf(line, sizeof(line), "%c Notes (optional): %s",
                    state->form.focus == 1 ? '>' : ' ', state->form.notes);
-    apl_tui_frame_set_styles(body, state->form.focus == 1 ? NCSTYLE_BOLD : 0);
+    apl_tui_theme_apply(&state->theme, body,
+                         state->form.focus == 1 ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
     apl_tui_frame_draw_line(body, row++, line);
-    apl_tui_frame_set_styles(body, 0);
+    apl_tui_theme_reset(body);
 
     apl_tui_frame_draw_text(body, 5, 2, "[ Save ]");
     apl_tui_frame_draw_text(body, 5, 13, "[ Cancel ]");
@@ -749,6 +774,13 @@ static void draw_dialog(shell_state *const state)
         return;
     }
 
+    apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG);
+    for (unsigned y = 0; y < rows; ++y) {
+        for (unsigned x = 0; x < cols; ++x) {
+            (void)ncplane_putchar_yx(overlay, (int)y, (int)x, ' ');
+        }
+    }
+
     for (unsigned x = 1; x + 1 < cols; ++x) {
         (void)ncplane_putchar_yx(overlay, 0, (int)x, '-');
         (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)x, '-');
@@ -762,23 +794,28 @@ static void draw_dialog(shell_state *const state)
     (void)ncplane_putchar_yx(overlay, (int)(rows - 1), 0, '+');
     (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)(cols - 1), '+');
 
+    apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG_TITLE);
     apl_tui_frame_draw_text(overlay, 1, 2, state->dialog.title);
+    apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG);
     const unsigned message_rows = apl_tui_frame_draw_wrapped(
         overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
     (void)message_rows;
 
     const int button_row = (int)rows - 2;
     if (state->dialog.kind == APL_TUI_DIALOG_CONFIRM) {
-        apl_tui_frame_set_styles(overlay, state->dialog.focus == 0 ? NCSTYLE_BOLD : 0);
+        apl_tui_theme_apply(&state->theme, overlay,
+                             state->dialog.focus == 0 ? APL_TUI_ROLE_SELECTION
+                                                      : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 2, "[ Cancel ]");
-        apl_tui_frame_set_styles(overlay, state->dialog.focus == 1 ? NCSTYLE_BOLD : 0);
+        apl_tui_theme_apply(&state->theme, overlay,
+                             state->dialog.focus == 1 ? APL_TUI_ROLE_SELECTION
+                                                      : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 15, "[ Confirm ]");
-        apl_tui_frame_set_styles(overlay, 0);
     } else {
-        apl_tui_frame_set_styles(overlay, NCSTYLE_BOLD);
+        apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_SELECTION);
         apl_tui_frame_draw_text(overlay, button_row, 2, "[ OK ]");
-        apl_tui_frame_set_styles(overlay, 0);
     }
+    apl_tui_theme_reset(overlay);
 }
 
 static void draw_screen(shell_state *const state)
@@ -811,9 +848,30 @@ static void draw_screen(shell_state *const state)
     struct ncplane *const status = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_STATUS);
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
     if (status != nullptr && layout != nullptr) {
+        apl_tui_style_role role = APL_TUI_ROLE_BODY;
+        if (state->status.message[0] != '\0') {
+            switch (state->status.level) {
+            case APL_TUI_STATUS_SUCCESS:
+                role = APL_TUI_ROLE_SUCCESS;
+                break;
+            case APL_TUI_STATUS_WARNING:
+                role = APL_TUI_ROLE_WARNING;
+                break;
+            case APL_TUI_STATUS_ERROR:
+                role = APL_TUI_ROLE_ERROR;
+                break;
+            case APL_TUI_STATUS_INFO:
+                break;
+            }
+        }
+        apl_tui_theme_apply(&state->theme, status, role);
+        for (unsigned column = 0; column < layout->status.cols; ++column) {
+            (void)ncplane_putchar_yx(status, 0, (int)column, ' ');
+        }
         char line[768];
         (void)apl_tui_status_render(&state->status, layout->status.cols, line, sizeof(line));
         apl_tui_frame_draw_line(status, 0, line);
+        apl_tui_theme_reset(status);
     }
 
     draw_menu_popup(state);
@@ -1537,6 +1595,7 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
 
     shell_state state = {.app = app};
     const bool mouse_enabled = notcurses_mice_enable(tui->notcurses, NCMICE_BUTTON_EVENT) == 0;
+    apl_tui_theme_init(&state.theme, notcurses_canchangecolor(tui->notcurses) > 0);
     apl_status status = apl_tui_frame_start(&state.frame, tui, error);
     if (status != APL_OK) {
         apl_tui_frame_stop(&state.frame);

@@ -101,6 +101,7 @@ if(BUILD_TESTING)
         tests/tui/test_tui_shell.c
         tests/tui/test_tui_status.c
         tests/tui/test_tui_text.c
+        tests/tui/test_tui_theme.c
     )
 
     target_include_directories(apl1_tui_tests PRIVATE src)
@@ -182,6 +183,7 @@ add_library(apl_tui STATIC
     src/tui/shell.c
     src/tui/status.c
     src/tui/text.c
+    src/tui/theme.c
 )
 
 target_include_directories(apl_tui PUBLIC src)
