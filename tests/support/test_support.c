@@ -29,6 +29,12 @@ static bool is_writable_directory(const char *const path)
     return access(path, W_OK | X_OK) == 0;
 }
 
+/** True when a unique suffix still fits in the documented directory buffer. */
+static bool base_fits_template(const char *const base)
+{
+    return strlen(base) + strlen(APL_TEST_DIR_TEMPLATE) < APL_TEST_DIR_MAX;
+}
+
 /** Copy `source` into `out`, reporting an error instead of truncating. */
 static apl_status copy_path(char *const out, const size_t out_size, const char *const source,
                             apl_error *const error)
@@ -49,12 +55,14 @@ static apl_status copy_path(char *const out, const size_t out_size, const char *
 apl_status apl_test_temp_base_ex(const char *const tmpdir, char *const out, const size_t out_size,
                                  apl_error *const error)
 {
-    if (tmpdir != nullptr && is_absolute_path(tmpdir) && is_writable_directory(tmpdir)) {
+    if (tmpdir != nullptr && is_absolute_path(tmpdir) && is_writable_directory(tmpdir) &&
+        base_fits_template(tmpdir)) {
         return copy_path(out, out_size, tmpdir, error);
     }
 
-    /* Unset, empty, relative, missing, or unwritable TMPDIR: use the documented
-     * fallback. A /tmp that is itself unusable is a hard, deterministic error. */
+    /* Unset, empty, relative, missing, unwritable, or over-long TMPDIR: use
+     * the documented fallback. A /tmp that is itself unusable is a hard,
+     * deterministic error. */
     if (!is_writable_directory(APL_TEST_FALLBACK_TMPDIR)) {
         apl_error_set(error, APL_ERR_IO,
                       "no usable temporary directory: TMPDIR is not usable and '%s' is not a "
@@ -71,6 +79,14 @@ apl_status apl_test_temp_dir_in(const char *const base, char *const buf, const s
     if (base == nullptr || !is_absolute_path(base)) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
                       "temporary-directory base must be an absolute path");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    if (!base_fits_template(base)) {
+        const size_t max_base = APL_TEST_DIR_MAX - strlen(APL_TEST_DIR_TEMPLATE) - 1;
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "temporary-directory base is too long (maximum %zu bytes with the "
+                      "per-test suffix)",
+                      max_base);
         return APL_ERR_INVALID_ARGUMENT;
     }
 

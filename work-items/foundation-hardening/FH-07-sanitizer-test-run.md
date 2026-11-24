@@ -40,7 +40,7 @@ cmake --build build-sanitize
 ctest --test-dir build-sanitize --output-on-failure
 ```
 
-- Result: 2/2 CTest tests passed (72/72 Criterion tests in `apl1_tests`,
+- Result: 2/2 CTest tests passed (74/74 Criterion tests in `apl1_tests`,
   5/5 in `apl1_tui_tests`), no ASan/UBSan reports.
 - No platform-specific sanitizer failure needed a follow-up.
 

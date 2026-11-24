@@ -12,9 +12,11 @@
  *
  * Temporary-directory policy:
  * - `TMPDIR` is honored only when it is an absolute path naming a writable
- *   directory. Unset, empty, relative, missing, or unwritable values fall back
- *   to `/tmp` deterministically. If `/tmp` itself is unusable, creation fails
- *   with a reported `APL_ERR_IO` instead of inventing another location.
+ *   directory and leaves room for the per-test suffix within
+ *   `APL_TEST_DIR_MAX`. Unset, empty, relative, missing, unwritable, or
+ *   over-long values fall back to `/tmp` deterministically. If `/tmp` itself
+ *   is unusable, creation fails with a reported `APL_ERR_IO` instead of
+ *   inventing another location.
  * - Each test directory is created uniquely beneath that base; no fixed
  *   `/tmp/apl1-test-...` path is constructed.
  * - Cleanup removes the whole tree beneath the unique directory, never follows

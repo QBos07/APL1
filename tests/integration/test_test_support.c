@@ -26,6 +26,17 @@ static void make_child(char *const out, const size_t out_size, const char *const
     cr_assert_lt((size_t)written, out_size);
 }
 
+/** Append a directory component, create it, and update `path` in place. */
+static void extend_path(char *const path, const size_t path_size, const char *const component)
+{
+    char next[APL_TEST_PATH_MAX];
+    make_child(next, sizeof(next), path, component);
+    cr_assert_eq(mkdir(next, 0777), 0, "cannot create %s", next);
+    const int copied = snprintf(path, path_size, "%s", next);
+    cr_assert_gt(copied, 0);
+    cr_assert_lt((size_t)copied, path_size);
+}
+
 Test(test_support, custom_tmpdir_is_honored)
 {
     apl_error err;
@@ -100,6 +111,55 @@ Test(test_support, created_directories_are_unique)
 
     cr_assert_eq(apl_test_remove_temp_dir(first, &err), APL_OK);
     cr_assert_eq(apl_test_remove_temp_dir(second, &err), APL_OK);
+}
+
+Test(test_support, overlong_tmpdir_falls_back_to_tmp)
+{
+    static const char *const suffix = "/apl1-test-XXXXXX";
+
+    apl_error err;
+    apl_error_init(&err);
+
+    char root[APL_TEST_DIR_MAX];
+    cr_assert_eq(apl_test_temp_dir(root, sizeof(root), &err), APL_OK);
+
+    char component[128];
+    memset(component, 'd', sizeof(component) - 1);
+    component[sizeof(component) - 1] = '\0';
+
+    char long_path[APL_TEST_PATH_MAX];
+    const int copied = snprintf(long_path, sizeof(long_path), "%s", root);
+    cr_assert_gt(copied, 0);
+    cr_assert_lt((size_t)copied, sizeof(long_path));
+
+    while (strlen(long_path) + strlen(suffix) < APL_TEST_DIR_MAX) {
+        extend_path(long_path, sizeof(long_path), component);
+    }
+    /* One more component pushes the base past the documented limit. */
+    extend_path(long_path, sizeof(long_path), component);
+    cr_assert_geq(strlen(long_path) + strlen(suffix), APL_TEST_DIR_MAX);
+
+    char base[APL_TEST_PATH_MAX];
+    cr_assert_eq(apl_test_temp_base_ex(long_path, base, sizeof(base), &err), APL_OK);
+    cr_assert_str_eq(base, "/tmp");
+
+    cr_assert_eq(apl_test_remove_temp_dir(root, &err), APL_OK);
+}
+
+Test(test_support, overlong_base_is_rejected_by_temp_dir_in)
+{
+    apl_error err;
+    apl_error_init(&err);
+
+    char base[APL_TEST_PATH_MAX];
+    memset(base, 'a', APL_TEST_DIR_MAX);
+    base[0] = '/';
+    base[APL_TEST_DIR_MAX] = '\0';
+
+    char created[APL_TEST_PATH_MAX];
+    cr_assert_eq(apl_test_temp_dir_in(base, created, sizeof(created), &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_neq(strstr(apl_error_message(&err), "too long"), nullptr);
 }
 
 Test(test_support, cleanup_removes_nested_files_and_directories)

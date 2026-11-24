@@ -24,9 +24,11 @@
 ## Implementation notes (2026-11-24)
 
 - `TMPDIR` is used only when it is absolute and names an existing writable
-  directory. Unset, empty, relative, missing, non-directory, or unwritable
+  directory and leaves room for the unique suffix within `APL_TEST_DIR_MAX`.
+  Unset, empty, relative, missing, non-directory, unwritable, or over-long
   values deterministically fall back to `/tmp`; an unusable `/tmp` is a reported
-  `APL_ERR_IO` rather than an invented location.
+  `APL_ERR_IO` rather than an invented location. `apl_test_temp_dir_in` rejects
+  an over-long base explicitly instead of truncating it.
 - Each test directory is created uniquely with `mkdtemp` beneath that base.
 - Cleanup walks the tree with `lstat`; symlinks are unlinked rather than
   followed, nested files/directories are removed, and failures report the path
@@ -36,9 +38,10 @@
 
 ## Verification record (2026-11-24)
 
-- New `tests/integration/test_test_support.c` (7 tests) covers a custom TMPDIR,
-  unset/empty/relative/missing/non-directory fallback, unique directories,
-  nested cleanup, symlink safety, and repeated cleanup.
+- New `tests/integration/test_test_support.c` (9 tests) covers a custom TMPDIR,
+  unset/empty/relative/missing/non-directory fallback, an over-long TMPDIR
+  fallback and over-long `_in` rejection, unique directories, nested cleanup,
+  symlink safety, and repeated cleanup.
 - All support tests pass and a full run leaves no `apl1-test-*` directory
   behind; running with `TMPDIR=/tmp` is clean.
 
