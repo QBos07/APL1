@@ -274,7 +274,7 @@ class Smoke:
         self.fail("could not allocate a free Xvfb display (tried :90 through :129)")
 
     # ---------------------------------------------------------------- xterm
-    def start_xterm(self, geometry: str = "80x24") -> None:
+    def start_xterm(self, geometry: str = "80x24", term: str = "xterm-256color") -> None:
         self.launch_count += 1
         self.title = (
             f"apl1-smoke-{os.getpid()}-{uuid.uuid4().hex[:8]}-{self.launch_count}"
@@ -287,7 +287,7 @@ class Smoke:
                 "DISPLAY": self.display,
                 "XDG_DATA_HOME": str(self.temp_dir / "xdg"),
                 "HOME": str(self.temp_dir / "home"),
-                "TERM": "xterm-256color",
+                "TERM": term,
                 "LANG": "C.UTF-8",
                 "LC_ALL": "C.UTF-8",
             }
@@ -377,6 +377,18 @@ class Smoke:
             self.run(["xdotool", "key", key], env=self.display_env)
             time.sleep(0.08)
 
+    def supports_terminal(self, term: str) -> bool:
+        return (
+            shutil.which("infocmp") is not None
+            and subprocess.run(
+                ["infocmp", term],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            ).returncode
+            == 0
+        )
+
     def terminal_rows(self) -> int:
         geometry = self.run(
             ["xdotool", "getwindowgeometry", "--shell", self.window_id],
@@ -389,6 +401,19 @@ class Smoke:
         if height <= 0 or self.cell_height <= 0:
             self.fail(f"could not read xterm geometry: {geometry!r}")
         return max(1, int(height / self.cell_height))
+
+    def terminal_columns(self) -> int:
+        geometry = self.run(
+            ["xdotool", "getwindowgeometry", "--shell", self.window_id],
+            env=self.display_env,
+        )
+        width = 0
+        for line in geometry.splitlines():
+            if line.startswith("WIDTH="):
+                width = int(line.split("=", 1)[1])
+        if width <= 0 or self.cell_width <= 0:
+            self.fail(f"could not read xterm geometry: {geometry!r}")
+        return max(1, int(width / self.cell_width))
 
     def click_cell(self, row: int, column: int) -> None:
         self.run(
@@ -442,7 +467,11 @@ class Smoke:
 
         self.wait_for(description, ready, timeout=10.0)
 
-    def resize_and_check_redraw(self) -> None:
+    def resize_and_check_redraw(
+        self,
+        needles: tuple[str, ...] = ("No teams have been added yet.",),
+        wake_key: str = "Escape",
+    ) -> None:
         geometry = self.run(
             ["xdotool", "getwindowgeometry", "--shell", self.window_id],
             env=self.display_env,
@@ -468,16 +497,13 @@ class Smoke:
 
         # A key wakes the blocking input loop so the next frame is emitted at
         # the new geometry even on a bare Xvfb server without a window manager.
-        self.send_keys("Escape")
+        self.send_keys(wake_key)
         self.wait_for(
             "output after resize",
             lambda: len(self.read_xterm_log()) > log_size_before,
             timeout=10.0,
         )
-        self.wait_for_content(
-            "startup content after resize",
-            ("No teams have been added yet.",),
-        )
+        self.wait_for_content("content after resize", needles)
 
     def quit(self) -> None:
         subprocess.run(
@@ -539,7 +565,7 @@ class Smoke:
                 "SELECT t.name FROM app_settings s "
                 "JOIN teams t ON t.id = s.active_team_id WHERE s.id = 1"
             ).fetchone()
-        if teams != [("Ferrari", 0), ("McLaren", 0)]:
+        if teams != [("Ferrari", 0), ("McLaren", 0), ("Red Bull", 0)]:
             self.fail(f"unexpected team rows after smoke run: {teams!r}")
         if active != ("Ferrari",):
             self.fail(f"active team after smoke run is {active!r}, expected Ferrari")
@@ -671,6 +697,104 @@ class Smoke:
         self.send_keys("Escape")
         self.log("opened the team picker from the rail and status bar by mouse")
 
+        # Command-line UI: cancel does nothing, a navigation command switches
+        # views, incomplete action commands open prefilled dialogs, and complete
+        # commands execute once through the same use cases.
+        self.type_text(":")
+        self.type_text("view money")
+        self.send_keys("Escape")
+        if "Money is not implemented in this phase." in self.visible_text():
+            self.fail("cancelling a command still changed the view")
+        self.log("command cancel left the current view unchanged")
+
+        self.type_text(":")
+        self.type_text("view money")
+        self.send_keys("Return")
+        self.wait_for_content("command view switch", ("Money is not implemented in this phase.",))
+        self.type_text(":")
+        self.type_text("view teams")
+        self.send_keys("Return")
+        self.wait_for_content("command return to teams", ("Ferrari", "McLaren"))
+        self.log("command navigation switched views without a dialog")
+
+        self.type_text(":")
+        self.type_text("team create")
+        self.send_keys("Return")
+        self.wait_for_content("incomplete command form", ("Create team", "Name:"))
+        self.send_keys("Escape")
+        if self.database_query("SELECT COUNT(*) FROM teams;") != (2,):
+            self.fail("cancelling the incomplete team command wrote a row")
+        self.log("incomplete command opened the prefilled team form and cancelled cleanly")
+
+        self.type_text(":")
+        self.type_text('team create --name "Red Bull" --notes "Energy"')
+        self.send_keys("Return")
+        self.wait_for_database(
+            "command-created team",
+            lambda: self.database_query("SELECT COUNT(*) FROM teams;") == (3,),
+        )
+        self.wait_for_content("command-created detail", ("Name: Red Bull",))
+        self.type_text(":")
+        self.type_text("team switch Ferrari")
+        self.send_keys("Return")
+        self.wait_for_database(
+            "command active team",
+            lambda: self.database_query(
+                "SELECT t.name FROM app_settings s "
+                "JOIN teams t ON t.id = s.active_team_id WHERE s.id = 1;"
+            )
+            == ("Ferrari",),
+        )
+        self.send_keys("Escape")
+        self.log("complete command created a team and switched teams")
+
+        self.type_text(":")
+        self.type_text("team switch Missing")
+        self.send_keys("Return")
+        self.wait_for_content("unknown team error", ("Team not found",))
+        self.send_keys("Escape")
+        if self.database_query(
+            "SELECT t.name FROM app_settings s "
+            "JOIN teams t ON t.id = s.active_team_id WHERE s.id = 1;"
+        ) != ("Ferrari",):
+            self.fail("a failed team switch changed the active team")
+        self.log("failed team command left the active team unchanged")
+
+        self.type_text(":")
+        self.type_text("version")
+        self.send_keys("Return")
+        self.wait_for_content("version command", ("0.1.0",))
+        self.send_keys("Escape")
+
+        self.type_text(":")
+        self.type_text("team create")
+        self.send_keys("Return")
+        self.wait_for_content("incomplete command form", ("Create team",))
+        self.send_keys("Escape")
+        self.send_keys("n")
+        self.type_text("Ferrari")
+        self.send_keys("Return")
+        self.wait_for_content("duplicate validation", ("already exists",))
+        if self.database_query("SELECT COUNT(*) FROM teams;") != (3,):
+            self.fail("duplicate team validation wrote a row")
+        self.send_keys("Escape")
+        self.log("duplicate team names keep the form open without writing")
+
+        rows = self.terminal_rows()
+        columns = self.terminal_columns()
+        self.click_cell(rows - 1, columns - 3)
+        self.wait_for_content("mouse command prompt", (":   view",))
+        self.send_keys("Escape")
+        self.log("opened the command prompt from the status hint by mouse")
+
+        self.send_keys("m")
+        self.resize_and_check_redraw(("Active team overview",), wake_key="F10")
+        self.send_keys("Escape", "Escape")
+        self.send_keys("t")
+        self.resize_and_check_redraw(("Switch active team",), wake_key="F10")
+        self.send_keys("Escape")
+        self.log("resize kept the open menu and team dialog usable")
+
         self.quit()
         self.check_exit_status()
         self.log("application exited with status 0")
@@ -694,6 +818,20 @@ class Smoke:
         self.quit()
         self.check_exit_status()
         self.check_window_cleanup()
+
+        if self.supports_terminal("xterm-mono"):
+            self.start_xterm(term="xterm-mono")
+            self.wait_for_content(
+                "limited-color startup",
+                ("Overview", "Teams", "Ferrari", ": commands"),
+            )
+            self.quit()
+            self.check_exit_status()
+            self.check_window_cleanup()
+            self.log("limited-color terminal remained fully operable")
+        else:
+            self.log("xterm-mono terminfo unavailable; limited-color launch skipped")
+
         self.check_database()
         self.log("isolated database was created, migrated, and retained team state")
 

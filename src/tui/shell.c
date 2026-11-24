@@ -11,6 +11,7 @@
 
 #include "app/team_service.h"
 #include "app/version.h"
+#include "tui/action.h"
 #include "tui/command.h"
 #include "tui/command_line.h"
 #include "tui/dialog.h"
@@ -1099,11 +1100,158 @@ static void execute_command_line(shell_state *const state)
     if (parsed.status == APL_TUI_COMMAND_EMPTY) {
         return;
     }
-    if (parsed.status != APL_TUI_COMMAND_OK) {
-        set_status_error(state, "%s %s", parsed.error, parsed.suggestion);
+
+    if (parsed.status == APL_TUI_COMMAND_INCOMPLETE && parsed.spec != nullptr &&
+        parsed.spec->id == APL_TUI_COMMAND_TEAM_CREATE) {
+        const char *const notes = apl_tui_command_option_value(&parsed.request, "notes");
+        open_create_dialog(state, "", (notes != nullptr) ? notes : "");
+        set_status(state, "Team name is missing; complete the form.");
         return;
     }
-    set_status_success(state, "Command accepted: %s", parsed.request.command);
+    if (parsed.status == APL_TUI_COMMAND_INCOMPLETE && parsed.spec != nullptr &&
+        parsed.spec->id == APL_TUI_COMMAND_TEAM_SWITCH) {
+        open_team_picker(state);
+        return;
+    }
+    if (parsed.status != APL_TUI_COMMAND_OK) {
+        char message[APL_TUI_COMMAND_ERROR_MAX + APL_TUI_COMMAND_SUGGESTION_MAX + 4];
+        (void)snprintf(message, sizeof(message), "%s %s", parsed.error, parsed.suggestion);
+        set_status_error(state, "%s", message);
+        show_info_dialog(state, "Command error", message);
+        return;
+    }
+
+    apl_error error;
+    apl_error_init(&error);
+    apl_tui_action action = {};
+    if (apl_tui_action_from_request(&parsed.request, &action, &error) != APL_OK) {
+        set_status_from_error(state, "Command failed", &error);
+        show_info_dialog(state, "Command error", apl_error_message(&error));
+        return;
+    }
+
+    switch (action.kind) {
+    case APL_TUI_ACTION_SWITCH_SECTION:
+        set_section(state, action.section);
+        set_status(state, "View: %s", apl_tui_section_label(action.section));
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    case APL_TUI_ACTION_OVERVIEW_ALL:
+        set_section(state, APL_TUI_SECTION_OVERVIEW);
+        set_status(state, "All-teams overview is not implemented in this phase.");
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    case APL_TUI_ACTION_OPEN_TEAM_LIST:
+        set_section(state, APL_TUI_SECTION_TEAMS);
+        set_status(state, "Teams");
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    case APL_TUI_ACTION_OPEN_TEAM_PICKER:
+        open_team_picker(state);
+        return;
+    case APL_TUI_ACTION_OPEN_TEAM_CREATE_FORM:
+        open_create_form(state);
+        return;
+    case APL_TUI_ACTION_CREATE_TEAM_DIRECT:
+        if (!perform_create(state, action.value, action.notes, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_TEAM_SWITCH_TARGET: {
+        apl_team *teams = nullptr;
+        size_t count = 0;
+        if (apl_team_service_list(state->app, true, &teams, &count, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        bool numeric = action.value[0] != '\0';
+        for (const char *cursor = action.value; *cursor != '\0'; ++cursor) {
+            if (*cursor < '0' || *cursor > '9') {
+                numeric = false;
+                break;
+            }
+        }
+        const int64_t target_id = numeric ? strtoll(action.value, nullptr, 10) : 0;
+
+        apl_team chosen = {};
+        bool found = false;
+        unsigned prefix_matches = 0;
+        for (size_t index = 0; index < count; ++index) {
+            if (numeric && teams[index].id == target_id) {
+                chosen = teams[index];
+                found = true;
+                break;
+            }
+            if (!numeric && apl_tui_text_equal_ci(teams[index].name, action.value)) {
+                chosen = teams[index];
+                found = true;
+                break;
+            }
+            if (!numeric && apl_tui_text_starts_with_ci(teams[index].name, action.value)) {
+                ++prefix_matches;
+                chosen = teams[index];
+            }
+        }
+        if (!found && !numeric && prefix_matches == 1) {
+            found = true;
+        } else if (!found && !numeric && prefix_matches > 1) {
+            apl_team_service_free_list(teams);
+            set_status_warning(state, "Multiple teams match '%s'; choose one.", action.value);
+            open_team_picker(state);
+            return;
+        }
+        apl_team_service_free_list(teams);
+
+        if (!found) {
+            set_status_error(state, "No team matches '%s'.", action.value);
+            char message[APL_TUI_COMMAND_ERROR_MAX];
+            (void)snprintf(message, sizeof(message), "No team matches '%.180s'.", action.value);
+            show_info_dialog(state, "Team not found", message);
+            return;
+        }
+        if (chosen.archived) {
+            set_status_warning(state, "Archived team '%s' cannot be active.", chosen.name);
+            show_info_dialog(state, "Archived team",
+                             "Archived teams cannot be the active workspace.");
+            return;
+        }
+        if (active_status_has_team(state->active_status) && state->active_team.id == chosen.id) {
+            set_status(state, "Team '%s' is already active.", chosen.name);
+            return;
+        }
+        perform_set_active(state, chosen.id, &error);
+        if (!apl_error_is_success(&error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    }
+    case APL_TUI_ACTION_OPEN_HELP: {
+        char help[APL_TUI_COMMAND_HELP_MAX];
+        const apl_tui_command_spec *spec = nullptr;
+        if (action.value[0] != '\0') {
+            spec = apl_tui_command_lookup(action.value);
+        }
+        apl_tui_command_help(spec, help, sizeof(help));
+        show_info_dialog(state, "Command help", help);
+        return;
+    }
+    case APL_TUI_ACTION_OPEN_ABOUT:
+        show_info_dialog(state, "About apl1",
+                         "apl1 is a local, user-maintained Formula 1 team management database. "
+                         "It does not generate schedules, results, missing facts, or demo data.");
+        return;
+    case APL_TUI_ACTION_OPEN_VERSION: {
+        char version[128];
+        apl1_version_info(version, sizeof(version));
+        show_info_dialog(state, "Version information", version);
+        return;
+    }
+    case APL_TUI_ACTION_QUIT:
+        state->quit = true;
+        return;
+    case APL_TUI_ACTION_NONE:
+        break;
+    }
 }
 
 static void handle_command_line_input(shell_state *const state, const ncinput *const input)

@@ -142,7 +142,7 @@ commands open prefilled dialogs; complete valid commands execute the shared acti
 - [x] **2.24 Move team create/edit/switch flows into dialogs.** [Work item](work-items/phase-2/2.24-team-flows-as-dialogs.md)
 - [x] **2.25 Add the ex-style command line surface.** [Work item](work-items/phase-2/2.25-ex-command-line-ui.md)
 - [x] **2.26 Add the command parser and registry.** [Work item](work-items/phase-2/2.26-command-parser-registry.md)
-- [ ] **2.27 Implement navigation and team command actions.** [Work item](work-items/phase-2/2.27-core-command-actions.md)
+- [x] **2.27 Implement navigation and team command actions.** [Work item](work-items/phase-2/2.27-core-command-actions.md)
 - [ ] **2.28 Verify the redesigned shell and Phase 2 interaction parity.** [Work item](work-items/phase-2/2.28-redesign-smoke-and-parity.md)
 
 **Redesign gate:** all primary views are reachable from vertical tabs; window-bar
