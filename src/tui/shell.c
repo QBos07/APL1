@@ -11,6 +11,8 @@
 
 #include "app/team_service.h"
 #include "app/version.h"
+#include "tui/command.h"
+#include "tui/command_line.h"
 #include "tui/dialog.h"
 #include "tui/focus.h"
 #include "tui/frame.h"
@@ -62,6 +64,7 @@ typedef struct shell_state {
     apl_tui_focus focus;
     apl_tui_status status;
     apl_tui_theme theme;
+    apl_tui_command_line command_line;
     shell_dialog_context dialog_context;
     int64_t dialog_team_id;
     apl_team *picker_teams;
@@ -107,6 +110,14 @@ static void set_status_warning(shell_state *const state, const char *const forma
     va_list args;
     va_start(args, format);
     set_status_level(state, APL_TUI_STATUS_WARNING, format, args);
+    va_end(args);
+}
+
+static void set_status_error(shell_state *const state, const char *const format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    set_status_level(state, APL_TUI_STATUS_ERROR, format, args);
     va_end(args);
 }
 
@@ -999,29 +1010,41 @@ static void draw_screen(shell_state *const state)
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
     if (status != nullptr && layout != nullptr) {
         apl_tui_style_role role = APL_TUI_ROLE_BODY;
-        if (state->status.message[0] != '\0') {
-            switch (state->status.level) {
-            case APL_TUI_STATUS_SUCCESS:
-                role = APL_TUI_ROLE_SUCCESS;
-                break;
-            case APL_TUI_STATUS_WARNING:
-                role = APL_TUI_ROLE_WARNING;
-                break;
-            case APL_TUI_STATUS_ERROR:
-                role = APL_TUI_ROLE_ERROR;
-                break;
-            case APL_TUI_STATUS_INFO:
-                break;
-            }
-        }
-        apl_tui_theme_apply(&state->theme, status, role);
-        for (unsigned column = 0; column < layout->status.cols; ++column) {
-            (void)ncplane_putchar_yx(status, 0, (int)column, ' ');
-        }
         char line[768];
-        (void)apl_tui_status_render(&state->status, layout->status.cols, line, sizeof(line));
-        apl_tui_frame_draw_line(status, 0, line);
-        apl_tui_theme_reset(status);
+        if (apl_tui_command_line_is_open(&state->command_line)) {
+            role = APL_TUI_ROLE_SELECTION;
+            apl_tui_theme_apply(&state->theme, status, role);
+            for (unsigned column = 0; column < layout->status.cols; ++column) {
+                (void)ncplane_putchar_yx(status, 0, (int)column, ' ');
+            }
+            (void)apl_tui_command_line_render(&state->command_line, layout->status.cols, line,
+                                              sizeof(line));
+            apl_tui_frame_draw_line(status, 0, line);
+            apl_tui_theme_reset(status);
+        } else {
+            if (state->status.message[0] != '\0') {
+                switch (state->status.level) {
+                case APL_TUI_STATUS_SUCCESS:
+                    role = APL_TUI_ROLE_SUCCESS;
+                    break;
+                case APL_TUI_STATUS_WARNING:
+                    role = APL_TUI_ROLE_WARNING;
+                    break;
+                case APL_TUI_STATUS_ERROR:
+                    role = APL_TUI_ROLE_ERROR;
+                    break;
+                case APL_TUI_STATUS_INFO:
+                    break;
+                }
+            }
+            apl_tui_theme_apply(&state->theme, status, role);
+            for (unsigned column = 0; column < layout->status.cols; ++column) {
+                (void)ncplane_putchar_yx(status, 0, (int)column, ' ');
+            }
+            (void)apl_tui_status_render(&state->status, layout->status.cols, line, sizeof(line));
+            apl_tui_frame_draw_line(status, 0, line);
+            apl_tui_theme_reset(status);
+        }
     }
 
     draw_menu_popup(state);
@@ -1034,6 +1057,86 @@ static void draw_screen(shell_state *const state)
 static bool is_enter_key(const uint32_t id)
 {
     return id == NCKEY_ENTER || id == '\n' || id == '\r';
+}
+
+static void update_command_suggestion(shell_state *const state)
+{
+    char suggestion[APL_TUI_COMMAND_SUGGESTION_MAX];
+    apl_tui_command_complete(state->command_line.text, suggestion, sizeof(suggestion));
+    apl_tui_command_line_set_suggestion(&state->command_line, suggestion);
+}
+
+static void open_command_line(shell_state *const state)
+{
+    if (apl_tui_dialog_active(&state->dialog)) {
+        return;
+    }
+    apl_tui_command_line_open(&state->command_line);
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_COMMAND);
+    update_command_suggestion(state);
+    set_status(state, "Enter runs the command; Esc cancels. Command history is session-local.");
+}
+
+static void close_command_line(shell_state *const state)
+{
+    apl_tui_command_line_close(&state->command_line);
+    apl_tui_focus_pop(&state->focus);
+}
+
+static void execute_command_line(shell_state *const state)
+{
+    if (apl_tui_command_line_empty(&state->command_line)) {
+        close_command_line(state);
+        return;
+    }
+
+    char line[APL_TUI_COMMAND_LINE_TEXT_MAX];
+    (void)snprintf(line, sizeof(line), "%s", state->command_line.text);
+    apl_tui_command_line_add_history(&state->command_line, line);
+    close_command_line(state);
+
+    const apl_tui_command_parse_result parsed = apl_tui_command_parse(line);
+    if (parsed.status == APL_TUI_COMMAND_EMPTY) {
+        return;
+    }
+    if (parsed.status != APL_TUI_COMMAND_OK) {
+        set_status_error(state, "%s %s", parsed.error, parsed.suggestion);
+        return;
+    }
+    set_status_success(state, "Command accepted: %s", parsed.request.command);
+}
+
+static void handle_command_line_input(shell_state *const state, const ncinput *const input)
+{
+    const uint32_t id = input->id;
+    if (id == NCKEY_ESC) {
+        close_command_line(state);
+        set_status(state, "Command cancelled.");
+        return;
+    }
+    if (is_enter_key(id)) {
+        execute_command_line(state);
+        return;
+    }
+    if (id == NCKEY_UP) {
+        apl_tui_command_line_history_previous(&state->command_line);
+        update_command_suggestion(state);
+        return;
+    }
+    if (id == NCKEY_DOWN) {
+        apl_tui_command_line_history_next(&state->command_line);
+        update_command_suggestion(state);
+        return;
+    }
+    if (id == NCKEY_BACKSPACE || id == 127) {
+        apl_tui_command_line_backspace(&state->command_line);
+        update_command_suggestion(state);
+        return;
+    }
+    if (id >= 0x20 && id < PRETERUNICODEBASE && input->utf8[0] != '\0') {
+        apl_tui_command_line_insert(&state->command_line, input->utf8);
+        update_command_suggestion(state);
+    }
 }
 
 /** Milliseconds on a monotonic-enough clock for click matching. */
@@ -1188,6 +1291,9 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
         if (column < apl_tui_status_team_hit_width(&state->status, columns)) {
             apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_STATUS);
             open_team_picker(state);
+        } else if (column >= apl_tui_status_command_hit_start(&state->status, columns)) {
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_STATUS);
+            open_command_line(state);
         }
         return;
     }
@@ -1589,6 +1695,14 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         handle_dialog_input(state, input);
         return;
     }
+    if (apl_tui_command_line_is_open(&state->command_line)) {
+        handle_command_line_input(state, input);
+        return;
+    }
+    if (id == ':') {
+        open_command_line(state);
+        return;
+    }
     if (id == NCKEY_F10) {
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
         return;
@@ -1669,6 +1783,7 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
     apl_tui_menu_init(&state->menu);
     apl_tui_focus_init(&state->focus);
     apl_tui_status_init(&state->status);
+    apl_tui_command_line_init(&state->command_line);
     sync_status_context(state);
 
     apl_status status = detect_any_teams(state, error);

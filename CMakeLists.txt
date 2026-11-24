@@ -91,6 +91,7 @@ if(BUILD_TESTING)
 
     add_executable(apl1_tui_tests
         tests/tui/test_tui_command.c
+        tests/tui/test_tui_command_line.c
         tests/tui/test_tui_dialog.c
         tests/tui/test_tui_focus.c
         tests/tui/test_tui_frame.c
@@ -174,6 +175,7 @@ target_link_libraries(apl_db PUBLIC
 
 add_library(apl_tui STATIC
     src/tui/command.c
+    src/tui/command_line.c
     src/tui/dialog.c
     src/tui/focus.c
     src/tui/frame.c
