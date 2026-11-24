@@ -16,7 +16,7 @@ Checks: >
   -cert-dcl51-cpp,
   performance-*,
   portability-*
-HeaderFilterRegex: '^(src|tests)/'
+HeaderFilterRegex: '.*/(src|tests)/.*'
 FormatStyle: file
 UseColor: false
 WarningsAsErrors: ''
