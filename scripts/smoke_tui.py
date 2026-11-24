@@ -377,6 +377,19 @@ class Smoke:
             self.run(["xdotool", "key", key], env=self.display_env)
             time.sleep(0.08)
 
+    def terminal_rows(self) -> int:
+        geometry = self.run(
+            ["xdotool", "getwindowgeometry", "--shell", self.window_id],
+            env=self.display_env,
+        )
+        height = 0
+        for line in geometry.splitlines():
+            if line.startswith("HEIGHT="):
+                height = int(line.split("=", 1)[1])
+        if height <= 0 or self.cell_height <= 0:
+            self.fail(f"could not read xterm geometry: {geometry!r}")
+        return max(1, int(height / self.cell_height))
+
     def click_cell(self, row: int, column: int) -> None:
         self.run(
             ["xdotool", "windowfocus", "--sync", self.window_id],
@@ -635,7 +648,9 @@ class Smoke:
         )
         self.log("created McLaren through the form")
 
-        self.send_keys("Escape", "Up", "s")
+        self.send_keys("t")
+        self.wait_for_content("keyboard team picker", ("Switch active team", "McLaren"))
+        self.send_keys("Up", "Return")
         self.wait_for_database(
             "switched active team",
             lambda: self.database_query(
@@ -644,7 +659,17 @@ class Smoke:
             )
             == ("Ferrari",),
         )
-        self.log("switched active team to Ferrari")
+        self.wait_for_content("rail and status active team", ("Team: Ferrari", "Ferrari · Teams"))
+        self.log("switched active team to Ferrari with the team picker")
+
+        rows = self.terminal_rows()
+        self.click_cell(rows - 2, 3)
+        self.wait_for_content("mouse rail team picker", ("Switch active team",))
+        self.send_keys("Escape")
+        self.click_cell(rows - 1, 2)
+        self.wait_for_content("mouse status team picker", ("Switch active team",))
+        self.send_keys("Escape")
+        self.log("opened the team picker from the rail and status bar by mouse")
 
         self.quit()
         self.check_exit_status()

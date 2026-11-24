@@ -1,5 +1,6 @@
 #include "tui/shell.h"
 
+#include <limits.h>
 #include <notcurses/notcurses.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -33,6 +34,11 @@ typedef enum shell_pending_action {
     SHELL_PENDING_DISCARD_FORM,
     SHELL_PENDING_ARCHIVE_TEAM,
 } shell_pending_action;
+
+typedef enum shell_dialog_context {
+    SHELL_DIALOG_CONTEXT_NONE = 0,
+    SHELL_DIALOG_CONTEXT_TEAM_PICKER,
+} shell_dialog_context;
 
 typedef struct shell_form {
     bool editing;
@@ -68,6 +74,11 @@ typedef struct shell_state {
     apl_tui_focus focus;
     apl_tui_status status;
     apl_tui_theme theme;
+    shell_dialog_context dialog_context;
+    apl_team *picker_teams;
+    size_t picker_team_count;
+    bool picker_include_archived;
+    bool team_focus;
     shell_pending_action pending;
     int64_t pending_team_id;
     int64_t last_click_team_id;
@@ -410,6 +421,131 @@ static void toggle_archived_view(shell_state *const state, apl_error *const erro
                state->include_archived ? "Showing archived teams." : "Hiding archived teams.");
 }
 
+static void free_picker_teams(shell_state *const state)
+{
+    apl_team_service_free_list(state->picker_teams);
+    state->picker_teams = nullptr;
+    state->picker_team_count = 0;
+}
+
+static void close_shell_dialog(shell_state *const state)
+{
+    apl_tui_dialog_init(&state->dialog);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_NONE;
+    free_picker_teams(state);
+    apl_tui_focus_pop(&state->focus);
+}
+
+/** Rebuild the choice dialog from the loaded picker teams. */
+static void build_team_picker_dialog(shell_state *const state)
+{
+    apl_tui_dialog_open_choice(&state->dialog, "Switch active team",
+                               "Browsing does not switch teams. Enter selects explicitly.");
+    unsigned active_option = UINT_MAX;
+    for (size_t index = 0; index < state->picker_team_count; ++index) {
+        const apl_team *const team = &state->picker_teams[index];
+        const bool active =
+            active_status_has_team(state->active_status) && team->id == state->active_team.id;
+        char label[APL_TUI_DIALOG_OPTION_LABEL_MAX];
+        (void)snprintf(label, sizeof(label), "%s%s", team->name,
+                       team->archived ? " [archived]" : "");
+        const unsigned option =
+            apl_tui_dialog_add_option(&state->dialog, label, !team->archived, active);
+        if (active && option != UINT_MAX) {
+            active_option = option;
+        }
+    }
+    (void)apl_tui_dialog_add_option(&state->dialog,
+                                    state->picker_include_archived ? "Hide archived teams"
+                                                                   : "Show archived teams",
+                                    true, false);
+    (void)apl_tui_dialog_add_option(&state->dialog, "Create a new team...", true, false);
+    if (active_option != UINT_MAX) {
+        apl_tui_dialog_select_option(&state->dialog, active_option);
+    }
+    state->dialog_context = SHELL_DIALOG_CONTEXT_TEAM_PICKER;
+}
+
+static apl_status load_picker_teams(shell_state *const state, apl_error *const error)
+{
+    free_picker_teams(state);
+    return apl_team_service_list(state->app, state->picker_include_archived,
+                                 &state->picker_teams, &state->picker_team_count, error);
+}
+
+static void open_team_picker(shell_state *const state)
+{
+    apl_error error;
+    apl_error_init(&error);
+    state->picker_include_archived = false;
+    if (load_picker_teams(state, &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    build_team_picker_dialog(state);
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Choose a team. Archived teams are shown only on request.");
+}
+
+static void rebuild_team_picker(shell_state *const state, const bool include_archived)
+{
+    apl_error error;
+    apl_error_init(&error);
+    state->picker_include_archived = include_archived;
+    if (load_picker_teams(state, &error) != APL_OK) {
+        close_shell_dialog(state);
+        show_error_dialog(state, &error);
+        return;
+    }
+    build_team_picker_dialog(state);
+}
+
+static void finish_team_picker(shell_state *const state, const apl_tui_dialog_result result)
+{
+    if (result == APL_TUI_DIALOG_DISMISSED) {
+        close_shell_dialog(state);
+        set_status(state, "Team switch cancelled.");
+        return;
+    }
+
+    const unsigned selected = apl_tui_dialog_selected_option(&state->dialog);
+    if (selected == UINT_MAX) {
+        return;
+    }
+    if (selected < state->picker_team_count) {
+        const apl_team team = state->picker_teams[selected];
+        const bool already_active = active_status_has_team(state->active_status) &&
+                                    state->active_team.id == team.id;
+        close_shell_dialog(state);
+        if (team.archived) {
+            set_status_warning(state, "Archived teams cannot be active.");
+            return;
+        }
+        if (already_active) {
+            set_status(state, "Team '%s' is already active.", team.name);
+            return;
+        }
+        apl_error error;
+        apl_error_init(&error);
+        perform_set_active(state, team.id, &error);
+        if (!apl_error_is_success(&error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    }
+
+    const unsigned toggle_index = (unsigned)state->picker_team_count;
+    if (selected == toggle_index) {
+        rebuild_team_picker(state, !state->picker_include_archived);
+        return;
+    }
+    if (selected == toggle_index + 1) {
+        close_shell_dialog(state);
+        open_create_form(state);
+        return;
+    }
+}
+
 static void set_section(shell_state *const state, const apl_tui_section section)
 {
     state->section = section;
@@ -626,6 +762,30 @@ static void draw_tab_rail(shell_state *const state)
                                                : APL_TUI_ROLE_TAB_INACTIVE));
         apl_tui_frame_draw_line(rail, (int)offset, line);
     }
+    apl_tui_theme_reset(rail);
+}
+
+static void draw_team_switcher(shell_state *const state)
+{
+    struct ncplane *const rail = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_TABS);
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (rail == nullptr || layout == nullptr || layout->team_switcher.rows == 0) {
+        return;
+    }
+    const unsigned start_row = layout->team_switcher.y - layout->tabs.y;
+    const unsigned rows = layout->team_switcher.rows;
+    const bool focused = state->focus.region == APL_TUI_FOCUS_TABS && state->team_focus;
+
+    apl_tui_theme_apply(&state->theme, rail,
+                         focused ? APL_TUI_ROLE_TEAM_FOCUS : APL_TUI_ROLE_TEAM);
+    if (rows >= 2) {
+        apl_tui_frame_draw_line(rail, (int)start_row, "----------------------");
+    }
+    char line[APL_TUI_STATUS_TEAM_MAX + 16];
+    (void)snprintf(line, sizeof(line), "%cTeam: %s", focused ? '>' : ' ',
+                   active_status_has_team(state->active_status) ? state->active_team.name
+                                                                : "(none)");
+    apl_tui_frame_draw_line(rail, (int)(start_row + rows - 1), line);
     apl_tui_theme_reset(rail);
 }
 
@@ -891,6 +1051,7 @@ static void draw_screen(shell_state *const state)
 {
     draw_window_bar(state);
     draw_tab_rail(state);
+    draw_team_switcher(state);
 
     if (state->section != APL_TUI_SECTION_TEAMS) {
         draw_placeholder(state);
@@ -1035,6 +1196,7 @@ static void handle_form_mouse(shell_state *const state, const ncinput *const inp
             state->pending = SHELL_PENDING_DISCARD_FORM;
             apl_tui_dialog_open_confirm(&state->dialog, "Discard changes?",
                                         "The values you typed will be lost.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         } else {
             close_form(state);
         }
@@ -1129,9 +1291,24 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
             const size_t index = state->tabs.offset + row;
             if (index < apl_tui_section_tab_count()) {
                 apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_TABS);
+                state->team_focus = false;
                 apl_tui_list_select(&state->tabs, index);
                 set_section(state, apl_tui_section_tab_at(index));
             }
+        } else if (point_in_rect(layout->team_switcher, input->y, input->x)) {
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_TABS);
+            state->team_focus = true;
+            open_team_picker(state);
+        }
+        return;
+    }
+    if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
+        point_in_rect(layout->status, input->y, input->x)) {
+        const unsigned columns = layout->status.cols;
+        const unsigned column = (unsigned)(input->x - (int)layout->status.x);
+        if (column < apl_tui_status_team_hit_width(&state->status, columns)) {
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_STATUS);
+            open_team_picker(state);
         }
         return;
     }
@@ -1199,12 +1376,17 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
 
     apl_error error;
     apl_error_init(&error);
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_TEAM_PICKER) {
+        finish_team_picker(state, result);
+        return;
+    }
+
     const shell_pending_action pending = state->pending;
     const int64_t pending_team = state->pending_team_id;
     state->pending = SHELL_PENDING_NONE;
     state->pending_team_id = 0;
-    apl_tui_dialog_init(&state->dialog);
-    apl_tui_focus_pop(&state->focus);
+    close_shell_dialog(state);
 
     if (pending == SHELL_PENDING_DISCARD_FORM) {
         if (result == APL_TUI_DIALOG_ACCEPTED) {
@@ -1219,6 +1401,8 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
         } else {
             set_status(state, "Archive cancelled.");
         }
+    } else if (result == APL_TUI_DIALOG_DISMISSED) {
+        set_status(state, "Cancelled.");
     }
 }
 
@@ -1230,6 +1414,7 @@ static void handle_form_input(shell_state *const state, const ncinput *const inp
             state->pending = SHELL_PENDING_DISCARD_FORM;
             apl_tui_dialog_open_confirm(&state->dialog, "Discard changes?",
                                         "The values you typed will be lost.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
             return;
         }
         close_form(state);
@@ -1327,20 +1512,9 @@ static void handle_list_input(shell_state *const state, const uint32_t id)
         }
         return;
     case 's':
-    case 'S': {
-        const apl_team *const team = selected_team(state);
-        if (team != nullptr) {
-            if (team->archived) {
-                set_status_warning(state, "Archived teams cannot be active; choose an active team.");
-            } else {
-                perform_set_active(state, team->id, &error);
-                if (!apl_error_is_success(&error)) {
-                    show_error_dialog(state, &error);
-                }
-            }
-        }
+    case 'S':
+        open_team_picker(state);
         return;
-    }
     case 'q':
     case 'Q':
         state->quit = true;
@@ -1358,9 +1532,6 @@ static void handle_list_input(shell_state *const state, const uint32_t id)
 
 static void handle_detail_input(shell_state *const state, const uint32_t id)
 {
-    apl_error error;
-    apl_error_init(&error);
-
     switch (id) {
     case NCKEY_ESC:
         state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
@@ -1375,14 +1546,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
         return;
     case 's':
     case 'S':
-        if (state->detail.archived) {
-            set_status_warning(state, "Archived teams cannot be active; choose an active team.");
-        } else {
-            perform_set_active(state, state->detail.id, &error);
-            if (!apl_error_is_success(&error)) {
-                show_error_dialog(state, &error);
-            }
-        }
+        open_team_picker(state);
         return;
     case 'x':
     case 'X':
@@ -1397,6 +1561,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
             apl_tui_dialog_open_confirm(&state->dialog, "Archive team?",
                                         "The team will be hidden from the active list. Its "
                                         "records and history are kept.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }
         return;
     case 'q':
@@ -1499,26 +1664,42 @@ static void handle_tabs_input(shell_state *const state, const ncinput *const inp
 {
     switch (input->id) {
     case NCKEY_UP:
+        if (state->team_focus) {
+            state->team_focus = false;
+            return;
+        }
         apl_tui_list_move(&state->tabs, -1);
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
     case NCKEY_DOWN:
+        if (!state->team_focus &&
+            state->tabs.selected + 1 >= apl_tui_section_tab_count()) {
+            state->team_focus = true;
+            return;
+        }
+        if (state->team_focus) {
+            return;
+        }
         apl_tui_list_move(&state->tabs, 1);
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
     case NCKEY_PGUP:
+        state->team_focus = false;
         apl_tui_list_page(&state->tabs, -1);
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
     case NCKEY_PGDOWN:
+        state->team_focus = false;
         apl_tui_list_page(&state->tabs, 1);
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
     case NCKEY_HOME:
+        state->team_focus = false;
         apl_tui_list_home(&state->tabs);
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
     case NCKEY_END:
+        state->team_focus = false;
         apl_tui_list_end(&state->tabs);
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
@@ -1526,13 +1707,21 @@ static void handle_tabs_input(shell_state *const state, const ncinput *const inp
         apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
         return;
     case NCKEY_ESC:
-        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        if (state->team_focus) {
+            state->team_focus = false;
+        } else {
+            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        }
         return;
     default:
         break;
     }
     if (is_enter_key(input->id)) {
-        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        if (state->team_focus) {
+            open_team_picker(state);
+        } else {
+            set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        }
     }
 }
 
@@ -1542,6 +1731,8 @@ static void handle_status_input(shell_state *const state, const ncinput *const i
         apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
     } else if (input->id == NCKEY_ESC) {
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+    } else if (is_enter_key(input->id) || input->id == 's' || input->id == 'S') {
+        open_team_picker(state);
     }
 }
 
@@ -1554,6 +1745,20 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     }
     if (id == NCKEY_F10) {
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
+        return;
+    }
+    if (id == NCKEY_F02) {
+        open_team_picker(state);
+        return;
+    }
+    if ((id == 't' || id == 'T') &&
+        !(state->section == APL_TUI_SECTION_TEAMS && state->screen == SHELL_SCREEN_TEAM_FORM)) {
+        open_team_picker(state);
+        return;
+    }
+    if ((id == 'q' || id == 'Q') &&
+        !(state->section == APL_TUI_SECTION_TEAMS && state->screen == SHELL_SCREEN_TEAM_FORM)) {
+        state->quit = true;
         return;
     }
     if ((id == 'm' || id == 'M') &&
@@ -1747,6 +1952,7 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
     }
     apl_tui_frame_stop(&state.frame);
     apl_team_service_free_list(state.teams);
+    free_picker_teams(&state);
     if (status == APL_OK) {
         apl_error_clear(error);
     }
