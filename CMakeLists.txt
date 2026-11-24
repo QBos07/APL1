@@ -29,6 +29,7 @@ if(BUILD_TESTING)
         tests/integration/test_support.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
+        tests/integration/test_db_foreign_keys.c
     )
 
     target_include_directories(apl1_tests PRIVATE src tests/integration)
