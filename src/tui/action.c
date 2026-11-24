@@ -18,8 +18,7 @@ static void join_positionals(const apl_tui_command_request *const request, char 
 }
 
 apl_status apl_tui_action_from_request(const apl_tui_command_request *const request,
-                                       apl_tui_action *const out_action,
-                                       apl_error *const error)
+                                       apl_tui_action *const out_action, apl_error *const error)
 {
     if (request == nullptr || out_action == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "command action arguments are nullptr");
@@ -57,8 +56,7 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
             return APL_OK;
         }
         out_action->kind = APL_TUI_ACTION_TEAM_SWITCH_TARGET;
-        (void)snprintf(out_action->value, sizeof(out_action->value), "%s",
-                       request->positionals[0]);
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
         return APL_OK;
     case APL_TUI_COMMAND_TEAM_CREATE: {
         const char *const option_name = apl_tui_command_option_value(request, "name");

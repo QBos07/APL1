@@ -14,8 +14,7 @@ typedef struct token_list {
 } token_list;
 
 static const char *const VIEW_CHOICES[] = {
-    "overview", "teams",    "people", "events", "money",
-    "development", "parts", "history", "settings",
+    "overview", "teams", "people", "events", "money", "development", "parts", "history", "settings",
 };
 
 static const char *const OVERVIEW_CHOICES[] = {"active", "all"};
@@ -23,26 +22,27 @@ static const char *const TEAM_CREATE_OPTIONS[] = {"name", "notes"};
 
 static const apl_tui_command_spec COMMANDS[] = {
     {"view", "v", "view <overview|teams|people|events|money|development|parts|history|settings>",
-     "Switch the active view without changing teams.", APL_TUI_COMMAND_VIEW, 1, 1, VIEW_CHOICES,
-     sizeof(VIEW_CHOICES) / sizeof(VIEW_CHOICES[0]), nullptr, 0},
+     "Switch the active view without changing teams.", VIEW_CHOICES, nullptr, APL_TUI_COMMAND_VIEW,
+     1, 1, sizeof(VIEW_CHOICES) / sizeof(VIEW_CHOICES[0]), 0},
     {"overview", "ov", "overview [active|all]", "Show the active-team or all-teams overview.",
-     APL_TUI_COMMAND_OVERVIEW, 0, 1, OVERVIEW_CHOICES,
-     sizeof(OVERVIEW_CHOICES) / sizeof(OVERVIEW_CHOICES[0]), nullptr, 0},
-    {"team list", "tl", "team list", "Open the Teams view and its team list.",
-     APL_TUI_COMMAND_TEAM_LIST, 0, 0, nullptr, 0, nullptr, 0},
-    {"team switch", "ts", "team switch <name-or-id>", "Switch the active team by unique name or id.",
-     APL_TUI_COMMAND_TEAM_SWITCH, 1, 1, nullptr, 0, nullptr, 0},
+     OVERVIEW_CHOICES, nullptr, APL_TUI_COMMAND_OVERVIEW, 0, 1,
+     sizeof(OVERVIEW_CHOICES) / sizeof(OVERVIEW_CHOICES[0]), 0},
+    {"team list", "tl", "team list", "Open the Teams view and its team list.", nullptr, nullptr,
+     APL_TUI_COMMAND_TEAM_LIST, 0, 0, 0, 0},
+    {"team switch", "ts", "team switch <name-or-id>",
+     "Switch the active team by unique name or id.", nullptr, nullptr, APL_TUI_COMMAND_TEAM_SWITCH,
+     1, 1, 0, 0},
     {"team create", "tc", "team create [--name <name>] [--notes <notes>]",
-     "Create a team; without a name the form opens prefilled.",
-     APL_TUI_COMMAND_TEAM_CREATE, 0, 1, nullptr, 0, TEAM_CREATE_OPTIONS,
+     "Create a team; without a name the form opens prefilled.", nullptr, TEAM_CREATE_OPTIONS,
+     APL_TUI_COMMAND_TEAM_CREATE, 0, 1, 0,
      sizeof(TEAM_CREATE_OPTIONS) / sizeof(TEAM_CREATE_OPTIONS[0])},
-    {"help", "h", "help [command ...]", "Show command help.", APL_TUI_COMMAND_HELP, 0, 8, nullptr,
-     0, nullptr, 0},
-    {"about", "ab", "about", "Show application information.", APL_TUI_COMMAND_ABOUT, 0, 0, nullptr,
-     0, nullptr, 0},
-    {"version", "ver", "version", "Show version and build information.",
-     APL_TUI_COMMAND_VERSION, 0, 0, nullptr, 0, nullptr, 0},
-    {"quit", "q", "quit", "Quit the application.", APL_TUI_COMMAND_QUIT, 0, 0, nullptr, 0, nullptr,
+    {"help", "h", "help [command ...]", "Show command help.", nullptr, nullptr,
+     APL_TUI_COMMAND_HELP, 0, 8, 0, 0},
+    {"about", "ab", "about", "Show application information.", nullptr, nullptr,
+     APL_TUI_COMMAND_ABOUT, 0, 0, 0, 0},
+    {"version", "ver", "version", "Show version and build information.", nullptr, nullptr,
+     APL_TUI_COMMAND_VERSION, 0, 0, 0, 0},
+    {"quit", "q", "quit", "Quit the application.", nullptr, nullptr, APL_TUI_COMMAND_QUIT, 0, 0, 0,
      0},
 };
 
@@ -80,15 +80,13 @@ static bool append_output(char *const out, const size_t out_size, const char *co
     if (out == nullptr || out_size == 0) {
         return false;
     }
-    const size_t length = strlen(out);
-    if (length >= out_size - 1) {
-        return false;
-    }
     va_list args;
-    va_start(args, format);
-    const int written = vsnprintf(out + length, out_size - length, format, args);
-    va_end(args);
-    return written >= 0 && (size_t)written < out_size - length;
+    __builtin_va_start(args, format);
+    const size_t length = strlen(out);
+    const bool fits = length < out_size - 1;
+    const int written = fits ? vsnprintf(out + length, out_size - length, format, args) : -1;
+    __builtin_va_end(args);
+    return fits && written >= 0 && (size_t)written < out_size - length;
 }
 
 static bool tokenize(const char *line, token_list *const out, char *const error,
@@ -381,7 +379,8 @@ apl_tui_command_parse_result apl_tui_command_parse(const char *const line)
             if (equals != nullptr) {
                 const size_t length = (size_t)(equals - name);
                 if (length == 0 || length >= sizeof(name_buffer)) {
-                    (void)snprintf(result.error, sizeof(result.error), "Invalid option '%.180s'.", token);
+                    (void)snprintf(result.error, sizeof(result.error), "Invalid option '%.180s'.",
+                                   token);
                     result.status = APL_TUI_COMMAND_INVALID;
                     return result;
                 }
@@ -431,15 +430,12 @@ apl_tui_command_parse_result apl_tui_command_parse(const char *const line)
         }
         if (result.request.positional_count >= spec->max_positionals) {
             (void)snprintf(result.error, sizeof(result.error),
-                           "Too many values for '%s'. Quote names containing spaces.",
-                           spec->name);
+                           "Too many values for '%s'. Quote names containing spaces.", spec->name);
             result.status = APL_TUI_COMMAND_INVALID;
-            (void)snprintf(result.suggestion, sizeof(result.suggestion), "Usage: %s",
-                           spec->usage);
+            (void)snprintf(result.suggestion, sizeof(result.suggestion), "Usage: %s", spec->usage);
             return result;
         }
-        char *const destination =
-            result.request.positionals[result.request.positional_count++];
+        char *const destination = result.request.positionals[result.request.positional_count++];
         (void)snprintf(destination, APL_TUI_COMMAND_WORD_MAX, "%s", token);
     }
 
@@ -456,7 +452,8 @@ apl_tui_command_parse_result apl_tui_command_parse(const char *const line)
         build_choice_list(spec, choices, sizeof(choices));
         (void)snprintf(result.error, sizeof(result.error), "Unknown value '%.180s'.",
                        result.request.positionals[0]);
-        (void)snprintf(result.suggestion, sizeof(result.suggestion), "Valid values: %.220s", choices);
+        (void)snprintf(result.suggestion, sizeof(result.suggestion), "Valid values: %.220s",
+                       choices);
         result.status = APL_TUI_COMMAND_INVALID;
         return result;
     }
@@ -473,8 +470,7 @@ apl_tui_command_parse_result apl_tui_command_parse(const char *const line)
             result.status = APL_TUI_COMMAND_INCOMPLETE;
             (void)snprintf(result.error, sizeof(result.error),
                            "A team name is required to create directly.");
-            (void)snprintf(result.suggestion, sizeof(result.suggestion), "Usage: %s",
-                           spec->usage);
+            (void)snprintf(result.suggestion, sizeof(result.suggestion), "Usage: %s", spec->usage);
             return result;
         }
     }

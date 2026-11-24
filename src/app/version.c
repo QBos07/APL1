@@ -22,7 +22,7 @@ const char *apl1_version_string(void)
 
 const char *apl1_build_type(void)
 {
-    return (APL1_BUILD_TYPE[0] != '\0') ? APL1_BUILD_TYPE : "unspecified";
+    return APL1_BUILD_TYPE;
 }
 
 void apl1_version_info(char *const out, const size_t out_size)

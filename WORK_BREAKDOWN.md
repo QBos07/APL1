@@ -143,7 +143,7 @@ commands open prefilled dialogs; complete valid commands execute the shared acti
 - [x] **2.25 Add the ex-style command line surface.** [Work item](work-items/phase-2/2.25-ex-command-line-ui.md)
 - [x] **2.26 Add the command parser and registry.** [Work item](work-items/phase-2/2.26-command-parser-registry.md)
 - [x] **2.27 Implement navigation and team command actions.** [Work item](work-items/phase-2/2.27-core-command-actions.md)
-- [ ] **2.28 Verify the redesigned shell and Phase 2 interaction parity.** [Work item](work-items/phase-2/2.28-redesign-smoke-and-parity.md)
+- [x] **2.28 Verify the redesigned shell and Phase 2 interaction parity.** [Work item](work-items/phase-2/2.28-redesign-smoke-and-parity.md)
 
 **Redesign gate:** all primary views are reachable from vertical tabs; window-bar
 menus open and operate; active team is switchable from the rail/status context;
@@ -282,3 +282,15 @@ Only split these into implementation-sized tasks after the MVP reveals a user ne
 - Advanced filtering, cross-team reports, and additional Notcurses refinements.
 
 These are not implicit commitments for v1. When one becomes relevant, define its user workflow and acceptance criteria first, then split it into small slices with tests.
+
+
+### Phase 2 follow-up verification (2026-11-24)
+
+- `./scripts/check.sh`, `./scripts/check-format.sh`, and
+  `./scripts/check-static.sh` pass.
+- `ctest --test-dir cmake-build-debug --output-on-failure`: 2/2 tests pass
+  (`apl1_tests` 116/116, `apl1_tui_tests` 77/77).
+- `python3 scripts/smoke_tui.py --app cmake-build-debug/apl1`: passes the
+  redesigned menu/tab/status/dialog/command flow, resize-with-open-modal
+  checks, persistence, and a limited-color (`xterm-mono`) launch.
+- All 2.16-2.28 follow-up items are complete; the redesign gate is met.

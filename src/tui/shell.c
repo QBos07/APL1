@@ -294,8 +294,8 @@ static void show_info_dialog(shell_state *const state, const char *const title,
     state->pending = SHELL_PENDING_NONE;
 }
 
-static bool perform_create(shell_state *const state, const char *const name, const char *const notes,
-                           apl_error *const error)
+static bool perform_create(shell_state *const state, const char *const name,
+                           const char *const notes, apl_error *const error)
 {
     apl_team created = {};
     const apl_status status = apl_team_service_create(state->app, name, notes, &created, error);
@@ -376,11 +376,13 @@ static void perform_archive(shell_state *const state, const int64_t team_id, apl
     }
     state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
     if (was_active && active_status_has_team(state->active_status)) {
-        set_status_success(state, "Team archived. Active team switched to '%s'.", state->active_team.name);
+        set_status_success(state, "Team archived. Active team switched to '%s'.",
+                           state->active_team.name);
     } else if (was_active) {
         set_status_success(state, "Team archived. No active team remains.");
     } else {
-        set_status_success(state, "Team archived. Its history remains available in the archived view.");
+        set_status_success(state,
+                           "Team archived. Its history remains available in the archived view.");
     }
 }
 
@@ -460,8 +462,8 @@ static void build_team_picker_dialog(shell_state *const state)
 static apl_status load_picker_teams(shell_state *const state, apl_error *const error)
 {
     free_picker_teams(state);
-    return apl_team_service_list(state->app, state->picker_include_archived,
-                                 &state->picker_teams, &state->picker_team_count, error);
+    return apl_team_service_list(state->app, state->picker_include_archived, &state->picker_teams,
+                                 &state->picker_team_count, error);
 }
 
 static void open_team_picker(shell_state *const state)
@@ -505,8 +507,8 @@ static void finish_team_picker(shell_state *const state, const apl_tui_dialog_re
     }
     if (selected < state->picker_team_count) {
         const apl_team team = state->picker_teams[selected];
-        const bool already_active = active_status_has_team(state->active_status) &&
-                                    state->active_team.id == team.id;
+        const bool already_active =
+            active_status_has_team(state->active_status) && state->active_team.id == team.id;
         close_shell_dialog(state);
         if (team.archived) {
             set_status_warning(state, "Archived teams cannot be active.");
@@ -558,8 +560,7 @@ static void switch_section(shell_state *const state, const bool forward)
                                : apl_tui_section_previous(state->section));
 }
 
-static void handle_menu_action(shell_state *const state,
-                               const apl_tui_menu_action action)
+static void handle_menu_action(shell_state *const state, const apl_tui_menu_action action)
 {
     switch (action) {
     case APL_TUI_MENU_ACTION_OVERVIEW_ACTIVE:
@@ -587,11 +588,12 @@ static void handle_menu_action(shell_state *const state,
                          "Enter activates. Esc closes menus and dialogs. Mouse clicks use the "
                          "same actions as the keyboard. q quits.");
         return;
-    case APL_TUI_MENU_ACTION_HELP_COMMANDS:
-        show_info_dialog(state, "Command help",
-                         "Command entry is opened with ':'. Use it for navigation and team "
-                         "actions; commands never execute shell or SQL text.");
+    case APL_TUI_MENU_ACTION_HELP_COMMANDS: {
+        char help[APL_TUI_COMMAND_HELP_MAX];
+        apl_tui_command_registry_help(help, sizeof(help));
+        show_info_dialog(state, "Command help", help);
         return;
+    }
     case APL_TUI_MENU_ACTION_ABOUT: {
         char version[128];
         apl1_version_info(version, sizeof(version));
@@ -625,11 +627,11 @@ static void draw_window_bar(shell_state *const state)
     }
     for (size_t index = 0; index < APL_TUI_MENU_GROUP_COUNT; ++index) {
         const apl_tui_menu_group group = (apl_tui_menu_group)index;
-        const bool focused = state->focus.region == APL_TUI_FOCUS_WINDOW &&
-                             (state->menu.open ? state->menu.group == group
-                                               : state->menu.group_focus == group);
+        const bool focused =
+            state->focus.region == APL_TUI_FOCUS_WINDOW &&
+            (state->menu.open ? state->menu.group == group : state->menu.group_focus == group);
         apl_tui_theme_apply(&state->theme, plane,
-                             focused ? APL_TUI_ROLE_WINDOW_FOCUS : APL_TUI_ROLE_WINDOW_BAR);
+                            focused ? APL_TUI_ROLE_WINDOW_FOCUS : APL_TUI_ROLE_WINDOW_BAR);
         apl_tui_frame_draw_text(plane, 0, (int)apl_tui_menu_heading_offset(group),
                                 apl_tui_menu_group_label(group));
     }
@@ -679,9 +681,9 @@ static void draw_menu_popup(shell_state *const state)
         char line[160];
         (void)snprintf(line, sizeof(line), "%c %s", focused ? '>' : ' ', item->label);
         apl_tui_theme_apply(&state->theme, popup,
-                             !item->enabled
-                                 ? APL_TUI_ROLE_MENU_DISABLED
-                                 : (focused ? APL_TUI_ROLE_MENU_FOCUS : APL_TUI_ROLE_MENU));
+                            !item->enabled
+                                ? APL_TUI_ROLE_MENU_DISABLED
+                                : (focused ? APL_TUI_ROLE_MENU_FOCUS : APL_TUI_ROLE_MENU));
         apl_tui_frame_draw_text(popup, (int)(index + 1), 1, line);
     }
     apl_tui_theme_reset(popup);
@@ -696,10 +698,9 @@ static void draw_tab_rail(shell_state *const state)
     }
 
     const bool compact = layout->mode == APL_TUI_LAYOUT_COMPACT;
-    const unsigned content_rows =
-        (layout->tabs.rows > layout->team_switcher.rows)
-            ? layout->tabs.rows - layout->team_switcher.rows
-            : layout->tabs.rows;
+    const unsigned content_rows = (layout->tabs.rows > layout->team_switcher.rows)
+                                      ? layout->tabs.rows - layout->team_switcher.rows
+                                      : layout->tabs.rows;
     apl_tui_list_set_viewport_rows(&state->tabs, content_rows);
     const size_t tab = apl_tui_section_tab_index(state->section);
     if (tab != SIZE_MAX) {
@@ -716,15 +717,15 @@ static void draw_tab_rail(shell_state *const state)
         const bool active = section == state->section;
         const bool focused =
             state->focus.region == APL_TUI_FOCUS_TABS && index == state->tabs.selected;
-        const char *const label = compact ? apl_tui_section_short_label(section)
-                                          : apl_tui_section_label(section);
+        const char *const label =
+            compact ? apl_tui_section_short_label(section) : apl_tui_section_label(section);
         char line[64];
         (void)snprintf(line, sizeof(line), "%c%c %s", active ? '*' : ' ', focused ? '>' : ' ',
                        label);
         apl_tui_theme_apply(&state->theme, rail,
-                             focused ? APL_TUI_ROLE_TAB_FOCUS
-                                     : (active ? APL_TUI_ROLE_TAB_ACTIVE
-                                               : APL_TUI_ROLE_TAB_INACTIVE));
+                            focused
+                                ? APL_TUI_ROLE_TAB_FOCUS
+                                : (active ? APL_TUI_ROLE_TAB_ACTIVE : APL_TUI_ROLE_TAB_INACTIVE));
         apl_tui_frame_draw_line(rail, (int)offset, line);
     }
     apl_tui_theme_reset(rail);
@@ -741,8 +742,7 @@ static void draw_team_switcher(shell_state *const state)
     const unsigned rows = layout->team_switcher.rows;
     const bool focused = state->focus.region == APL_TUI_FOCUS_TABS && state->team_focus;
 
-    apl_tui_theme_apply(&state->theme, rail,
-                         focused ? APL_TUI_ROLE_TEAM_FOCUS : APL_TUI_ROLE_TEAM);
+    apl_tui_theme_apply(&state->theme, rail, focused ? APL_TUI_ROLE_TEAM_FOCUS : APL_TUI_ROLE_TEAM);
     if (rows >= 2) {
         apl_tui_frame_draw_line(rail, (int)start_row, "----------------------");
     }
@@ -797,7 +797,7 @@ static void draw_team_list(shell_state *const state)
                        team->name, team->archived ? " [archived]" : "",
                        team->notes[0] != '\0' ? "  -  " : "", team->notes);
         apl_tui_theme_apply(&state->theme, body,
-                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)offset, line);
         apl_tui_theme_reset(body);
     }
@@ -908,9 +908,9 @@ static void draw_dialog(shell_state *const state)
             (void)snprintf(line, sizeof(line), "%c %s: %s%s", focused ? '>' : ' ', field->label,
                            field->value, field->invalid ? "  !" : "");
             apl_tui_theme_apply(&state->theme, overlay,
-                                 field->invalid
-                                     ? APL_TUI_ROLE_ERROR
-                                     : (focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY));
+                                field->invalid
+                                    ? APL_TUI_ROLE_ERROR
+                                    : (focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY));
             apl_tui_frame_draw_text(overlay, (int)row, 2, line);
         }
         if (rows > 4 && state->dialog.validation[0] != '\0') {
@@ -918,14 +918,14 @@ static void draw_dialog(shell_state *const state)
             apl_tui_frame_draw_text(overlay, (int)rows - 3, 2, state->dialog.validation);
         }
         apl_tui_theme_apply(&state->theme, overlay,
-                             state->dialog.focus == state->dialog.field_count
-                                 ? APL_TUI_ROLE_SELECTION
-                                 : APL_TUI_ROLE_DIALOG);
+                            state->dialog.focus == state->dialog.field_count
+                                ? APL_TUI_ROLE_SELECTION
+                                : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 2, "[ Save ]");
         apl_tui_theme_apply(&state->theme, overlay,
-                             state->dialog.focus == state->dialog.field_count + 1
-                                 ? APL_TUI_ROLE_SELECTION
-                                 : APL_TUI_ROLE_DIALOG);
+                            state->dialog.focus == state->dialog.field_count + 1
+                                ? APL_TUI_ROLE_SELECTION
+                                : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 14, "[ Cancel ]");
         break;
     }
@@ -944,9 +944,9 @@ static void draw_dialog(shell_state *const state)
             (void)snprintf(line, sizeof(line), "%c%c %s", focused ? '>' : ' ',
                            option->active ? '*' : ' ', option->label);
             apl_tui_theme_apply(&state->theme, overlay,
-                                 !option->enabled
-                                     ? APL_TUI_ROLE_MENU_DISABLED
-                                     : (focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY));
+                                !option->enabled
+                                    ? APL_TUI_ROLE_MENU_DISABLED
+                                    : (focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY));
             apl_tui_frame_draw_text(overlay, (int)(APL_TUI_DIALOG_CONTENT_ROW + offset), 2, line);
         }
         apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_MUTED);
@@ -959,12 +959,12 @@ static void draw_dialog(shell_state *const state)
             overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
         (void)message_rows;
         apl_tui_theme_apply(&state->theme, overlay,
-                             state->dialog.focus == 0 ? APL_TUI_ROLE_SELECTION
-                                                      : APL_TUI_ROLE_DIALOG);
+                            state->dialog.focus == 0 ? APL_TUI_ROLE_SELECTION
+                                                     : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 2, "[ Cancel ]");
         apl_tui_theme_apply(&state->theme, overlay,
-                             state->dialog.focus == 1 ? APL_TUI_ROLE_SELECTION
-                                                      : APL_TUI_ROLE_DIALOG);
+                            state->dialog.focus == 1 ? APL_TUI_ROLE_SELECTION
+                                                     : APL_TUI_ROLE_DIALOG);
         apl_tui_frame_draw_text(overlay, button_row, 15, "[ Confirm ]");
         break;
     }
@@ -1313,8 +1313,8 @@ static void handle_dialog_mouse(shell_state *const state, const ncinput *const i
     }
     const unsigned local_row = (unsigned)(input->y - (int)overlay.y);
     const unsigned local_col = (unsigned)(input->x - (int)overlay.x);
-    const unsigned control = apl_tui_dialog_control_at(
-        &state->dialog, overlay.rows, overlay.cols, local_row, local_col);
+    const unsigned control =
+        apl_tui_dialog_control_at(&state->dialog, overlay.rows, overlay.cols, local_row, local_col);
     if (control == UINT_MAX) {
         return;
     }
@@ -1397,8 +1397,7 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
                 return;
             }
             if (point_in_rect(layout->window, input->y, input->x)) {
-                const apl_tui_menu_group group =
-                    apl_tui_menu_group_at_column((unsigned)input->x);
+                const apl_tui_menu_group group = apl_tui_menu_group_at_column((unsigned)input->x);
                 if (group < APL_TUI_MENU_GROUP_COUNT) {
                     apl_tui_menu_open(&state->menu, group);
                 }
@@ -1413,10 +1412,9 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
     if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
         point_in_rect(layout->tabs, input->y, input->x)) {
         const unsigned row = (unsigned)(input->y - (int)layout->tabs.y);
-        const unsigned content_rows =
-            (layout->tabs.rows > layout->team_switcher.rows)
-                ? layout->tabs.rows - layout->team_switcher.rows
-                : layout->tabs.rows;
+        const unsigned content_rows = (layout->tabs.rows > layout->team_switcher.rows)
+                                          ? layout->tabs.rows - layout->team_switcher.rows
+                                          : layout->tabs.rows;
         if (row < content_rows) {
             const size_t index = state->tabs.offset + row;
             if (index < apl_tui_section_tab_count()) {
@@ -1772,8 +1770,7 @@ static void handle_tabs_input(shell_state *const state, const ncinput *const inp
         set_section(state, apl_tui_section_tab_at(state->tabs.selected));
         return;
     case NCKEY_DOWN:
-        if (!state->team_focus &&
-            state->tabs.selected + 1 >= apl_tui_section_tab_count()) {
+        if (!state->team_focus && state->tabs.selected + 1 >= apl_tui_section_tab_count()) {
             state->team_focus = true;
             return;
         }

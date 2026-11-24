@@ -22,7 +22,6 @@ Examples:
 
 import argparse
 import os
-import re
 import shlex
 import shutil
 import signal
@@ -35,7 +34,6 @@ import uuid
 from pathlib import Path
 
 DEFAULT_TIMEOUT = 20.0
-ANSI_ESCAPE = re.compile(r"\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\([A-Za-z0-9]|[=>])")
 APP_CANDIDATES = (
     "build/apl1",
     "cmake-build-debug/apl1",
@@ -325,7 +323,7 @@ class Smoke:
             start_new_session=True,
         )
         log.close()
-        self.wait_for("xterm window", self._find_window, timeout=10.0)
+        self.wait_for("xterm window", self._find_window, timeout=max(10.0, self.timeout))
         geometry = self.run(
             ["xdotool", "getwindowgeometry", "--shell", self.window_id],
             env=self.display_env,

@@ -19,8 +19,8 @@ Test(tui_navigation, primary_tabs_exclude_settings)
 {
     cr_assert_eq(apl_tui_section_tab_count(), 8);
     const apl_tui_section expected[] = {
-        APL_TUI_SECTION_OVERVIEW, APL_TUI_SECTION_TEAMS,    APL_TUI_SECTION_PEOPLE,
-        APL_TUI_SECTION_EVENTS,   APL_TUI_SECTION_MONEY,    APL_TUI_SECTION_DEVELOPMENT,
+        APL_TUI_SECTION_OVERVIEW, APL_TUI_SECTION_TEAMS,   APL_TUI_SECTION_PEOPLE,
+        APL_TUI_SECTION_EVENTS,   APL_TUI_SECTION_MONEY,   APL_TUI_SECTION_DEVELOPMENT,
         APL_TUI_SECTION_PARTS,    APL_TUI_SECTION_HISTORY,
     };
     for (size_t index = 0; index < apl_tui_section_tab_count(); ++index) {

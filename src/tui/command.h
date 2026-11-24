@@ -49,12 +49,12 @@ typedef struct apl_tui_command_spec {
     const char *alias;
     const char *usage;
     const char *summary;
+    const char *const *choices;
+    const char *const *option_names;
     apl_tui_command_id id;
     unsigned min_positionals;
     unsigned max_positionals;
-    const char *const *choices;
     unsigned choice_count;
-    const char *const *option_names;
     unsigned option_count;
 } apl_tui_command_spec;
 

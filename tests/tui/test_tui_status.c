@@ -33,7 +33,8 @@ Test(tui_status, shows_team_view_context_message_and_hint)
     cr_assert_neq(apl_tui_status_command_hit_start(&status, 120), 120);
 
     (void)apl_tui_status_render(&status, 70, line, sizeof(line));
-    cr_assert_str_eq(line, "Ferrari \xc2\xb7 Teams \xc2\xb7 [ok] Changes saved. \xc2\xb7 : commands");
+    cr_assert_str_eq(line,
+                     "Ferrari \xc2\xb7 Teams \xc2\xb7 [ok] Changes saved. \xc2\xb7 : commands");
 }
 
 Test(tui_status, error_is_not_replaced_by_an_unrelated_success)

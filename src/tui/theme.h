@@ -59,7 +59,7 @@ apl_tui_style apl_tui_theme_style(const apl_tui_theme *theme, apl_tui_style_role
 
 /** Apply a role to a plane. Null planes are ignored. */
 void apl_tui_theme_apply(const apl_tui_theme *theme, struct ncplane *plane,
-                          apl_tui_style_role role);
+                         apl_tui_style_role role);
 
 /** Restore default styles/colors after drawing a styled run. */
 void apl_tui_theme_reset(struct ncplane *plane);

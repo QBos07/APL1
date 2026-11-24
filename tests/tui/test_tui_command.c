@@ -74,8 +74,7 @@ Test(tui_command, team_create_completeness_and_options)
     cr_assert_str_eq(apl_tui_command_option_value(&option.request, "name"), "Red Bull");
     cr_assert_str_eq(apl_tui_command_option_value(&option.request, "notes"), "Second team");
 
-    const apl_tui_command_parse_result positional =
-        apl_tui_command_parse("team create Ferrari");
+    const apl_tui_command_parse_result positional = apl_tui_command_parse("team create Ferrari");
     cr_assert_eq(positional.status, APL_TUI_COMMAND_OK);
     cr_assert_str_eq(positional.request.positionals[0], "Ferrari");
 
@@ -96,8 +95,7 @@ Test(tui_command, team_create_completeness_and_options)
 Test(tui_command, option_errors_are_explicit)
 {
     cr_assert_eq(apl_tui_command_parse("team create --name").status, APL_TUI_COMMAND_INVALID);
-    cr_assert_eq(apl_tui_command_parse("team create --bogus x").status,
-                 APL_TUI_COMMAND_INVALID);
+    cr_assert_eq(apl_tui_command_parse("team create --bogus x").status, APL_TUI_COMMAND_INVALID);
     cr_assert_eq(apl_tui_command_parse("team list --name x").status, APL_TUI_COMMAND_INVALID);
 }
 

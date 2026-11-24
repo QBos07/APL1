@@ -93,10 +93,7 @@ Test(tui_action, empty_or_unknown_requests_are_rejected)
     apl_tui_action action = {};
     apl_tui_command_request request = {.id = APL_TUI_COMMAND_NONE};
 
-    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error),
-                 APL_ERR_INVALID_ARGUMENT);
-    cr_assert_eq(apl_tui_action_from_request(nullptr, &action, &error),
-                 APL_ERR_INVALID_ARGUMENT);
-    cr_assert_str_eq(apl_tui_action_name(APL_TUI_ACTION_TEAM_SWITCH_TARGET),
-                     "team-switch-target");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_tui_action_from_request(nullptr, &action, &error), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_str_eq(apl_tui_action_name(APL_TUI_ACTION_TEAM_SWITCH_TARGET), "team-switch-target");
 }

@@ -70,8 +70,7 @@ Test(tui_command_line, history_is_bounded)
     }
     cr_assert_eq(line.history_count, APL_TUI_COMMAND_LINE_HISTORY_MAX);
     cr_assert_str_eq(line.history[0], "view 5");
-    cr_assert_str_eq(line.history[APL_TUI_COMMAND_LINE_HISTORY_MAX - 1],
-                     "view 24");
+    cr_assert_str_eq(line.history[APL_TUI_COMMAND_LINE_HISTORY_MAX - 1], "view 24");
 }
 
 Test(tui_command_line, renders_prompt_and_completion_within_width)

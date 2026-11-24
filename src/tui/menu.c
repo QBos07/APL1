@@ -11,7 +11,10 @@ static const char *const GROUP_LABELS[APL_TUI_MENU_GROUP_COUNT] = {
 };
 
 static const unsigned GROUP_OFFSETS[APL_TUI_MENU_GROUP_COUNT] = {
-    1, 12, 23, 30,
+    1,
+    12,
+    23,
+    30,
 };
 
 static const apl_tui_menu_item OVERVIEW_ITEMS[] = {
@@ -192,7 +195,8 @@ apl_tui_menu_action apl_tui_menu_activate(apl_tui_menu *const menu)
 apl_tui_rect apl_tui_menu_popup_rect(const apl_tui_menu *const menu, const unsigned terminal_rows,
                                      const unsigned terminal_cols)
 {
-    if (menu == nullptr || !menu->open || terminal_rows < 3 || terminal_cols < 8) {
+    if (menu == nullptr || !menu->open || !valid_group(menu->group) || terminal_rows < 3 ||
+        terminal_cols < 8) {
         return (apl_tui_rect){};
     }
 

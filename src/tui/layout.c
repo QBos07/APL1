@@ -52,8 +52,7 @@ apl_tui_layout apl_tui_layout_compute(const unsigned rows, const unsigned cols)
     layout.mode = normal ? APL_TUI_LAYOUT_NORMAL : APL_TUI_LAYOUT_COMPACT;
 
     const unsigned middle_rows = rows - APL_TUI_CHROME_ROWS;
-    unsigned rail_cols =
-        normal ? APL_TUI_RAIL_COLS_NORMAL : APL_TUI_RAIL_COLS_COMPACT;
+    unsigned rail_cols = normal ? APL_TUI_RAIL_COLS_NORMAL : APL_TUI_RAIL_COLS_COMPACT;
     /* Never let the rail consume more than half of a narrow screen. */
     rail_cols = min_u(rail_cols, max_u(APL_TUI_MIN_COLS / 4, cols / 2));
 
@@ -62,8 +61,7 @@ apl_tui_layout apl_tui_layout_compute(const unsigned rows, const unsigned cols)
     layout.tabs = make_rect(1, 0, middle_rows, rail_cols);
     layout.body = make_rect(1, rail_cols, middle_rows, cols - rail_cols);
 
-    unsigned switcher_rows =
-        normal ? APL_TUI_SWITCHER_ROWS_NORMAL : APL_TUI_SWITCHER_ROWS_COMPACT;
+    unsigned switcher_rows = normal ? APL_TUI_SWITCHER_ROWS_NORMAL : APL_TUI_SWITCHER_ROWS_COMPACT;
     if (switcher_rows >= middle_rows) {
         switcher_rows = 1;
     }

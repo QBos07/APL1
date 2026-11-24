@@ -64,17 +64,17 @@ bool apl_tui_status_set_message(apl_tui_status *const status, const apl_tui_stat
     if (status == nullptr || format == nullptr) {
         return false;
     }
-    if (status->message[0] != '\0' && status->level == APL_TUI_STATUS_ERROR &&
-        level != APL_TUI_STATUS_ERROR) {
-        return false;
-    }
 
     va_list args;
-    va_start(args, format);
-    (void)vsnprintf(status->message, sizeof(status->message), format, args);
-    va_end(args);
-    status->level = level;
-    return true;
+    __builtin_va_start(args, format);
+    const bool blocked = status->message[0] != '\0' && status->level == APL_TUI_STATUS_ERROR &&
+                         level != APL_TUI_STATUS_ERROR;
+    if (!blocked) {
+        (void)vsnprintf(status->message, sizeof(status->message), format, args);
+        status->level = level;
+    }
+    __builtin_va_end(args);
+    return !blocked;
 }
 
 void apl_tui_status_clear_message(apl_tui_status *const status)
@@ -148,8 +148,8 @@ size_t apl_tui_status_render(const apl_tui_status *const status, const unsigned 
 
     char message[APL_TUI_STATUS_MESSAGE_MAX + 16] = "";
     if (status->message[0] != '\0') {
-        (void)snprintf(message, sizeof(message), "%s%s",
-                       apl_tui_status_level_marker(status->level), status->message);
+        (void)snprintf(message, sizeof(message), "%s%s", apl_tui_status_level_marker(status->level),
+                       status->message);
     }
 
     const char *hint = nullptr;
@@ -163,7 +163,7 @@ size_t apl_tui_status_render(const apl_tui_status *const status, const unsigned 
     if (message[0] != '\0') {
         if (!narrow && hint != nullptr) {
             const size_t prefix = strlen(line) + 3; /* " · " */
-            const size_t tail = 3 + strlen(hint);    /* " · " + hint */
+            const size_t tail = 3 + strlen(hint);   /* " · " + hint */
             const size_t usable = (columns > prefix + tail + 16) ? columns - prefix - tail : 0;
             if (usable >= 16) {
                 char shortened[APL_TUI_STATUS_MESSAGE_MAX + 16];

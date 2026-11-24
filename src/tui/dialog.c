@@ -326,8 +326,8 @@ unsigned apl_tui_dialog_focused_field(const apl_tui_dialog *const dialog)
 
 unsigned apl_tui_dialog_selected_option(const apl_tui_dialog *const dialog)
 {
-    if (dialog == nullptr || dialog->kind != APL_TUI_DIALOG_CHOICE ||
-        dialog->option_count == 0 || dialog->focus >= dialog->option_count) {
+    if (dialog == nullptr || dialog->kind != APL_TUI_DIALOG_CHOICE || dialog->option_count == 0 ||
+        dialog->focus >= dialog->option_count) {
         return UINT_MAX;
     }
     return dialog->focus;

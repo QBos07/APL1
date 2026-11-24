@@ -18,8 +18,7 @@ static const role_definition ROLES[APL_TUI_ROLE_COUNT] = {
                                  RGB(0x1F, 0x3A, 0x5F)},
     [APL_TUI_ROLE_WINDOW_FOCUS] = {NCSTYLE_BOLD, true, true, true, RGB(0xFF, 0xFF, 0xFF),
                                    RGB(0x2D, 0x6C, 0xB0)},
-    [APL_TUI_ROLE_MENU] = {0, false, true, true, RGB(0xEE, 0xEE, 0xEE),
-                           RGB(0x20, 0x20, 0x20)},
+    [APL_TUI_ROLE_MENU] = {0, false, true, true, RGB(0xEE, 0xEE, 0xEE), RGB(0x20, 0x20, 0x20)},
     [APL_TUI_ROLE_MENU_FOCUS] = {NCSTYLE_BOLD, true, true, true, RGB(0xFF, 0xFF, 0xFF),
                                  RGB(0x2D, 0x6C, 0xB0)},
     [APL_TUI_ROLE_MENU_DISABLED] = {0, false, true, true, RGB(0x80, 0x80, 0x80),
@@ -31,8 +30,7 @@ static const role_definition ROLES[APL_TUI_ROLE_COUNT] = {
     [APL_TUI_ROLE_TEAM_FOCUS] = {NCSTYLE_BOLD, true, true, false, RGB(0xFF, 0xFF, 0xFF), 0},
     [APL_TUI_ROLE_BODY] = {0, false, false, false, 0, 0},
     [APL_TUI_ROLE_SELECTION] = {NCSTYLE_BOLD, true, false, false, 0, 0},
-    [APL_TUI_ROLE_DIALOG] = {0, false, true, true, RGB(0xF2, 0xF2, 0xF2),
-                             RGB(0x28, 0x2C, 0x34)},
+    [APL_TUI_ROLE_DIALOG] = {0, false, true, true, RGB(0xF2, 0xF2, 0xF2), RGB(0x28, 0x2C, 0x34)},
     [APL_TUI_ROLE_DIALOG_TITLE] = {NCSTYLE_BOLD | NCSTYLE_UNDERLINE, false, true, true,
                                    RGB(0xFF, 0xFF, 0xFF), RGB(0x28, 0x2C, 0x34)},
     [APL_TUI_ROLE_SUCCESS] = {NCSTYLE_BOLD, false, true, false, RGB(0x7A, 0xD9, 0x7A), 0},
@@ -66,7 +64,7 @@ apl_tui_style apl_tui_theme_style(const apl_tui_theme *const theme, const apl_tu
 }
 
 void apl_tui_theme_apply(const apl_tui_theme *const theme, struct ncplane *const plane,
-                          const apl_tui_style_role role)
+                         const apl_tui_style_role role)
 {
     if (plane == nullptr) {
         return;

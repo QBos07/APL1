@@ -58,7 +58,7 @@ void apl_tui_command_line_backspace(apl_tui_command_line *const line)
 }
 
 void apl_tui_command_line_set_suggestion(apl_tui_command_line *const line,
-                                          const char *const suggestion)
+                                         const char *const suggestion)
 {
     if (line == nullptr || !line->open) {
         return;
@@ -74,26 +74,23 @@ void apl_tui_command_line_add_history(apl_tui_command_line *const line, const ch
     }
     if (line->history_count >= APL_TUI_COMMAND_LINE_HISTORY_MAX) {
         for (unsigned index = 1; index < APL_TUI_COMMAND_LINE_HISTORY_MAX; ++index) {
-            memcpy(line->history[index - 1], line->history[index],
-                   sizeof(line->history[index]));
+            memcpy(line->history[index - 1], line->history[index], sizeof(line->history[index]));
         }
         --line->history_count;
     }
-    (void)snprintf(line->history[line->history_count],
-                   sizeof(line->history[line->history_count]), "%s", text);
+    (void)snprintf(line->history[line->history_count], sizeof(line->history[line->history_count]),
+                   "%s", text);
     ++line->history_count;
     line->history_cursor = line->history_count;
 }
 
 void apl_tui_command_line_history_previous(apl_tui_command_line *const line)
 {
-    if (line == nullptr || !line->open || line->history_count == 0 ||
-        line->history_cursor == 0) {
+    if (line == nullptr || !line->open || line->history_count == 0 || line->history_cursor == 0) {
         return;
     }
     --line->history_cursor;
-    (void)snprintf(line->text, sizeof(line->text), "%s",
-                   line->history[line->history_cursor]);
+    (void)snprintf(line->text, sizeof(line->text), "%s", line->history[line->history_cursor]);
 }
 
 void apl_tui_command_line_history_next(apl_tui_command_line *const line)
@@ -105,8 +102,7 @@ void apl_tui_command_line_history_next(apl_tui_command_line *const line)
     if (line->history_cursor >= line->history_count) {
         line->text[0] = '\0';
     } else {
-        (void)snprintf(line->text, sizeof(line->text), "%s",
-                       line->history[line->history_cursor]);
+        (void)snprintf(line->text, sizeof(line->text), "%s", line->history[line->history_cursor]);
     }
 }
 

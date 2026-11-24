@@ -16,11 +16,14 @@ The product requirements define the intended behavior and acceptance criteria: [
 
 ## Project status
 
-Phase 2 is implemented: the TUI has a shared frame and a working team
-workspace. You can create teams, edit names/notes, archive teams, switch the
-active team, and reopen the database with the selected team still active. Other
-sections currently show an honest placeholder until their phase lands. The
-remaining work is divided into small slices in
+Phase 2 is implemented: the TUI has a modern shell with a window/menu bar,
+vertical view tabs, a persistent bottom status bar, a bottom-rail team switcher,
+interactive form/choice dialogs, and an ex-style command line. You can create
+teams, edit names/notes, archive teams, switch the active team, and reopen the
+database with the selected team still active. Navigation and team actions are
+available from menus, tabs, dialogs, mouse clicks, and typed commands that use
+the same use cases. Other sections currently show an honest placeholder until
+their phase lands. The remaining work is divided into small slices in
 [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md).
 
 ## Build and test
@@ -64,9 +67,11 @@ configure arguments. Manual incremental CMake/CTest commands remain available.
 ### TUI smoke test (opt-in)
 
 The interactive smoke check runs the real application in xterm on a private
-Xvfb display. It creates two teams, switches the active team, quits, relaunches,
-and verifies that the selected team persisted. It requires Python 3, `Xvfb`,
-`xterm`, and `xdotool`:
+Xvfb display. It exercises the window-bar dropdowns (keyboard and mouse), tab
+switching, dialog-based team creation, the rail/status team switcher, command
+cancel/navigation/team actions, resizing with an open menu/dialog, quit and
+relaunch persistence, and a limited-color (`xterm-mono`) launch. It requires
+Python 3, `Xvfb`, `xterm`, and `xdotool`:
 
 ```sh
 ./scripts/smoke_tui.py --app build/apl1
