@@ -40,6 +40,7 @@ if(BUILD_TESTING)
         tests/test_main.c
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
+        tests/unit/test_args.c
         tests/integration/test_test_support.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
@@ -48,6 +49,7 @@ if(BUILD_TESTING)
         tests/integration/test_db_initial_migration.c
         tests/integration/test_db_migration_rollback.c
         tests/integration/test_app_lifecycle.c
+        tests/integration/test_cli.c
     )
 
     target_include_directories(apl1_tests PRIVATE src)
@@ -116,6 +118,7 @@ target_link_libraries(apl_tui PUBLIC
 
 add_library(apl_app STATIC
     src/app/app.c
+    src/app/args.c
     src/app/exit_code.c
 )
 
@@ -128,6 +131,13 @@ target_link_libraries(apl_app PUBLIC
 add_executable(apl1
     src/main.c
 )
+
+if(BUILD_TESTING)
+    target_compile_definitions(apl1_tests PRIVATE
+        APL1_BINARY_PATH="$<TARGET_FILE:apl1>"
+    )
+    add_dependencies(apl1_tests apl1)
+endif()
 
 target_link_libraries(apl1 PRIVATE
     apl_app

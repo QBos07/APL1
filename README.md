@@ -50,13 +50,39 @@ ctest --test-dir build --output-on-failure
 Run the application from an interactive terminal with:
 
 ```sh
-./apl1
+./build/apl1
 ```
 
 The scaffold shell shows the application name, an honest empty state, and the
 visible exit affordance (`q`). A launch without a usable interactive terminal
-(e.g. `apl1 < /dev/null`) fails cleanly with a message on stderr and creates
-no database file.
+(e.g. `apl1 < /dev/null`) fails cleanly with a message on stderr, creates no
+database file, and exits with the terminal-failure code.
+
+### Command-line options
+
+```text
+apl1 [--database <path>] [--help]
+```
+
+- `--database <path>` uses exactly that SQLite file after the terminal has been
+  verified usable. It overrides the environment-derived default and does not
+  create missing parent directories.
+- `-h`, `--help` prints usage and exits successfully without requiring a
+  terminal or opening a database.
+- Unknown options, missing option values, and unexpected positional arguments
+  print a usage error and exit with the usage code.
+
+### Exit codes
+
+| Code | Meaning |
+| ---- | ------- |
+| `0` | Success |
+| `1` | Application, database, or runtime failure |
+| `2` | Invalid invocation or configuration (usage) |
+| `3` | Terminal/TUI failure |
+
+Scripts should use these numbers instead of parsing the human-readable stderr
+message.
 
 ### Database location
 

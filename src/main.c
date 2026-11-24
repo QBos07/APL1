@@ -1,32 +1,47 @@
 #include <stdio.h>
 
 #include "app/app.h"
+#include "app/args.h"
 #include "app/exit_code.h"
 #include "core/error.h"
 #include "tui/lifecycle.h"
 #include "tui/shell.h"
 
 /*
- * The interactive main loop stays a thin composition: application setup,
- * TUI run, cleanup (work item 1.10). All failure handling is reporting;
- * cleanup always runs through apl_tui_stop and apl_app_stop. Process exit
- * codes come from the stable mapping in app/exit_code.h (FH-11).
+ * The interactive main loop stays a thin composition: parse options,
+ * application setup, TUI run, cleanup (work item 1.10). All failure handling
+ * is reporting; cleanup always runs through apl_tui_stop and apl_app_stop.
+ * Process exit codes come from the stable mapping in app/exit_code.h (FH-11).
  */
-int main()
+int main(int argc, char *argv[])
 {
     apl_error error;
     apl_error_init(&error);
 
+    apl_app_args args = {};
+    apl_status status = apl_app_args_parse(argc, argv, &args, &error);
+    if (status != APL_OK) {
+        fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
+        apl_app_args_print_usage(stderr, "apl1");
+        return (int)apl_exit_code_for_status(status);
+    }
+
+    /* Help is terminal-free and must not create or open a database. */
+    if (args.help) {
+        apl_app_args_print_usage(stdout, "apl1");
+        return (int)apl_exit_code_for_status(APL_OK);
+    }
+
     /* TUI first: a launch without a usable interactive terminal must fail
      * cleanly before any database file is created. */
     apl_tui tui = {};
-    apl_status status = apl_tui_start(&tui, &error);
+    status = apl_tui_start(&tui, &error);
     if (status != APL_OK) {
         fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
         return (int)apl_exit_code_for_status(status);
     }
 
-    const apl_app_config config = {}; /* default database path from the environment */
+    const apl_app_config config = {.database_path = args.database_path};
     apl_app app = {};
     status = apl_app_start(&app, &config, &error);
     if (status != APL_OK) {
