@@ -1,0 +1,22 @@
+---
+# Static-analysis baseline for apl1 (FH-09).
+#
+# This is an optional developer check, not a build dependency or CI gate.
+# Checks are intentionally limited to high-signal families; the exclusions
+# below are documented in work-items/foundation-hardening/FH-09-static-analysis-baseline.md.
+Checks: >
+  -*,
+  clang-analyzer-*,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  bugprone-*,
+  -bugprone-reserved-identifier,
+  cert-*,
+  -cert-err33-c,
+  -cert-dcl37-c,
+  -cert-dcl51-cpp,
+  performance-*,
+  portability-*
+HeaderFilterRegex: '^(src|tests)/'
+FormatStyle: file
+UseColor: false
+WarningsAsErrors: ''

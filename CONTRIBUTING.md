@@ -104,6 +104,17 @@ adopted.
   normal build dependency and is not required by `scripts/check.sh` or CI.
 - Keep formatting-only changes separate from behavior changes.
 
+## Static analysis
+
+- `scripts/check-static.sh` is an optional clang-tidy baseline over production
+  sources in `src/`. It configures a compile-commands database (default build
+  directory `$TMPDIR/apl1-tidy-build`) and uses the checked-in `.clang-tidy`.
+  clang-tidy is not a build dependency or a CI gate.
+- The configuration limits checks to high-signal families and excludes noisy
+  standard-C false positives documented in the FH-09 work item. Findings should
+  be fixed or handled with a narrow, explained exclusion rather than a broad
+  “ignore everything” suppression.
+
 ## Boundaries recap
 
 - Keep Notcurses out of business-logic tests; keep SQL inside `src/db`.
