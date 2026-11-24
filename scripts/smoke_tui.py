@@ -427,7 +427,7 @@ class Smoke:
             "first team row",
             lambda: self.database_query("SELECT COUNT(*) FROM teams;") == (1,),
         )
-        self.wait_for_content("creation confirmation", ("Team created.",))
+        self.wait_for_content("creation detail", ("Name: Ferrari",))
         self.log("created Ferrari through the form")
 
         self.send_keys("Escape", "n")
@@ -459,6 +459,8 @@ class Smoke:
         # Relaunch the same database and verify the selected team persists.
         self.start_xterm()
         self.wait_for_content("relaunch screen", ("Ferrari",))
+        if "No teams have been added yet." in self.read_xterm_log():
+            self.fail("relaunch incorrectly showed the first-run welcome screen")
         self.wait_for_database(
             "persisted active team after relaunch",
             lambda: self.database_query(

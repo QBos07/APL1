@@ -328,3 +328,31 @@ Test(team_service, fallback_uses_oldest_created_active_team)
 
     close_test_app(&app, dir, &err);
 }
+
+Test(team_service, repeated_archive_is_idempotent_and_keeps_fallback)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+
+    const apl_team first = create_team(&app, "Ferrari", "", &err);
+    const apl_team second = create_team(&app, "McLaren", "", &err);
+    cr_assert_eq(apl_team_service_set_active(&app, first.id, &err), APL_OK);
+
+    apl_team archived = {};
+    cr_assert_eq(apl_team_service_archive(&app, first.id, &archived, &err), APL_OK);
+    cr_assert_eq(apl_team_service_archive(&app, first.id, &archived, &err), APL_OK);
+    cr_assert(archived.archived);
+
+    apl_team active = {};
+    apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;
+    cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
+    cr_assert_eq(active_status, APL_ACTIVE_TEAM_ACTIVE);
+    cr_assert_eq(active.id, second.id);
+
+    close_test_app(&app, dir, &err);
+}

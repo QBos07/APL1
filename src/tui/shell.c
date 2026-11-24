@@ -200,7 +200,7 @@ static void open_create_form(shell_state *const state)
     state->form = (shell_form){};
     state->form_return_screen = state->screen;
     state->screen = SHELL_SCREEN_TEAM_FORM;
-    set_status(state, "Enter a team name and optional notes. Tab moves between fields.");
+    set_status(state, "Name is required and must be unique. Notes are optional. Tab moves fields.");
 }
 
 static void open_edit_form(shell_state *const state)
@@ -505,14 +505,14 @@ static void draw_team_form(shell_state *const state)
 
     char line[APL_TEAM_NAME_MAX + APL_TEAM_NOTES_MAX + 16];
     int row = 2;
-    (void)snprintf(line, sizeof(line), "%c Name:  %s", state->form.focus == 0 ? '>' : ' ',
+    (void)snprintf(line, sizeof(line), "%c Name (required): %s", state->form.focus == 0 ? '>' : ' ',
                    state->form.name);
     apl_tui_frame_set_styles(body, state->form.focus == 0 ? NCSTYLE_BOLD : 0);
     apl_tui_frame_draw_line(body, row++, line);
     apl_tui_frame_set_styles(body, 0);
 
-    (void)snprintf(line, sizeof(line), "%c Notes: %s", state->form.focus == 1 ? '>' : ' ',
-                   state->form.notes);
+    (void)snprintf(line, sizeof(line), "%c Notes (optional): %s",
+                   state->form.focus == 1 ? '>' : ' ', state->form.notes);
     apl_tui_frame_set_styles(body, state->form.focus == 1 ? NCSTYLE_BOLD : 0);
     apl_tui_frame_draw_line(body, row++, line);
     apl_tui_frame_set_styles(body, 0);
@@ -684,12 +684,23 @@ static bool point_in_rect(const apl_tui_rect rect, const int y, const int x)
 static void handle_dialog_mouse(shell_state *const state, const ncinput *const input)
 {
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
-    if (layout == nullptr || state->dialog.kind != APL_TUI_DIALOG_CONFIRM) {
+    if (layout == nullptr) {
         return;
     }
     const apl_tui_rect overlay = layout->overlay;
     const int button_row = (int)(overlay.y + overlay.rows) - 2;
     if (input->y != button_row) {
+        return;
+    }
+
+    if (state->dialog.kind == APL_TUI_DIALOG_ERROR) {
+        if (input->x >= (int)overlay.x + 2 && input->x < (int)overlay.x + 8) {
+            ncinput escape = {.id = NCKEY_ESC};
+            handle_dialog_input(state, &escape);
+        }
+        return;
+    }
+    if (state->dialog.kind != APL_TUI_DIALOG_CONFIRM) {
         return;
     }
 
