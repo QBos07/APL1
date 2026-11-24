@@ -2,6 +2,8 @@
 
 #include "tui/theme.h"
 
+constexpr unsigned TEST_UNDERLINE = 0x0008u;
+
 Test(tui_theme, roles_are_semantically_distinct_in_color_mode)
 {
     apl_tui_theme theme;
@@ -10,15 +12,22 @@ Test(tui_theme, roles_are_semantically_distinct_in_color_mode)
     const apl_tui_style active = apl_tui_theme_style(&theme, APL_TUI_ROLE_TAB_ACTIVE);
     const apl_tui_style inactive = apl_tui_theme_style(&theme, APL_TUI_ROLE_TAB_INACTIVE);
     const apl_tui_style focus = apl_tui_theme_style(&theme, APL_TUI_ROLE_TAB_FOCUS);
+    const apl_tui_style selection = apl_tui_theme_style(&theme, APL_TUI_ROLE_SELECTION);
     const apl_tui_style success = apl_tui_theme_style(&theme, APL_TUI_ROLE_SUCCESS);
     const apl_tui_style warning = apl_tui_theme_style(&theme, APL_TUI_ROLE_WARNING);
     const apl_tui_style error = apl_tui_theme_style(&theme, APL_TUI_ROLE_ERROR);
 
     cr_assert_neq(active.attrs, inactive.attrs);
     cr_assert_not(inactive.reverse);
-    cr_assert(focus.reverse);
+    cr_assert_neq(focus.attrs, inactive.attrs);
+    cr_assert((focus.attrs & TEST_UNDERLINE) != 0);
+    cr_assert(focus.has_bg);
     cr_assert(active.has_fg);
+    cr_assert(active.has_bg);
     cr_assert_neq(active.fg, inactive.fg);
+    cr_assert(selection.has_fg);
+    cr_assert(selection.has_bg);
+    cr_assert_not(selection.reverse);
     cr_assert_neq(success.fg, warning.fg);
     cr_assert_neq(warning.fg, error.fg);
     cr_assert_neq(success.fg, error.fg);
@@ -38,8 +47,10 @@ Test(tui_theme, no_color_falls_back_to_attributes_and_markers)
     const apl_tui_style active = apl_tui_theme_style(&theme, APL_TUI_ROLE_TAB_ACTIVE);
     const apl_tui_style inactive = apl_tui_theme_style(&theme, APL_TUI_ROLE_TAB_INACTIVE);
     const apl_tui_style focus = apl_tui_theme_style(&theme, APL_TUI_ROLE_TAB_FOCUS);
+    const apl_tui_style selection = apl_tui_theme_style(&theme, APL_TUI_ROLE_SELECTION);
     cr_assert_neq(active.attrs, inactive.attrs);
-    cr_assert(focus.reverse);
+    cr_assert((focus.attrs & TEST_UNDERLINE) != 0);
+    cr_assert(((selection.attrs & TEST_UNDERLINE) != 0));
 }
 
 Test(tui_theme, null_inputs_are_safe)

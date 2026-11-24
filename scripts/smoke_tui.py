@@ -273,6 +273,7 @@ class Smoke:
 
     # ---------------------------------------------------------------- xterm
     def start_xterm(self, geometry: str = "80x24", term: str = "xterm-256color") -> None:
+        columns, rows = (int(part) for part in geometry.split("x"))
         self.launch_count += 1
         self.title = (
             f"apl1-smoke-{os.getpid()}-{uuid.uuid4().hex[:8]}-{self.launch_count}"
@@ -336,8 +337,8 @@ class Smoke:
                 height = int(line.split("=", 1)[1])
         if width <= 0 or height <= 0:
             self.fail(f"could not read the initial xterm geometry: {geometry!r}")
-        self.cell_width = width / 80
-        self.cell_height = height / 24
+        self.cell_width = width / columns
+        self.cell_height = height / rows
         time.sleep(0.4)
         self.run(
             ["xdotool", "windowfocus", "--sync", self.window_id],
@@ -829,6 +830,19 @@ class Smoke:
             self.log("limited-color terminal remained fully operable")
         else:
             self.log("xterm-mono terminfo unavailable; limited-color launch skipped")
+
+        self.start_xterm(geometry="40x10")
+        self.wait_for_content("compact startup", ("Overview", "Teams", "Parts"))
+        self.send_keys("n")
+        self.wait_for_content("compact dialog", ("Create team", "Name:", "Notes:", "[ Save ]"))
+        compact_screen = self.visible_text()
+        if compact_screen.count("Create team") != 1:
+            self.fail("compact dialog rendered its title more than once")
+        self.send_keys("Escape")
+        self.quit()
+        self.check_exit_status()
+        self.check_window_cleanup()
+        self.log("compact 40x10 dialog rendered once and cancelled cleanly")
 
         self.check_database()
         self.log("isolated database was created, migrated, and retained team state")

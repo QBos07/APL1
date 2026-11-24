@@ -3,6 +3,7 @@
 #include "tui/lifecycle.h"
 
 #include <notcurses/notcurses.h>
+#include <time.h>
 #include <unistd.h>
 
 /** A usable interactive terminal is required: stdin and stdout must both be
@@ -12,6 +13,36 @@
 static bool interactive_terminal_available(void)
 {
     return isatty(STDIN_FILENO) && isatty(STDOUT_FILENO);
+}
+
+/** Discard late terminal query replies before interactive input begins.
+ *
+ * Notcurses probes the terminal at startup (device attributes, dynamic colors,
+ * XTVERSION, ...). A slow or asynchronous terminal, notably Windows Terminal
+ * over SSH, can deliver a reply after initialization has stopped waiting. The
+ * reply arrives on stdin and would otherwise be decoded as typed keys (for
+ * example the ":d7d7/d7d7/5f5f" tail of an OSC 11 color response). Wait for a
+ * short quiet period, with a bounded total, and drop whatever arrived.
+ */
+static void drain_terminal_replies(struct notcurses *const context)
+{
+    struct timespec quiet = {.tv_sec = 0, .tv_nsec = 200000000};
+    struct timespec started = {};
+    (void)clock_gettime(CLOCK_MONOTONIC, &started);
+    for (;;) {
+        ncinput input = {};
+        const uint32_t id = notcurses_get(context, &quiet, &input);
+        if (id == 0 || id == (uint32_t)-1) {
+            break;
+        }
+        struct timespec now = {};
+        (void)clock_gettime(CLOCK_MONOTONIC, &now);
+        const int64_t elapsed_ms = (int64_t)(now.tv_sec - started.tv_sec) * 1000 +
+                                   (int64_t)((now.tv_nsec - started.tv_nsec) / 1000000);
+        if (elapsed_ms >= 750) {
+            break;
+        }
+    }
 }
 
 apl_status apl_tui_start(apl_tui *const tui, apl_error *const error)
@@ -42,6 +73,7 @@ apl_status apl_tui_start(apl_tui *const tui, apl_error *const error)
     }
 
     tui->notcurses = context;
+    drain_terminal_replies(context);
     return APL_OK;
 }
 

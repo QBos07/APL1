@@ -76,6 +76,10 @@ typedef struct shell_state {
     int64_t pending_team_id;
     int64_t last_click_team_id;
     int64_t last_click_ms;
+    uint32_t last_mouse_id;
+    int last_mouse_y;
+    int last_mouse_x;
+    int64_t last_mouse_ms;
     bool quit;
 } shell_state;
 
@@ -1377,6 +1381,18 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
     if (input->evtype == NCTYPE_RELEASE || input->evtype == NCTYPE_REPEAT) {
         return;
     }
+    /* Some IDE terminals deliver the same press twice. Drop an identical event
+     * inside a few milliseconds; it is far faster than a human double-click. */
+    const int64_t mouse_now = now_ms();
+    if (input->id == state->last_mouse_id && input->y == state->last_mouse_y &&
+        input->x == state->last_mouse_x && mouse_now - state->last_mouse_ms <= 25) {
+        return;
+    }
+    state->last_mouse_id = input->id;
+    state->last_mouse_y = input->y;
+    state->last_mouse_x = input->x;
+    state->last_mouse_ms = mouse_now;
+
     if (apl_tui_dialog_active(&state->dialog)) {
         handle_dialog_mouse(state, input);
         return;
@@ -1836,6 +1852,11 @@ static void handle_status_input(shell_state *const state, const ncinput *const i
 static void handle_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
+    /* Kitty/JetBrains-style terminals emit release events for each press. Only
+     * presses (and repeats, for key auto-repeat) are actionable. */
+    if (input->evtype == NCTYPE_RELEASE) {
+        return;
+    }
     if (apl_tui_dialog_active(&state->dialog)) {
         handle_dialog_input(state, input);
         return;
@@ -1975,7 +1996,10 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_e
 
     shell_state state = {.app = app};
     const bool mouse_enabled = notcurses_mice_enable(tui->notcurses, NCMICE_BUTTON_EVENT) == 0;
-    apl_tui_theme_init(&state.theme, notcurses_canchangecolor(tui->notcurses) > 0);
+    const char *const no_color = getenv("NO_COLOR");
+    const bool color_capable = notcurses_canchangecolor(tui->notcurses) > 0 &&
+                               (no_color == nullptr || no_color[0] == '\0');
+    apl_tui_theme_init(&state.theme, color_capable);
     apl_status status = apl_tui_frame_start(&state.frame, tui, error);
     if (status != APL_OK) {
         apl_tui_frame_stop(&state.frame);

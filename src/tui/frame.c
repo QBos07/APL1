@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "tui/text.h"
+
 constexpr size_t WRAP_BUFFER_SIZE = 1024;
 
 static const char *const REGION_NAMES[APL_TUI_REGION_COUNT] = {
@@ -296,7 +298,16 @@ void apl_tui_frame_draw_text(struct ncplane *const plane, const int row, const i
     if ((unsigned)row >= rows || (unsigned)col >= cols) {
         return;
     }
-    (void)ncplane_putstr_yx(plane, row, col, text);
+
+    /* Clip to the remaining row. Without this, ncplane_putstr_yx can continue
+     * onto following rows on terminals where a long value reaches the edge,
+     * which shows up as duplicated dialog lines. */
+    char clipped[WRAP_BUFFER_SIZE];
+    (void)snprintf(clipped, sizeof(clipped), "%s", text);
+    const size_t available = (unsigned)col < cols ? cols - (unsigned)col : 0;
+    const size_t max_bytes = (available < sizeof(clipped) - 1) ? available : sizeof(clipped) - 1;
+    (void)apl_tui_text_truncate_utf8(clipped, max_bytes);
+    (void)ncplane_putstr_yx(plane, row, col, clipped);
 }
 
 void apl_tui_frame_draw_line(struct ncplane *const plane, const int row, const char *const text)
