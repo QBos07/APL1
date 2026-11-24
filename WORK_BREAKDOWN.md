@@ -102,6 +102,11 @@ Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4
 
 ### Phase 2 verification (2026-11-24)
 
+This record verifies the first implemented Phase 2 shell and team workflows. The
+shell's header/body/actions/status layout was a completed baseline, but it is not
+the final visual target. The selected window-bar/vertical-tabs/status-bar design
+and command-line interactions are tracked separately below.
+
 - `ctest --test-dir cmake-build-debug --output-on-failure`: 2/2 CTest tests pass
   (`apl1_unit_tests` 116/116 Criterion tests, `apl1_tui_tests` 25/25).
 - `python3 scripts/smoke_tui.py --app cmake-build-debug/apl1`: passed the full
@@ -112,6 +117,38 @@ Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4
   `./scripts/check-static.sh` pass.
 - `scripts/coverage.sh` records a 74.91% `src/db` line-coverage baseline in
   [2.15](work-items/phase-2/2.15-db-coverage-baseline.md); no threshold is enforced.
+
+## Phase 2 follow-up — Modern TUI shell and ex-style commands
+
+Goal: replace the first implemented screen arrangement with the product owner's
+selected modern-TUI layout, while preserving the working team/data behavior and
+the completed Phase 2 verification record above.
+
+The target is a top **window/menu bar** with dropdowns, a left **vertical tab rail**,
+a **main body** for the active view, and a bottom **status bar**. The active-team
+switcher lives at the bottom of the tab rail and the team identity is repeated in
+the status bar. Forms/selections use interactive dialogs. An ex-style `:` command
+line supports both navigation shortcuts and structured actions: incomplete
+commands open prefilled dialogs; complete valid commands execute the shared action.
+
+- [ ] **2.16 Redesign layout geometry.** [Work item](work-items/phase-2/2.16-redesign-layout-geometry.md)
+- [ ] **2.17 Add the window-bar dropdown menu model.** [Work item](work-items/phase-2/2.17-window-menu-model.md)
+- [ ] **2.18 Render and operate the window-bar dropdowns.** [Work item](work-items/phase-2/2.18-window-menu-rendering.md)
+- [ ] **2.19 Add the vertical view-tab rail.** [Work item](work-items/phase-2/2.19-vertical-view-tabs.md)
+- [ ] **2.20 Anchor the team switcher at the bottom of the tab rail.** [Work item](work-items/phase-2/2.20-team-switcher-rail.md)
+- [ ] **2.21 Implement the persistent status bar.** [Work item](work-items/phase-2/2.21-status-bar.md)
+- [ ] **2.22 Add a consistent color theme.** [Work item](work-items/phase-2/2.22-color-theme.md)
+- [ ] **2.23 Extend dialogs to support interactive forms.** [Work item](work-items/phase-2/2.23-interactive-form-dialogs.md)
+- [ ] **2.24 Move team create/edit/switch flows into dialogs.** [Work item](work-items/phase-2/2.24-team-flows-as-dialogs.md)
+- [ ] **2.25 Add the ex-style command line surface.** [Work item](work-items/phase-2/2.25-ex-command-line-ui.md)
+- [ ] **2.26 Add the command parser and registry.** [Work item](work-items/phase-2/2.26-command-parser-registry.md)
+- [ ] **2.27 Implement navigation and team command actions.** [Work item](work-items/phase-2/2.27-core-command-actions.md)
+- [ ] **2.28 Verify the redesigned shell and Phase 2 interaction parity.** [Work item](work-items/phase-2/2.28-redesign-smoke-and-parity.md)
+
+**Redesign gate:** all primary views are reachable from vertical tabs; window-bar
+menus open and operate; active team is switchable from the rail/status context;
+dialogs work with keyboard and mouse; colors have a non-color fallback; and complete
+versus incomplete ex commands behave as documented without bypassing business logic.
 
 ## Phase 3 — Shared records, people, and audit groundwork
 
@@ -199,24 +236,22 @@ Goal: let the user organize events and record, correct, and review driver outcom
 
 **Gate:** users can enter an event and its outcomes manually, correct an outcome, and inspect honest summaries without generated schedules/results or an implicit points system.
 
-## Phase 8 — Search, history, and concise commands
+## Phase 8 — Search, history, and feature command routes
 
-Goal: make stored information quick to retrieve and let command users invoke the same workflows as menu users.
+Goal: make stored information quick to retrieve and extend the Phase 2 command registry with domain-specific actions.
 
 - [ ] **8.1 Add a global history/activity list.** Filter by team, record type, and date; open the affected record.
 - [ ] **8.2 Add before/after details for audited edits.** Begin with team and money records and expand only when feature-specific audit needs are clear.
 - [ ] **8.3 Add section-level text search for teams and people.** Preserve filters on return from detail.
 - [ ] **8.4 Add money filters and search.** Support date/period, category, type, and description.
 - [ ] **8.5 Add development/parts/event filters.** Add per-section fields incrementally rather than building a universal query language.
-- [ ] **8.6 Add command prompt UI.** Open/close it without losing the current screen context; display prompt, result/error, and help affordance.
-- [ ] **8.7 Add command tokenizer/parser with unit tests.** Handle whitespace, quoted names, incomplete input, and clear syntax errors; never execute SQL or shell text.
-- [ ] **8.8 Add command help and usage suggestions.** Test unknown and incomplete commands.
-- [ ] **8.9 Add `team list` and `team switch` commands.** Use the same team use cases and active-team setting as the picker.
-- [ ] **8.10 Add `money` list/add command routes.** Listing may run directly; writes open the same guided forms as the menu.
-- [ ] **8.11 Add `budget` command routes.** Route plan/report actions through the same screens and use cases.
-- [ ] **8.12 Add development and parts command routes.** Open their guided forms; do not add a second validation path.
-- [ ] **8.13 Add event/outcome command routes.** Open the corresponding guided event/result forms.
-- [ ] **8.14 Test menu/command parity for one workflow at a time.** Start with a money transaction, then repeat the pattern for each implemented domain.
+- [ ] **8.6 Add money and budget command routes.** Complete commands execute through their use cases; incomplete commands open prefilled dialogs.
+- [ ] **8.7 Add development and parts command routes.** Use the same forms and use cases as the menu path.
+- [ ] **8.8 Add event, outcome, and history command routes.** Preserve team scope and missing-data semantics.
+- [ ] **8.9 Extend command help/completion from the registry.** Cover each newly implemented domain command and usage error.
+- [ ] **8.10 Test money/budget menu-command parity.** Include a complete command and an incomplete command that opens a dialog.
+- [ ] **8.11 Test development/parts menu-command parity.** Include validation and linked-record behavior.
+- [ ] **8.12 Test event/outcome/history menu-command parity.** Include ambiguity and missing-field behavior.
 
 **Gate:** the user can discover commands, route a common operation to a guided form, and see identical validation/persistence whether they started from a menu or command.
 

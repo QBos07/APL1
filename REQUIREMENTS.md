@@ -108,44 +108,53 @@ No official F1 integration or licensing is assumed. The application is a flexibl
 
 ## 5. TUI and command interface
 
-### 5.1 Menu-driven interaction
+### 5.1 Main TUI layout and navigation
 
-- Main areas: **Overview**, **Teams**, **People**, **Events & Outcomes**, **Money**, **Development**, **Parts**, **History**, and **Settings**.
-- Provide normal menus, forms, detail views, and tables with visible focus, validation feedback, and contextual actions.
-- Mouse users can click controls, rows, tabs, and menus and scroll tables. Mouse is optional: core actions remain fully keyboard-operable.
-- Support terminal resize, constrained layouts, readable focus/selection states, and a useful non-color mode.
-- Use confirmations for destructive actions and provide a clear way to cancel forms. Avoid losing unsaved input without warning.
-- Use a consistent screen pattern: section title and active-team context; a list/table or detail panel; available actions; and a message area for validation, save confirmation, or errors. Do not rely on color alone to communicate state.
-- In list screens, keep the current filter/sort visible, show useful columns without requiring horizontal scrolling for basic tasks, and provide a detail view for the full record. Returning from a detail view should preserve the user's table position and filters.
-- Provide an obvious **Add** action and contextual actions such as **View**, **Edit**, **Archive**, and **History**. Only expose actions valid for the selected record; explain unavailable actions rather than silently ignoring them.
-- Show dates, amounts, statuses, and missing values consistently. Display missing values as “not recorded” or “—”, never as a misleading zero or default status.
+- Use a modern-application-style terminal layout with four persistent regions: a **window/menu bar** across the top, a **vertical tab rail** on the left, the active view's **body** in the remaining space, and a **status bar** along the bottom.
+- The top bar contains mouse- and keyboard-accessible dropdown menus. Initial menu groups are **Overview**, **Settings**, **Help**, and **About**. Overview provides active-team and all-teams summary views; Settings provides application preferences/database information; Help provides usage and command guidance; About provides application/version/build information.
+- The vertical tabs are the primary views: **Overview**, **Teams**, **People**, **Events & Outcomes**, **Money**, **Development**, **Parts**, and **History**. Selecting a tab changes the body view, not the active team.
+- Put the **team switcher at the bottom of the vertical tab rail**. It shows the active team's name and opens a team-selection dialog. The status bar also repeats the active-team identity so context remains visible on every screen; clicking the team indicator there opens the same switcher.
+- The body is the main information area: show the selected view's tables, details, reports, and contextual actions there. Opening a record should preserve the originating tab, list position, and filters when the user returns.
+- The status bar shows current context and concise feedback such as save/error state, command availability, or contextual help. It must not be the only place where an error or required action is explained.
+- Implement the color design deliberately: distinguish menu/tab/body/status regions; highlight active tab, current team, focus/selection, success, warning, and error states. Use readable contrast and retain labels/indicators so the interface remains usable with limited colors or no color.
+- Support terminal resize by recalculating the four regions and redrawing their contents. On small terminals, use a documented compact/reflow mode without hiding the active team or essential actions.
 
-### 5.2 Concise command entry
+### 5.2 Menus, dialogs, and mouse/keyboard interaction
 
-- Provide an always-discoverable command prompt/palette that accepts short, documented commands in addition to menus. It is a structured command interface, not an expectation that users must memorize key bindings or use natural-language parsing.
-- Commands are contextual to the active team by default and can explicitly name/select another team. Show the target team before committing a write if scope could be ambiguous.
-- Support command help, usage hints, command completion/suggestions where practical, and clear parse/validation errors. Do not execute arbitrary SQL or shell commands.
-- Commands and menus must use the same business operations, validation, confirmation rules, and persistence paths.
-- Illustrative command shapes (exact grammar can be finalized during implementation):
-  - `team list` / `team switch <name>`
-  - `money income` / `money expense` (open a guided transaction form) / `money list --category <category>`
-  - `budget set` (open a guided budget form) / `budget report`
-  - `development new` / `development log` (open a guided project or update form)
-  - `part add` / `part replace` (open a guided lifecycle form)
-  - `event add` / `result add` (open a guided event or outcomes form)
-  - `history --type <record-type>` / `help result add`
-- Incomplete commands should provide a brief usage hint and offer to open the corresponding guided form. A command such as `money list` may execute immediately; a command that writes data should either collect all values through a guided form or display a review/confirmation step before saving.
-- Resolve names that match multiple records by asking the user to choose from a short list; do not guess. Support stable record IDs in command output so a user can disambiguate records when needed.
+- Dropdown menus, tabs, rows, status-bar team control, buttons, and dialogs respond to mouse input. Mouse is optional: each core action also has a discoverable keyboard route.
+- Use interactive dialogs for short forms, record selection, command completion choices, confirmations, and errors. Dialogs have visible focus, explicit actions, and a clear cancel/close path; cancel never commits data.
+- Forms preserve entered values after validation errors, identify the invalid field, and require an explicit save action. Destructive actions require confirmation. Routine record creation can proceed after validation when the user has supplied all required details.
+- Keep focus visible independently of color. Mouse hover/focus does not itself switch teams or save data; activation is explicit.
+- In list/table views, show useful columns, sort/filter state, row counts, and clear empty/no-match states. Open a detail view on activation and preserve filters/position when returning.
+- Dates, amounts, statuses, and missing values are presented consistently. Missing data is “not recorded” or “—”, never a misleading zero or default status.
+
+### 5.3 Vim-style command line
+
+- Provide a discoverable **ex-style command line**, opened with `:` when focus is not inside a text-entry field. This is a typed command interface inspired by Vim commands, not a requirement to use Vim's normal-mode keybindings.
+- Commands can be **navigation shortcuts** or **actions**. A navigation command such as `:view money` or `:overview all` switches views. `:team switch <name>` switches teams when the name is unambiguous. Short aliases may be provided for frequent navigation/quit/help actions.
+- A command with incomplete action details opens the relevant interactive dialog and pre-fills any parsed values. For example, `:money expense` opens the expense form; `:team create` opens the team form.
+- When a command contains all required fields, validate and execute it directly through the same application/use-case operation used by the form, then report success in the status bar. For example, a fully specified `:money expense ...` can create the transaction without forcing the user through each form field again.
+- Keep confirmations for destructive/irreversible operations and ambiguous team/record targets. Do not require a redundant confirmation for routine non-destructive records when a complete command is supplied.
+- Provide command help, usage hints, completion/suggestions, and clear parse/validation errors. Ambiguous names open a choice dialog; never guess.
+- Commands are scoped to the active team unless another team is explicitly selected. Show team context before executing a write whose target could be ambiguous.
+- Menus, dialogs, and commands use identical validation, confirmation rules, business operations, and persistence. Never execute arbitrary SQL or shell commands.
+- Example command shapes (exact grammar can be finalized during implementation):
+  - `:view overview` / `:overview all` / `:view money`
+  - `:team list` / `:team switch <name>` / `:team create`
+  - `:money expense` (open a form) / `:money expense --amount ... --category ... --date ... --description ...` (validate and add)
+  - `:budget set` / `:budget report`
+  - `:development new` / `:development log`
+  - `:part replace` / `:event add` / `:result add`
+  - `:help` / `:help result add` / `:q`
 - Keep command history for the current session as a convenience, but do not store sensitive typed text or treat command history as the audit log.
 
-### 5.3 Overview and record screens
+### 5.4 View content
 
-- **Overview:** show the active team and selected season/period, current ledger balance, budget-versus-actual summary when a budget exists, recent activity, and user-entered upcoming events. Each summary links to its underlying records. Show a clear setup prompt instead of empty-looking widgets when the team has no data.
-- **Team switcher:** show a selectable list of teams, active marker, and small facts such as season label, balance/currency if known, and most recent record date. Include create-team and archived-team actions. Switching returns to the previous section for the new team, with no write performed merely by highlighting a team.
-- **List/table screens:** include search, useful filters, sort indicators, row count, and a clear empty state. Filters should be easy to clear. For tables with many columns, prioritize the most useful columns and expose the full record on selection rather than making core workflows depend on horizontal scrolling.
-- **Record detail:** show the complete entered record, linked records, calculated values with a short explanation, and chronological history. Provide edit/archive/correct actions where allowed. Related-record links should let the user navigate to another record and return to the original context.
-- **Forms:** group related fields, indicate which are required, allow optional notes without blocking save, and explain accepted formats. Keep input after errors. A form opened from a command should behave like the same form opened from a menu.
-- **History:** provide a searchable activity timeline with filters for date range, record type, and action. Opening an entry should show the affected record and, for tracked edits, the before/after values.
+- **Overview tab:** show active-team summaries; the top-bar Overview menu also provides broad/all-teams overviews. All values are derived only from entered records and are clearly scoped/labeled.
+- **Team switcher:** at the bottom of the tab rail, show team names, active marker, and known summary facts. Switching requires selection/activation and returns to the same view for the newly active team.
+- **Record detail:** show all entered fields, related records, calculated values with a short explanation, and chronological history. Use dialogs for edits and confirmations where appropriate.
+- **History tab:** show a searchable activity timeline; opening an entry displays the affected record and tracked before/after values.
+- **Settings/About/Help menus:** settings and reference information are accessible from the top bar, not mixed into team-data tabs. About includes version/build information; Help includes navigation, mouse, and command guidance.
 
 ## 6. Typical user workflows
 
