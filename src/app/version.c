@@ -3,11 +3,11 @@
 #include <stdio.h>
 
 #ifndef APL1_VERSION_STRING
-#define APL1_VERSION_STRING "0.1.0"
+#error "APL1_VERSION_STRING must come from the CMake project version"
 #endif
 
 #ifndef APL1_BUILD_TYPE
-#define APL1_BUILD_TYPE "unspecified"
+#error "APL1_BUILD_TYPE must come from the build configuration"
 #endif
 
 const char *apl1_application_name(void)
