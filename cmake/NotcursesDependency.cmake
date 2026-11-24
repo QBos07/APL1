@@ -1,8 +1,13 @@
 include(FetchContent)
 find_package(PkgConfig QUIET)
 
-# Prefer the system installation.
+# Prefer the system installation. Check the full `notcurses` module first;
+# some distributions ship notcurses_init only in the full library.
 if(PkgConfig_FOUND)
+    pkg_check_modules(NOTCURSES QUIET IMPORTED_TARGET notcurses)
+endif()
+
+if(NOT NOTCURSES_FOUND AND PkgConfig_FOUND)
     pkg_check_modules(NOTCURSES QUIET IMPORTED_TARGET notcurses-core)
 endif()
 

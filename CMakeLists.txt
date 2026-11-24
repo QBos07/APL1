@@ -48,6 +48,22 @@ if(BUILD_TESTING)
         NAME apl1_unit_tests
         COMMAND apl1_tests
     )
+
+    add_executable(apl1_tui_tests
+        tests/tui/test_tui_lifecycle.c
+    )
+
+    target_include_directories(apl1_tui_tests PRIVATE src)
+
+    target_link_libraries(apl1_tui_tests PRIVATE
+        apl_tui
+        Criterion::Criterion
+    )
+
+    add_test(
+        NAME apl1_tui_tests
+        COMMAND apl1_tui_tests
+    )
 endif()
 
 add_library(apl_core STATIC
@@ -69,6 +85,16 @@ target_link_libraries(apl_db PUBLIC
     SQLite::SQLite3
 )
 
+add_library(apl_tui STATIC
+    src/tui/lifecycle.c
+)
+
+target_include_directories(apl_tui PUBLIC src)
+target_link_libraries(apl_tui PUBLIC
+    apl_core
+    PRIVATE Notcurses::Notcurses
+)
+
 add_executable(apl1
     src/main.c
 )
@@ -76,6 +102,7 @@ add_executable(apl1
 target_link_libraries(apl1 PRIVATE
     apl_core
     apl_db
+    apl_tui
     Notcurses::Notcurses
     SQLite::SQLite3
 )

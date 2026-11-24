@@ -49,9 +49,12 @@ adopted.
   interactive Notcurses terminal.
 - `Test` suites are named after the module under test and test names describe the
   behavior, for example `Test(error, set_failure_captures_message)`.
-- All tests compile into the single test executable `apl1_tests`, registered with
-  CTest as `apl1_unit_tests` (renamed in work item 0.2). Business logic tests
-  must not require an interactive Notcurses terminal.
+- All business-logic and integration tests compile into the single test
+  executable `apl1_tests`, registered with CTest as `apl1_unit_tests` (renamed in
+  work item 0.2). TUI lifecycle tests compile into a separate `apl1_tui_tests`
+  executable (CTest `apl1_tui_tests`), which is the only test target that links
+  Notcurses modules, and its tests must not require an interactive terminal.
+  Business logic tests must not require an interactive Notcurses terminal.
 - Run one suite during development with
   `ctest --test-dir build --output-on-failure -R apl1_unit_tests` or by running
   the `apl1_tests` binary directly, which supports Criterion's filters.
