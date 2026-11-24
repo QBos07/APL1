@@ -47,9 +47,15 @@ apl_status apl_tui_shell_run(apl_tui *tui, apl_error *error)
         ncinput input;
         const uint32_t id = notcurses_get_blocking(nc, &input);
         if (id == (uint32_t)-1) {
-            /* The input stream failed or reached EOF: without input the shell
-             * cannot be operated, so report instead of spinning forever. */
+            /* The input stream failed: without input the shell cannot be
+             * operated, so report instead of spinning forever. */
             apl_error_set(error, APL_ERR_TUI_INPUT, "terminal input became unavailable");
+            return APL_ERR_TUI_INPUT;
+        }
+        if (id == NCKEY_EOF) {
+            /* The input stream reached EOF (e.g. the terminal closed): the
+             * same report, since the shell cannot be operated without it. */
+            apl_error_set(error, APL_ERR_TUI_INPUT, "terminal input reached EOF");
             return APL_ERR_TUI_INPUT;
         }
         if (id == 'q' || id == 'Q') {

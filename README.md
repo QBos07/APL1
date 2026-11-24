@@ -16,7 +16,11 @@ The product requirements define the intended behavior and acceptance criteria: [
 
 ## Project status
 
-The repository is at the scaffold stage. The current executable and Criterion test are placeholders; the management features described in the requirements have not been implemented yet. The proposed work is divided into small, reviewable slices in [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md). The checklist is a plan, not a claim that work is complete.
+The repository is at the scaffold stage. The application starts an empty TUI
+shell (work item 1.9); the management features described in the requirements
+have not been implemented yet. The proposed work is divided into small,
+reviewable slices in [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md). The checklist is
+a plan, not a claim that work is complete.
 
 ## Build and test
 
@@ -43,7 +47,16 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The application currently prints a placeholder message; its eventual terminal startup and database location will be documented here as those features are implemented.
+Run the application from an interactive terminal with:
+
+```sh
+./apl1
+```
+
+The scaffold shell shows the application name, an honest empty state, and the
+visible exit affordance (`q`). A launch without a usable interactive terminal
+(e.g. `apl1 < /dev/null`) fails cleanly with a message on stderr and creates
+no database file.
 
 ### Database location
 
@@ -56,6 +69,10 @@ The database path is resolved in this order (implemented in `src/db/path.h`):
 Missing parent directories of an environment-derived default are created on
 first run. When no usable location is configured, the application fails with a
 clear error instead of creating a database in the current working directory.
+
+The database is created during application startup, after the terminal has
+been verified usable (work item 1.10): a launch without an interactive
+terminal never creates a database file.
 
 ## Design boundaries
 

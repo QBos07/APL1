@@ -33,6 +33,7 @@ if(BUILD_TESTING)
         tests/integration/test_db_migrations.c
         tests/integration/test_db_initial_migration.c
         tests/integration/test_db_migration_rollback.c
+        tests/integration/test_app_lifecycle.c
     )
 
     target_include_directories(apl1_tests PRIVATE src tests/integration)
@@ -40,6 +41,7 @@ if(BUILD_TESTING)
     target_link_libraries(apl1_tests PRIVATE
         apl_core
         apl_db
+        apl_app
         Criterion::Criterion
         SQLite::SQLite3
     )
@@ -97,16 +99,24 @@ target_link_libraries(apl_tui PUBLIC
     PRIVATE Notcurses::Notcurses
 )
 
+add_library(apl_app STATIC
+    src/app/app.c
+)
+
+target_include_directories(apl_app PUBLIC src)
+target_link_libraries(apl_app PUBLIC
+    apl_core
+    apl_db
+)
+
 add_executable(apl1
     src/main.c
 )
 
 target_link_libraries(apl1 PRIVATE
-    apl_core
-    apl_db
+    apl_app
     apl_tui
     Notcurses::Notcurses
-    SQLite::SQLite3
 )
 
 install(TARGETS apl1)

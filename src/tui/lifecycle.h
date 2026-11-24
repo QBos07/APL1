@@ -25,9 +25,12 @@ typedef struct apl_tui {
 
 /** Initialize Notcurses Core for the current terminal.
  *
- * On failure `error` (optional) receives APL_ERR_TUI_INIT and the value stays
- * uninitialized; no stop call is required. Notcurses options are the defaults:
- * this is a local terminal application with no special configuration yet.
+ * A usable interactive terminal is required: stdin and stdout must both be
+ * terminal devices. On failure (no terminal, or Notcurses initialization
+ * failure) `error` (optional) receives APL_ERR_TUI_INIT and the value stays
+ * uninitialized; no stop call is required. Notcurses options are the
+ * defaults: this is a local terminal application with no special
+ * configuration yet.
  */
 apl_status apl_tui_start(apl_tui *tui, apl_error *error);
 
