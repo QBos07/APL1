@@ -10,7 +10,7 @@
  * TUI run, cleanup (work item 1.10). All failure handling is reporting;
  * cleanup always runs through apl_tui_stop and apl_app_stop.
  */
-int main(void)
+int main()
 {
     apl_error error;
     apl_error_init(&error);

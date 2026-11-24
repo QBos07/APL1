@@ -41,9 +41,46 @@ Goal: start and stop cleanly, open a local SQLite database, and evolve its schem
 
 **Gate:** a new local database can be opened and migrated; the app handles startup/shutdown failures without crashing or creating fake records.
 
+## Phase 1 follow-up — Foundation hardening
+
+Phase 0 and Phase 1 are implemented, but the implementation review found reproducibility, build hygiene, and a few API gaps worth addressing before the feature code grows. These are new follow-ups, not changes to the completed Phase 0/1 records. Each has its own work file under [`work-items/foundation-hardening/`](work-items/foundation-hardening/).
+
+### Recommended before or at Phase 2 start
+
+- [ ] **FH-01 Reproducible TUI smoke harness.** Replace the temporary pty responder with a checked-in script using tmux or a fuller terminal emulator. [Work item](work-items/foundation-hardening/FH-01-reproducible-tui-smoke.md)
+- [ ] **FH-03 Clean check script.** Automate fresh configure → build → CTest. [Work item](work-items/foundation-hardening/FH-03-clean-check-script.md)
+- [ ] **FH-04 GitLab CI.** Run the same check script on pushes/merge requests. [Work item](work-items/foundation-hardening/FH-04-gitlab-ci.md)
+- [ ] **FH-05 Test-support target.** Remove integration-test headers from `apl_db`'s public include paths. [Work item](work-items/foundation-hardening/FH-05-test-support-library.md)
+- [ ] **FH-06 Temporary test directories.** Honor `TMPDIR` and clean nested test artifacts safely. [Work item](work-items/foundation-hardening/FH-06-test-temp-directories.md)
+- [ ] **2.0.1 TUI plane/resize decision.** Decide the screen layout and resize/re-render model before building Phase 2 screens. [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
+- [ ] **2.0.2 Mouse/focus decision.** Define mouse actions and their keyboard equivalents before implementing widgets. [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
+- [ ] **2.0.3 Repository ownership decision.** Define statement, connection, and transaction boundaries before team repository work. [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
+
+### Useful hardening; can proceed alongside early Phase 2
+
+- [ ] **FH-02 Optional CTest TUI smoke.** Register the terminal smoke harness only behind an opt-in option. [Work item](work-items/foundation-hardening/FH-02-ctest-tui-smoke.md)
+- [ ] **FH-07 Sanitizer run.** Exercise the existing ASan/UBSan build options. [Work item](work-items/foundation-hardening/FH-07-sanitizer-test-run.md)
+- [ ] **FH-08 Formatting check.** Add `.clang-format` and a reproducible check. [Work item](work-items/foundation-hardening/FH-08-formatting-check.md)
+- [ ] **FH-09 Static-analysis baseline.** Run cppcheck or clang-tidy and triage findings. [Work item](work-items/foundation-hardening/FH-09-static-analysis-baseline.md)
+- [ ] **FH-10 Shared error-prefix helper.** Move migration error-context chaining into `src/core`. [Work item](work-items/foundation-hardening/FH-10-error-prefix-helper.md)
+- [ ] **FH-11 Distinct process exit codes.** Make failure categories machine-readable. [Work item](work-items/foundation-hardening/FH-11-process-exit-codes.md)
+- [ ] **FH-12 `--database` option.** Expose the existing configured database path from `main`. [Work item](work-items/foundation-hardening/FH-12-database-cli-option.md)
+
+### Review findings already covered
+
+- Error messages use a fixed 256-byte buffer, but truncation and NUL termination are explicitly documented and tested in 1.1; no size change is planned unless real usage shows the limit is inadequate.
+- Path resolution tests the deterministic `_ex` function with injected XDG/HOME values. The environment-reading wrapper is documented as a thin `getenv` adapter; tests do not mutate process-global environment variables.
+- Test binary policy is already documented in `CONTRIBUTING.md`: unit and SQLite integration tests share `apl1_tests`; terminal-independent TUI lifecycle tests use `apl1_tui_tests`.
+
 ## Phase 2 — Shared TUI shell and team workspaces
 
 Goal: establish the navigation pattern and implement team creation and switching end to end.
+
+Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4. Complete 2.0.3 before the team schema/repository work (2.5/2.6).
+
+- [ ] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
+- [ ] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
+- [ ] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
 
 - [ ] **2.1 Add the main navigation model.** Define sections and current-screen state independently of drawing code.
 - [ ] **2.2 Draw the shared screen frame.** Include section title, active-team context, message/status area, and available actions.
@@ -59,6 +96,7 @@ Goal: establish the navigation pattern and implement team creation and switching
 - [ ] **2.12 Build the team detail/edit screen.** Show profile details and links/placeholders for team sections without inventing their data.
 - [ ] **2.13 Build the empty-database welcome flow.** Offer create-team or quit, and guide the user to optional next actions after creation.
 - [ ] **2.14 Add a team-isolation integration test.** Create two teams and prove team-scoped reads/writes do not cross boundaries.
+- [ ] **2.15 Add a database code-coverage baseline.** After 2.5/2.6 land, use gcov to identify untested database paths without setting an arbitrary threshold. [Work item](work-items/phase-2/2.15-db-coverage-baseline.md)
 
 **Gate:** the user can create two teams, switch between them, quit, relaunch, and see the selected team and separate data still present.
 
