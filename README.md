@@ -24,8 +24,8 @@ team-scoped activity history are maintained through menus, dialogs, and commands
 that share the same use cases. Team create/rename/archive and reference/membership
 changes are recorded transactionally and remain visible in
 History. Contextual, mouse-clickable key hints appear in the body footer, the window-bar **Records**
-menu opens People, Seasons, and Cars directly, and the **Keys** button opens
-keyboard help. Reference records are never
+menu opens People, Seasons, and Cars directly, the **Keys** button opens
+keyboard help, and the **Quit** button exits the application. Reference records are never
 seeded or generated. Other sections currently show an honest placeholder until
 their phase lands. The remaining work is divided into small slices in
 [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md).

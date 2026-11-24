@@ -513,7 +513,15 @@ class Smoke:
         )
         self.send_keys("q")
         self.log("sent q to the application")
+        self.wait_for_quit()
 
+    def quit_via_button(self) -> None:
+        columns = self.terminal_columns()
+        self.click_cell(0, columns - 10)
+        self.log("clicked the window-bar Quit button")
+        self.wait_for_quit()
+
+    def wait_for_quit(self) -> None:
         def exited() -> bool:
             finished = self.xterm is not None and self.xterm.poll() is not None
             status_ready = (
@@ -963,7 +971,7 @@ class Smoke:
                 "limited-color startup",
                 ("Overview", "Teams", "Ferrari", ": commands"),
             )
-            self.quit()
+            self.quit_via_button()
             self.check_exit_status()
             self.check_window_cleanup()
             self.log("limited-color terminal remained fully operable")

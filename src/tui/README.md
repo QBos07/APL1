@@ -25,6 +25,6 @@ Rules:
 - `frame.c` owns planes and drawing helpers; `shell.c` composes the frame with
   menus, tabs, team screens, dialogs, commands, and app use cases. Each body
   view reserves its last row for contextual key hints that are also mouse-clickable; the window-bar `[Keys]`
-  button opens the same keyboard/mouse help dialog.
+  button opens the same keyboard/mouse help dialog and `[Quit]` exits safely.
 - Long status/command-line rendering must stay UTF-8-safe and width-bounded;
   colors are never the only signal for focus/status.

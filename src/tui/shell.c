@@ -1493,6 +1493,12 @@ static unsigned keys_button_start(const unsigned columns)
     return (columns > KEY_LABEL_WIDTH + 2) ? columns - KEY_LABEL_WIDTH - 1 : columns;
 }
 
+static unsigned quit_button_start(const unsigned columns)
+{
+    const unsigned keys = keys_button_start(columns);
+    return (keys > 7) ? keys - 7 : keys;
+}
+
 static void draw_window_bar(shell_state *const state)
 {
     struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_WINDOW);
@@ -1514,8 +1520,9 @@ static void draw_window_bar(shell_state *const state)
         apl_tui_frame_draw_text(plane, 0, (int)apl_tui_menu_heading_offset(group),
                                 apl_tui_menu_group_label(group));
     }
-    if (layout->window.cols > 48) {
+    if (layout->window.cols > 55) {
         apl_tui_theme_apply(&state->theme, plane, APL_TUI_ROLE_WINDOW_FOCUS);
+        apl_tui_frame_draw_text(plane, 0, (int)quit_button_start(layout->window.cols), "[Quit]");
         apl_tui_frame_draw_text(plane, 0, (int)keys_button_start(layout->window.cols), "[Keys]");
     }
     apl_tui_theme_reset(plane);
@@ -3426,9 +3433,13 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
             apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
             apl_tui_menu_focus_group(&state->menu, group);
             apl_tui_menu_open(&state->menu, group);
-        } else if (layout->window.cols > 48 &&
-                   (unsigned)input->x >= keys_button_start(layout->window.cols)) {
-            handle_menu_action(state, APL_TUI_MENU_ACTION_HELP_KEYBOARD);
+        } else if (layout->window.cols > 55 &&
+                   (unsigned)input->x >= quit_button_start(layout->window.cols)) {
+            if ((unsigned)input->x < keys_button_start(layout->window.cols)) {
+                state->quit = true;
+            } else {
+                handle_menu_action(state, APL_TUI_MENU_ACTION_HELP_KEYBOARD);
+            }
         }
         return;
     }
