@@ -25,11 +25,13 @@ if(BUILD_TESTING)
 
     add_executable(apl1_tests
         tests/test_main.c
+        tests/unit/test_error.c
     )
 
     target_include_directories(apl1_tests PRIVATE src)
 
     target_link_libraries(apl1_tests PRIVATE
+        apl_core
         Criterion::Criterion
         SQLite::SQLite3
     )
@@ -40,11 +42,18 @@ if(BUILD_TESTING)
     )
 endif()
 
+add_library(apl_core STATIC
+    src/core/error.c
+)
+
+target_include_directories(apl_core PUBLIC src)
+
 add_executable(apl1
     src/main.c
 )
 
 target_link_libraries(apl1 PRIVATE
+    apl_core
     Notcurses::Notcurses
     SQLite::SQLite3
 )
