@@ -119,6 +119,19 @@ static apl_status validate_list(const apl_db_migration *migrations, size_t count
     return APL_OK;
 }
 
+/** Prepend `context` to an existing error message safely: the old message is
+ *  copied before the error value is overwritten (apl_error_set must never
+ *  read apl_error_message of the same buffer as its own argument). */
+static void prefix_error(apl_error *error, apl_status code, const char *context)
+{
+    if (error == NULL) {
+        return;
+    }
+    char detail[APL_ERROR_MESSAGE_MAX];
+    snprintf(detail, sizeof(detail), "%s", error->message);
+    apl_error_set(error, code, "%s: %s", context, detail);
+}
+
 /** Apply one migration and its version record inside a single transaction. */
 static apl_status apply_migration(apl_db_connection *connection, const apl_db_migration *migration,
                                   apl_error *error)
@@ -162,8 +175,9 @@ static apl_status apply_migration(apl_db_connection *connection, const apl_db_mi
     status = exec_sql(handle, "COMMIT;", error);
     if (status != APL_OK) {
         (void)exec_sql(handle, "ROLLBACK;", error);
-        apl_error_set(error, APL_ERR_DB_MIGRATION, "migration %d could not be committed: %s",
-                      migration->version, apl_error_message(error));
+        char context[128];
+        snprintf(context, sizeof(context), "migration %d could not be committed", migration->version);
+        prefix_error(error, APL_ERR_DB_MIGRATION, context);
         return APL_ERR_DB_MIGRATION;
     }
     return APL_OK;
@@ -222,8 +236,10 @@ apl_status apl_db_migrations_run_list(apl_db_connection *connection,
         }
         status = apply_migration(connection, &migrations[index], error);
         if (status != APL_OK) {
-            apl_error_set(error, status, "migration to version %d failed: %s",
-                          migrations[index].version, apl_error_message(error));
+            char context[128];
+            snprintf(context, sizeof(context), "migration to version %d failed",
+                     migrations[index].version);
+            prefix_error(error, status, context);
             return status;
         }
     }

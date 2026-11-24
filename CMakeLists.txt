@@ -32,6 +32,7 @@ if(BUILD_TESTING)
         tests/integration/test_db_foreign_keys.c
         tests/integration/test_db_migrations.c
         tests/integration/test_db_initial_migration.c
+        tests/integration/test_db_migration_rollback.c
     )
 
     target_include_directories(apl1_tests PRIVATE src tests/integration)
