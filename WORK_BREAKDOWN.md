@@ -29,7 +29,7 @@ Goal: know what builds today and clean up only the minimum needed to make small 
 Goal: start and stop cleanly, open a local SQLite database, and evolve its schema safely.
 
 - [x] **1.1 Add an application error type.** [Work item](work-items/phase-1/1.1-application-error-type.md)
-- [ ] **1.2 Add a SQLite connection lifecycle wrapper.** [Work item](work-items/phase-1/1.2-database-connection.md)
+- [x] **1.2 Add a SQLite connection lifecycle wrapper.** [Work item](work-items/phase-1/1.2-database-connection.md)
 - [ ] **1.3 Define and implement database-path resolution.** [Work item](work-items/phase-1/1.3-database-path.md)
 - [ ] **1.4 Enable and verify SQLite foreign keys.** [Work item](work-items/phase-1/1.4-foreign-keys.md)
 - [ ] **1.5 Add schema versioning and a migration runner.** [Work item](work-items/phase-1/1.5-migration-runner.md)
