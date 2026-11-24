@@ -67,6 +67,7 @@ if(BUILD_TESTING)
         tests/integration/test_cli.c
         tests/integration/test_settings_repository.c
         tests/integration/test_team_repository.c
+        tests/integration/test_team_isolation.c
         tests/integration/test_team_service.c
         tests/integration/test_transaction.c
     )

@@ -58,6 +58,7 @@ class Smoke:
         self.app = args.app
         self.timeout = args.timeout
         self.title = f"apl1-smoke-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+        self.launch_count = 0
         self.display = ""
         self.display_env: dict[str, str] = {}
         self.xvfb: subprocess.Popen[bytes] | None = None
@@ -146,7 +147,13 @@ class Smoke:
         self.fail("could not allocate a free Xvfb display (tried :90 through :129)")
 
     # ---------------------------------------------------------------- xterm
-    def start_xterm(self) -> None:
+    def start_xterm(self, geometry: str = "80x24") -> None:
+        self.launch_count += 1
+        self.title = (
+            f"apl1-smoke-{os.getpid()}-{uuid.uuid4().hex[:8]}-{self.launch_count}"
+        )
+        self.xterm_log = self.temp_dir / f"xterm-{self.launch_count}.log"
+        self.status_path.unlink(missing_ok=True)
         env = os.environ.copy()
         env.update(
             {
@@ -158,15 +165,15 @@ class Smoke:
                 "LC_ALL": "C.UTF-8",
             }
         )
-        (self.temp_dir / "xdg").mkdir()
-        (self.temp_dir / "home").mkdir()
+        (self.temp_dir / "xdg").mkdir(exist_ok=True)
+        (self.temp_dir / "home").mkdir(exist_ok=True)
 
         app_command = (
             f"{shlex.quote(str(self.app))} --database {shlex.quote(str(self.database_path))}; "
             f"status=$?; printf '%s' \"$status\" > {shlex.quote(str(self.status_path))}; "
             f"exit \"$status\""
         )
-        stdio_log = self.temp_dir / "xterm-stdio.log"
+        stdio_log = self.temp_dir / f"xterm-{self.launch_count}-stdio.log"
         log = stdio_log.open("wb")
         self.xterm = subprocess.Popen(
             [
@@ -176,7 +183,7 @@ class Smoke:
                 "-title",
                 self.title,
                 "-geometry",
-                "80x24",
+                geometry,
                 "-l",
                 "-lf",
                 str(self.xterm_log),
@@ -192,6 +199,11 @@ class Smoke:
         )
         log.close()
         self.wait_for("xterm window", self._find_window, timeout=10.0)
+        time.sleep(0.4)
+        self.run(
+            ["xdotool", "windowfocus", "--sync", self.window_id],
+            env=self.display_env,
+        )
         self.log(f"started app in xterm window {self.window_id}")
 
     def _find_window(self) -> bool:
@@ -215,6 +227,38 @@ class Smoke:
 
         self.wait_for(description, present, timeout=10.0)
 
+    def send_keys(self, *keys: str) -> None:
+        self.run(
+            ["xdotool", "windowfocus", "--sync", self.window_id],
+            env=self.display_env,
+        )
+        for key in keys:
+            self.run(["xdotool", "key", key], env=self.display_env)
+            time.sleep(0.08)
+
+    def type_text(self, text: str) -> None:
+        self.run(
+            ["xdotool", "windowfocus", "--sync", self.window_id],
+            env=self.display_env,
+        )
+        self.run(["xdotool", "type", "--delay", "20", text], env=self.display_env)
+        time.sleep(0.15)
+
+    def database_query(self, sql: str):
+        with sqlite3.connect(self.database_path) as connection:
+            return connection.execute(sql).fetchone()
+
+    def wait_for_database(self, description: str, predicate) -> None:
+        def ready() -> bool:
+            if not self.database_path.is_file():
+                return False
+            try:
+                return bool(predicate())
+            except sqlite3.Error:
+                return False
+
+        self.wait_for(description, ready, timeout=10.0)
+
     def resize_and_check_redraw(self) -> None:
         geometry = self.run(
             ["xdotool", "getwindowgeometry", "--shell", self.window_id],
@@ -229,8 +273,7 @@ class Smoke:
         if width <= 0 or height <= 0:
             self.fail(f"could not read xterm geometry: {geometry!r}")
 
-        title = "apl1 - Formula 1 Team Management Database"
-        renders_before = self.read_xterm_log().count(title)
+        log_size_before = len(self.read_xterm_log())
 
         new_width = width + 200
         new_height = height + 100
@@ -240,13 +283,17 @@ class Smoke:
         )
         self.log(f"resized xterm window from {width}x{height} to {new_width}x{new_height}")
 
-        def redrew() -> bool:
-            return self.read_xterm_log().count(title) > renders_before
-
-        self.wait_for("a redraw after resize", redrew, timeout=10.0)
+        # A key wakes the blocking input loop so the next frame is emitted at
+        # the new geometry even on a bare Xvfb server without a window manager.
+        self.send_keys("Escape")
+        self.wait_for(
+            "output after resize",
+            lambda: len(self.read_xterm_log()) > log_size_before,
+            timeout=10.0,
+        )
         self.wait_for_content(
             "startup content after resize",
-            ("apl1 - Formula 1 Team Management Database", "Press q to quit."),
+            ("No teams have been added yet.",),
         )
 
     def quit(self) -> None:
@@ -256,10 +303,7 @@ class Smoke:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        self.run(
-            ["xdotool", "key", "--window", self.window_id, "q"],
-            env=self.display_env,
-        )
+        self.send_keys("q")
         self.log("sent q to the application")
 
         def exited() -> bool:
@@ -301,8 +345,21 @@ class Smoke:
                 ).fetchone()[0]
         except sqlite3.Error as error:
             self.fail(f"database is not a usable migrated apl1 database: {error}")
-        if version != 1:
-            self.fail(f"database schema version is {version}, expected 1")
+        if version != 2:
+            self.fail(f"database schema version is {version}, expected 2")
+
+        with sqlite3.connect(self.database_path) as connection:
+            teams = connection.execute(
+                "SELECT name, archived FROM teams ORDER BY id"
+            ).fetchall()
+            active = connection.execute(
+                "SELECT t.name FROM app_settings s "
+                "JOIN teams t ON t.id = s.active_team_id WHERE s.id = 1"
+            ).fetchone()
+        if teams != [("Ferrari", 0), ("McLaren", 0)]:
+            self.fail(f"unexpected team rows after smoke run: {teams!r}")
+        if active != ("Ferrari",):
+            self.fail(f"active team after smoke run is {active!r}, expected Ferrari")
 
         default_database = self.temp_dir / "xdg" / "apl1" / "apl1.sqlite3"
         if default_database.exists():
@@ -352,21 +409,70 @@ class Smoke:
         self.wait_for_content(
             "startup screen",
             (
-                "apl1 - Formula 1 Team Management Database",
-                "No teams have been added yet",
-                "Press q to quit.",
+                "Welcome to apl1.",
+                "No teams have been added yet.",
+                "Press n to create your first team.",
             ),
         )
         self.log("startup content is present")
         self.resize_and_check_redraw()
         self.log("resize produced a redraw")
+
+        self.send_keys("n")
+        self.type_text("Ferrari")
+        self.send_keys("Tab")
+        self.type_text("Maranello")
+        self.send_keys("Return")
+        self.wait_for_database(
+            "first team row",
+            lambda: self.database_query("SELECT COUNT(*) FROM teams;") == (1,),
+        )
+        self.wait_for_content("creation confirmation", ("Team created.",))
+        self.log("created Ferrari through the form")
+
+        self.send_keys("Escape", "n")
+        self.type_text("McLaren")
+        self.send_keys("Return")
+        self.wait_for_database(
+            "second team row",
+            lambda: self.database_query("SELECT COUNT(*) FROM teams;") == (2,),
+        )
+        self.log("created McLaren through the form")
+
+        self.send_keys("Escape", "Up", "s")
+        self.wait_for_database(
+            "switched active team",
+            lambda: self.database_query(
+                "SELECT t.name FROM app_settings s "
+                "JOIN teams t ON t.id = s.active_team_id WHERE s.id = 1;"
+            )
+            == ("Ferrari",),
+        )
+        self.log("switched active team to Ferrari")
+
         self.quit()
         self.check_exit_status()
         self.log("application exited with status 0")
         self.check_window_cleanup()
         self.log("xterm window was cleaned up")
+
+        # Relaunch the same database and verify the selected team persists.
+        self.start_xterm()
+        self.wait_for_content("relaunch screen", ("Ferrari",))
+        self.wait_for_database(
+            "persisted active team after relaunch",
+            lambda: self.database_query(
+                "SELECT t.name FROM app_settings s "
+                "JOIN teams t ON t.id = s.active_team_id WHERE s.id = 1;"
+            )
+            == ("Ferrari",),
+        )
+        self.log("relaunch shows the persisted active team")
+        self.quit()
+        self.check_exit_status()
+        self.check_window_cleanup()
         self.check_database()
-        self.log("isolated database was created and migrated")
+        self.log("isolated database was created, migrated, and retained team state")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
