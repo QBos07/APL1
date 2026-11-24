@@ -95,6 +95,7 @@ if(BUILD_TESTING)
         tests/tui/test_tui_lifecycle.c
         tests/tui/test_tui_layout.c
         tests/tui/test_tui_list.c
+        tests/tui/test_tui_menu.c
         tests/tui/test_tui_navigation.c
         tests/tui/test_tui_shell.c
         tests/tui/test_tui_text.c
@@ -173,6 +174,7 @@ add_library(apl_tui STATIC
     src/tui/layout.c
     src/tui/lifecycle.c
     src/tui/list.c
+    src/tui/menu.c
     src/tui/navigation.c
     src/tui/shell.c
     src/tui/text.c
