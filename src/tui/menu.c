@@ -4,23 +4,23 @@
 #include <string.h>
 
 static const char *const GROUP_LABELS[APL_TUI_MENU_GROUP_COUNT] = {
-    "Overview",
-    "Settings",
-    "Help",
-    "About",
+    "Overview", "Records", "Settings", "Help", "About",
 };
 
 static const unsigned GROUP_OFFSETS[APL_TUI_MENU_GROUP_COUNT] = {
-    1,
-    12,
-    23,
-    30,
+    1, 11, 20, 30, 36,
 };
 
 static const apl_tui_menu_item OVERVIEW_ITEMS[] = {
     {"Active team overview", APL_TUI_MENU_ACTION_OVERVIEW_ACTIVE, true},
     {"All teams overview", APL_TUI_MENU_ACTION_OVERVIEW_ALL, true},
     {"Season overview (not available)", APL_TUI_MENU_ACTION_NONE, false},
+};
+
+static const apl_tui_menu_item RECORDS_ITEMS[] = {
+    {"People / drivers", APL_TUI_MENU_ACTION_OPEN_PEOPLE, true},
+    {"Seasons / periods", APL_TUI_MENU_ACTION_OPEN_SEASONS, true},
+    {"Cars / chassis", APL_TUI_MENU_ACTION_OPEN_CARS, true},
 };
 
 static const apl_tui_menu_item SETTINGS_ITEMS[] = {
@@ -45,6 +45,7 @@ typedef struct menu_group_definition {
 
 static const menu_group_definition GROUP_ITEMS[APL_TUI_MENU_GROUP_COUNT] = {
     {OVERVIEW_ITEMS, sizeof(OVERVIEW_ITEMS) / sizeof(OVERVIEW_ITEMS[0])},
+    {RECORDS_ITEMS, sizeof(RECORDS_ITEMS) / sizeof(RECORDS_ITEMS[0])},
     {SETTINGS_ITEMS, sizeof(SETTINGS_ITEMS) / sizeof(SETTINGS_ITEMS[0])},
     {HELP_ITEMS, sizeof(HELP_ITEMS) / sizeof(HELP_ITEMS[0])},
     {ABOUT_ITEMS, sizeof(ABOUT_ITEMS) / sizeof(ABOUT_ITEMS[0])},

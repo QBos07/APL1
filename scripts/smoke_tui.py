@@ -693,7 +693,7 @@ class Smoke:
         self.send_keys("Escape")
         self.log("opened contextual keyboard help from the window bar")
 
-        self.send_keys("m", "Right", "Return")
+        self.send_keys("m", "Right", "Right", "Return")
         self.wait_for_content("database information dialog", ("Database information",))
         dialog_screen = self.visible_text()
         if dialog_screen.count("| Database information") != 1:

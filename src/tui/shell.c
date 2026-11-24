@@ -1404,6 +1404,37 @@ static void handle_menu_action(shell_state *const state, const apl_tui_menu_acti
         set_status(state, "All-teams overview is not implemented in this phase.");
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
         return;
+    case APL_TUI_MENU_ACTION_OPEN_PEOPLE:
+        state->people_all_teams = false;
+        set_section(state, APL_TUI_SECTION_PEOPLE);
+        set_status(state, "People: drivers associated with the active team.");
+        return;
+    case APL_TUI_MENU_ACTION_OPEN_SEASONS: {
+        apl_error error;
+        apl_error_init(&error);
+        state->section = APL_TUI_SECTION_TEAMS;
+        state->screen = SHELL_SCREEN_SEASON_LIST;
+        if (load_seasons(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Seasons/periods for the active team.");
+        }
+        return;
+    }
+    case APL_TUI_MENU_ACTION_OPEN_CARS: {
+        apl_error error;
+        apl_error_init(&error);
+        state->section = APL_TUI_SECTION_TEAMS;
+        state->screen = SHELL_SCREEN_CAR_LIST;
+        if (load_cars(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Cars/chassis for the active team.");
+        }
+        return;
+    }
     case APL_TUI_MENU_ACTION_DATABASE_INFO:
         show_info_dialog(
             state, "Database information",
@@ -1471,7 +1502,7 @@ static void draw_window_bar(shell_state *const state)
         apl_tui_frame_draw_text(plane, 0, (int)apl_tui_menu_heading_offset(group),
                                 apl_tui_menu_group_label(group));
     }
-    if (layout->window.cols > 42) {
+    if (layout->window.cols > 48) {
         apl_tui_theme_apply(&state->theme, plane, APL_TUI_ROLE_WINDOW_FOCUS);
         apl_tui_frame_draw_text(plane, 0, (int)keys_button_start(layout->window.cols), "[Keys]");
     }
@@ -3333,7 +3364,7 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
             apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
             apl_tui_menu_focus_group(&state->menu, group);
             apl_tui_menu_open(&state->menu, group);
-        } else if (layout->window.cols > 42 &&
+        } else if (layout->window.cols > 48 &&
                    (unsigned)input->x >= keys_button_start(layout->window.cols)) {
             handle_menu_action(state, APL_TUI_MENU_ACTION_HELP_KEYBOARD);
         }

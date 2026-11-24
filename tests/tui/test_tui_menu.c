@@ -4,7 +4,7 @@
 
 Test(tui_menu, groups_have_explicit_entries_and_headings)
 {
-    const char *const labels[] = {"Overview", "Settings", "Help", "About"};
+    const char *const labels[] = {"Overview", "Records", "Settings", "Help", "About"};
     for (size_t index = 0; index < APL_TUI_MENU_GROUP_COUNT; ++index) {
         const apl_tui_menu_group group = (apl_tui_menu_group)index;
         cr_assert_str_eq(apl_tui_menu_group_label(group), labels[index]);
@@ -72,7 +72,7 @@ Test(tui_menu, group_and_item_navigation_wraps)
     cr_assert_eq(menu.item_focus, 0);
 
     apl_tui_menu_move_group(&menu, 1);
-    cr_assert_eq(menu.group, APL_TUI_MENU_SETTINGS);
+    cr_assert_eq(menu.group, APL_TUI_MENU_RECORDS);
     cr_assert_eq(menu.item_focus, 0);
 }
 
