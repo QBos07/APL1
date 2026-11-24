@@ -590,6 +590,17 @@ static apl_status load_history(shell_state *const state, apl_error *const error)
     if (status != APL_OK) {
         return status;
     }
+    /* Older development databases may contain team_selected rows written by a
+     * previous build. Switching the active team is intentionally not team
+     * activity, so keep those rows out of the visible history. */
+    size_t kept = 0;
+    for (size_t index = 0; index < count; ++index) {
+        if (strcmp(events[index].action, "team_selected") != 0) {
+            events[kept++] = events[index];
+        }
+    }
+    count = kept;
+
     apl_activity_service_free_events(state->events);
     state->events = events;
     state->event_count = count;
