@@ -16,6 +16,7 @@
 #include "tui/list.h"
 #include "tui/menu.h"
 #include "tui/navigation.h"
+#include "tui/status.h"
 
 typedef enum shell_screen {
     SHELL_SCREEN_WELCOME = 0,
@@ -41,7 +42,6 @@ typedef struct shell_form {
     unsigned focus; /* 0 = name, 1 = notes */
 } shell_form;
 
-constexpr size_t SHELL_STATUS_MAX = 320;
 constexpr int APL_TUI_SCROLL_STEP = 3;
 constexpr int64_t APL_TUI_DOUBLE_CLICK_MS = 500;
 
@@ -64,9 +64,9 @@ typedef struct shell_state {
     apl_tui_dialog dialog;
     apl_tui_menu menu;
     apl_tui_focus focus;
+    apl_tui_status status;
     shell_pending_action pending;
     int64_t pending_team_id;
-    char status[SHELL_STATUS_MAX];
     int64_t last_click_team_id;
     int64_t last_click_ms;
     bool quit;
@@ -75,11 +75,35 @@ typedef struct shell_state {
 static void handle_dialog_input(shell_state *state, const ncinput *input);
 static void open_selected_detail(shell_state *state);
 
+static void set_status_level(shell_state *const state, const apl_tui_status_level level,
+                             const char *const format, va_list args)
+{
+    char message[APL_TUI_STATUS_MESSAGE_MAX];
+    (void)vsnprintf(message, sizeof(message), format, args);
+    (void)apl_tui_status_set_message(&state->status, level, "%s", message);
+}
+
 static void set_status(shell_state *const state, const char *const format, ...)
 {
     va_list args;
-    va_start(args);
-    (void)vsnprintf(state->status, sizeof(state->status), format, args);
+    va_start(args, format);
+    set_status_level(state, APL_TUI_STATUS_INFO, format, args);
+    va_end(args);
+}
+
+static void set_status_success(shell_state *const state, const char *const format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    set_status_level(state, APL_TUI_STATUS_SUCCESS, format, args);
+    va_end(args);
+}
+
+static void set_status_warning(shell_state *const state, const char *const format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    set_status_level(state, APL_TUI_STATUS_WARNING, format, args);
     va_end(args);
 }
 
@@ -88,9 +112,10 @@ static void set_status_from_error(shell_state *const state, const char *const co
 {
     const char *const message = apl_error_message(error);
     if (message != nullptr && message[0] != '\0') {
-        set_status(state, "%s: %s", context, message);
+        (void)apl_tui_status_set_message(&state->status, APL_TUI_STATUS_ERROR, "%s: %s", context,
+                                         message);
     } else {
-        set_status(state, "%s", context);
+        (void)apl_tui_status_set_message(&state->status, APL_TUI_STATUS_ERROR, "%s", context);
     }
 }
 
@@ -147,7 +172,21 @@ static void focus_error_field(shell_state *const state, const apl_error *const e
 
 static apl_status refresh_active(shell_state *const state, apl_error *const error)
 {
-    return apl_team_service_active(state->app, &state->active_team, &state->active_status, error);
+    const apl_status status =
+        apl_team_service_active(state->app, &state->active_team, &state->active_status, error);
+    if (status == APL_OK) {
+        if (active_status_has_team(state->active_status)) {
+            apl_tui_status_set_team(&state->status, state->active_team.name);
+        } else {
+            apl_tui_status_clear_team(&state->status);
+        }
+    }
+    return status;
+}
+
+static void sync_status_context(shell_state *const state)
+{
+    apl_tui_status_set_context(&state->status, apl_tui_section_label(state->section));
 }
 
 static apl_status detect_any_teams(shell_state *const state, apl_error *const error)
@@ -280,9 +319,9 @@ static void perform_create(shell_state *const state, apl_error *const error)
         return;
     }
     state->screen = SHELL_SCREEN_TEAM_DETAIL;
-    set_status(state,
-               "Team created. Next, consider adding people, seasons, money, or events in later "
-               "phases. Press Esc for the team list.");
+    set_status_success(state,
+                       "Team created. Next, consider adding people, seasons, money, or events in "
+                       "later phases. Press Esc for the team list.");
 }
 
 static void perform_update(shell_state *const state, apl_error *const error)
@@ -307,7 +346,7 @@ static void perform_update(shell_state *const state, apl_error *const error)
         return;
     }
     state->screen = SHELL_SCREEN_TEAM_DETAIL;
-    set_status(state, "Changes saved.");
+    set_status_success(state, "Changes saved.");
 }
 
 static void perform_archive(shell_state *const state, const int64_t team_id, apl_error *const error)
@@ -332,11 +371,11 @@ static void perform_archive(shell_state *const state, const int64_t team_id, apl
     }
     state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
     if (was_active && active_status_has_team(state->active_status)) {
-        set_status(state, "Team archived. Active team switched to '%s'.", state->active_team.name);
+        set_status_success(state, "Team archived. Active team switched to '%s'.", state->active_team.name);
     } else if (was_active) {
-        set_status(state, "Team archived. No active team remains.");
+        set_status_success(state, "Team archived. No active team remains.");
     } else {
-        set_status(state, "Team archived. Its history remains available in the archived view.");
+        set_status_success(state, "Team archived. Its history remains available in the archived view.");
     }
 }
 
@@ -353,7 +392,7 @@ static void perform_set_active(shell_state *const state, const int64_t team_id,
         show_error_dialog(state, error);
         return;
     }
-    set_status(state, "Active team: %s", state->active_team.name);
+    set_status_success(state, "Active team: %s", state->active_team.name);
 }
 
 static void toggle_archived_view(shell_state *const state, apl_error *const error)
@@ -380,6 +419,7 @@ static void set_section(shell_state *const state, const apl_tui_section section)
     } else {
         state->screen = SHELL_SCREEN_PLACEHOLDER;
     }
+    sync_status_context(state);
 }
 
 static void switch_section(shell_state *const state, const bool forward)
@@ -769,8 +809,11 @@ static void draw_screen(shell_state *const state)
     }
 
     struct ncplane *const status = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_STATUS);
-    if (status != nullptr && state->status[0] != '\0') {
-        apl_tui_frame_draw_line(status, 0, state->status);
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (status != nullptr && layout != nullptr) {
+        char line[768];
+        (void)apl_tui_status_render(&state->status, layout->status.cols, line, sizeof(line));
+        apl_tui_frame_draw_line(status, 0, line);
     }
 
     draw_menu_popup(state);
@@ -1154,7 +1197,7 @@ static void handle_list_input(shell_state *const state, const uint32_t id)
         const apl_team *const team = selected_team(state);
         if (team != nullptr) {
             if (team->archived) {
-                set_status(state, "Archived teams cannot be active; choose an active team.");
+                set_status_warning(state, "Archived teams cannot be active; choose an active team.");
             } else {
                 perform_set_active(state, team->id, &error);
                 if (!apl_error_is_success(&error)) {
@@ -1191,7 +1234,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
     case 'e':
     case 'E':
         if (state->detail.archived) {
-            set_status(state, "Archived teams cannot be edited in this phase.");
+            set_status_warning(state, "Archived teams cannot be edited in this phase.");
         } else {
             open_edit_form(state);
         }
@@ -1199,7 +1242,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
     case 's':
     case 'S':
         if (state->detail.archived) {
-            set_status(state, "Archived teams cannot be active; choose an active team.");
+            set_status_warning(state, "Archived teams cannot be active; choose an active team.");
         } else {
             perform_set_active(state, state->detail.id, &error);
             if (!apl_error_is_success(&error)) {
@@ -1210,7 +1253,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
     case 'x':
     case 'X':
         if (state->detail.archived) {
-            set_status(state, "This team is already archived.");
+            set_status_warning(state, "This team is already archived.");
         } else if (!can_archive_team(state, &state->detail)) {
             set_status(state,
                        "The last active team cannot be archived. Create another team first.");
@@ -1447,6 +1490,8 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
     apl_tui_dialog_init(&state->dialog);
     apl_tui_menu_init(&state->menu);
     apl_tui_focus_init(&state->focus);
+    apl_tui_status_init(&state->status);
+    sync_status_context(state);
 
     apl_status status = detect_any_teams(state, error);
     if (status != APL_OK) {
@@ -1473,7 +1518,7 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
                    "Previously selected team was archived or missing; active team is now '%s'.",
                    state->active_team.name);
     } else if (state->active_status == APL_ACTIVE_TEAM_ACTIVE) {
-        set_status(state, "Active team: %s", state->active_team.name);
+        set_status_success(state, "Active team: %s", state->active_team.name);
     } else if (state->active_status == APL_ACTIVE_TEAM_NONE && state->team_count > 0) {
         set_status(state, "No active team selected. Use s to choose one.");
     }

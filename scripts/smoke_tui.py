@@ -85,14 +85,127 @@ class Smoke:
             return ""
 
     def visible_text(self) -> str:
-        """Return terminal output with ANSI control sequences replaced by spaces.
+        """Reconstruct the current terminal screen from the xterm log.
 
-        Notcurses skips over unchanged space cells instead of writing them, so
-        raw logs split phrases at cursor movements. Normalizing to collapsed
-        whitespace lets assertions check the visible text, not the byte stream.
+        Notcurses emits a cursor-addressed diff, so raw output is not a text
+        transcript and unchanged cells are intentionally skipped. Applying the
+        escape sequences to a character grid yields the actual visible screen,
+        which makes assertions about the current state reliable.
         """
-        text = ANSI_ESCAPE.sub(" ", self.read_xterm_log())
-        return " ".join(text.split())
+        raw = self.read_xterm_log()
+        height = width = 400
+        screen = [[" "] * width for _ in range(height)]
+        row = column = 0
+        saved = (0, 0)
+        index = 0
+        length = len(raw)
+        while index < length:
+            char = raw[index]
+            if char == "\x1b":
+                if index + 1 >= length:
+                    break
+                following = raw[index + 1]
+                if following == "[":
+                    cursor = index + 2
+                    while (
+                        cursor < length
+                        and not ("@" <= raw[cursor] <= "~")
+                    ):
+                        cursor += 1
+                    if cursor >= length:
+                        break
+                    params = raw[index + 2 : cursor]
+                    final = raw[cursor]
+                    index = cursor + 1
+                    numbers = []
+                    for part in params.lstrip("?<>=").split(";"):
+                        try:
+                            numbers.append(int(part))
+                        except ValueError:
+                            numbers.append(0)
+                    if final in ("H", "f"):
+                        row = max(0, (numbers[0] if numbers and numbers[0] else 1) - 1)
+                        column = max(0, (numbers[1] if len(numbers) > 1 else 1) - 1)
+                    elif final == "G":
+                        column = max(0, (numbers[0] if numbers and numbers[0] else 1) - 1)
+                    elif final == "d":
+                        row = max(0, (numbers[0] if numbers and numbers[0] else 1) - 1)
+                    elif final == "A":
+                        row = max(0, row - (numbers[0] if numbers and numbers[0] else 1))
+                    elif final == "B":
+                        row = min(height - 1, row + (numbers[0] if numbers and numbers[0] else 1))
+                    elif final == "C":
+                        column = min(
+                            width - 1, column + (numbers[0] if numbers and numbers[0] else 1)
+                        )
+                    elif final == "D":
+                        column = max(0, column - (numbers[0] if numbers and numbers[0] else 1))
+                    elif final == "J":
+                        mode = numbers[0] if numbers else 0
+                        if mode in (2, 3):
+                            screen = [[" "] * width for _ in range(height)]
+                        elif mode == 0:
+                            for x in range(column, width):
+                                screen[row][x] = " "
+                            for y in range(row + 1, height):
+                                screen[y] = [" "] * width
+                    elif final == "K":
+                        mode = numbers[0] if numbers else 0
+                        if mode == 0:
+                            for x in range(column, width):
+                                screen[row][x] = " "
+                        elif mode == 1:
+                            for x in range(0, column + 1):
+                                screen[row][x] = " "
+                        elif mode == 2:
+                            screen[row] = [" "] * width
+                    elif final == "s":
+                        saved = (row, column)
+                    elif final == "u":
+                        row, column = saved
+                    continue
+                if following == "(" and index + 2 < length:
+                    index += 3
+                    continue
+                index += 2
+                continue
+            if char == "\r":
+                column = 0
+                index += 1
+                continue
+            if char == "\n":
+                row = min(height - 1, row + 1)
+                column = 0
+                index += 1
+                continue
+            if char == "\b":
+                column = max(0, column - 1)
+                index += 1
+                continue
+            if char < " ":
+                index += 1
+                continue
+            # Decode one UTF-8 code point and place it in one cell.
+            step = 1
+            byte = ord(char)
+            if byte >= 0xF0:
+                step = 4
+            elif byte >= 0xE0:
+                step = 3
+            elif byte >= 0xC0:
+                step = 2
+            cell = raw[index : index + step]
+            if 0 <= row < height and 0 <= column < width:
+                screen[row][column] = cell
+            column = min(width - 1, column + 1)
+            index += step
+
+        rendered = []
+        for line in screen:
+            text = "".join(line).rstrip()
+            if text:
+                rendered.append(text)
+        return "\n".join(rendered)
 
     # ------------------------------------------------------------- subprocess
     def run(self, command: list[str], *, env: dict[str, str] | None = None) -> str:
@@ -507,6 +620,10 @@ class Smoke:
             lambda: self.database_query("SELECT COUNT(*) FROM teams;") == (1,),
         )
         self.wait_for_content("creation detail", ("Name: Ferrari",))
+        self.wait_for_content(
+            "status bar team and view context",
+            ("Ferrari \u00b7 Teams", ": commands"),
+        )
         self.log("created Ferrari through the form")
 
         self.send_keys("Escape", "n")
