@@ -8,5 +8,6 @@ Business rules live in `src/domain`; SQL lives in `src/db`; drawing/input lives 
 
 Use-case functions that perform multiple writes own the transaction boundary
 (`apl_db_transaction_begin/commit/rollback`); repositories are single-operation
-primitives. See
+primitives. Team create/update/archive/active-selection use cases live in
+`team_service.{h,c}`. See
 [2.0.3](../../work-items/phase-2/2.0.3-repository-ownership-decision.md).
