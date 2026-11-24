@@ -113,6 +113,8 @@ const char *apl_status_string(const apl_status status)
         return "APL_ERR_TUI_RENDER";
     case APL_ERR_TUI_INPUT:
         return "APL_ERR_TUI_INPUT";
+    case APL_ERR_CONFLICT:
+        return "APL_ERR_CONFLICT";
     default:
         return "APL_STATUS_INVALID";
     }

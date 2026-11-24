@@ -52,6 +52,7 @@ if(BUILD_TESTING)
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
         tests/unit/test_args.c
+        tests/unit/test_team.c
         tests/integration/test_test_support.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
@@ -67,6 +68,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(apl1_tests PRIVATE
         apl_core
+        apl_domain
         apl_db
         apl_app
         apl_test_support
@@ -126,6 +128,15 @@ add_library(apl_core STATIC
 
 target_include_directories(apl_core PUBLIC src)
 
+add_library(apl_domain STATIC
+    src/domain/team.c
+)
+
+target_include_directories(apl_domain PUBLIC src)
+target_link_libraries(apl_domain PUBLIC
+    apl_core
+)
+
 add_library(apl_db STATIC
     src/db/connection.c
     src/db/path.c
@@ -136,6 +147,7 @@ add_library(apl_db STATIC
 target_include_directories(apl_db PUBLIC src)
 target_link_libraries(apl_db PUBLIC
     apl_core
+    apl_domain
     SQLite::SQLite3
 )
 
@@ -160,6 +172,7 @@ add_library(apl_app STATIC
 target_include_directories(apl_app PUBLIC src)
 target_link_libraries(apl_app PUBLIC
     apl_core
+    apl_domain
     apl_db
 )
 
