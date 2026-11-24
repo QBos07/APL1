@@ -78,24 +78,24 @@ Goal: establish the navigation pattern and implement team creation and switching
 
 Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4. Complete 2.0.3 before the team schema/repository work (2.5/2.6).
 
-- [x] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
-- [x] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
-- [x] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
+- [ ] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
+- [ ] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
+- [ ] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
 
-- [ ] **2.1 Add the main navigation model.** Define sections and current-screen state independently of drawing code.
-- [ ] **2.2 Draw the shared screen frame.** Include section title, active-team context, message/status area, and available actions.
-- [ ] **2.3 Add one reusable list/table interaction.** Support focus, selection, scrolling, empty state, and resize without implementing every feature table.
-- [ ] **2.4 Add reusable confirmation and error dialogs.** Test the interaction/state behavior separately from domain rules.
-- [ ] **2.5 Add the team table migration.** Include stable ID, user-entered name, optional profile notes, archive state, and timestamps; no default team row.
-- [ ] **2.6 Add team repository create/list/get operations.** Test them against temporary SQLite databases.
-- [ ] **2.7 Add team use-case validation.** Reject blank names and disallowed duplicates; keep these rules outside the TUI and test boundaries.
-- [ ] **2.8 Add team rename and archive operations.** Preserve IDs and related history; test archived teams remain retrievable for history.
-- [ ] **2.9 Add persisted active-team setting.** Test selection survives closing and reopening the database; handle missing/archived selection explicitly.
-- [ ] **2.10 Build the team list/switcher screen.** Show the active marker, current team name, create action, and archived-team access.
-- [ ] **2.11 Build the create-team form.** Save only fields the user entered and show validation errors without clearing typed values.
-- [ ] **2.12 Build the team detail/edit screen.** Show profile details and links/placeholders for team sections without inventing their data.
-- [ ] **2.13 Build the empty-database welcome flow.** Offer create-team or quit, and guide the user to optional next actions after creation.
-- [ ] **2.14 Add a team-isolation integration test.** Create two teams and prove team-scoped reads/writes do not cross boundaries.
+- [ ] **2.1 Add the main navigation model.** [Work item](work-items/phase-2/2.1-navigation-model.md)
+- [ ] **2.2 Draw the shared screen frame.** [Work item](work-items/phase-2/2.2-shared-screen-frame.md)
+- [ ] **2.3 Add one reusable list/table interaction.** [Work item](work-items/phase-2/2.3-list-table-interaction.md)
+- [ ] **2.4 Add reusable confirmation and error dialogs.** [Work item](work-items/phase-2/2.4-confirmation-error-dialogs.md)
+- [ ] **2.5 Add the team table migration.** [Work item](work-items/phase-2/2.5-team-schema.md)
+- [ ] **2.6 Add team repository create/list/get operations.** [Work item](work-items/phase-2/2.6-team-repository-read-create.md)
+- [ ] **2.7 Add team use-case validation.** [Work item](work-items/phase-2/2.7-team-create-validation.md)
+- [ ] **2.9 Add persisted active-team setting.** Implement this before 2.8 so archiving the current team has a defined fallback. [Work item](work-items/phase-2/2.9-active-team-setting.md)
+- [ ] **2.8 Add team rename and archive operations.** Preserve IDs and history; depends on the active-team behavior in 2.9. [Work item](work-items/phase-2/2.8-team-rename-archive.md)
+- [ ] **2.10 Build the team list/switcher screen.** [Work item](work-items/phase-2/2.10-team-switcher-screen.md)
+- [ ] **2.11 Build the create-team form.** [Work item](work-items/phase-2/2.11-create-team-form.md)
+- [ ] **2.12 Build the team detail/edit screen.** [Work item](work-items/phase-2/2.12-team-detail-edit.md)
+- [ ] **2.13 Build the empty-database welcome flow.** [Work item](work-items/phase-2/2.13-empty-database-welcome.md)
+- [ ] **2.14 Add a team-isolation integration test.** [Work item](work-items/phase-2/2.14-team-isolation-test.md)
 - [ ] **2.15 Add a database code-coverage baseline.** After 2.5/2.6 land, use gcov to identify untested database paths without setting an arbitrary threshold. [Work item](work-items/phase-2/2.15-db-coverage-baseline.md)
 
 **Gate:** the user can create two teams, switch between them, quit, relaunch, and see the selected team and separate data still present.
