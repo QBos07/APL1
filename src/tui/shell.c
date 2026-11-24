@@ -588,9 +588,9 @@ static void handle_menu_action(shell_state *const state, const apl_tui_menu_acti
         return;
     case APL_TUI_MENU_ACTION_HELP_KEYBOARD:
         show_info_dialog(state, "Keyboard and mouse help",
-                         "F10 focuses the window bar. Tab cycles focus. Arrow keys move and "
-                         "Enter activates. Esc closes menus and dialogs. Mouse clicks use the "
-                         "same actions as the keyboard. q quits.");
+                         "F10 or m focuses the window bar. Tab cycles focus. , and . switch views. "
+                         "Arrow keys move and Enter activates. Esc closes menus and dialogs. Mouse "
+                         "clicks use the same actions as the keyboard. q quits.");
         return;
     case APL_TUI_MENU_ACTION_HELP_COMMANDS: {
         char help[APL_TUI_COMMAND_HELP_MAX];
@@ -856,7 +856,7 @@ static void draw_placeholder(shell_state *const state)
     (void)snprintf(line, sizeof(line), "%s is not implemented in this phase.",
                    apl_tui_section_label(state->section));
     apl_tui_frame_draw_line(body, 1, line);
-    apl_tui_frame_draw_line(body, 3, "Use the tab rail or [ and ] to switch views.");
+    apl_tui_frame_draw_line(body, 3, "Use the tab rail or , and . to switch views.");
     apl_tui_frame_draw_line(body, 5, "No records are generated for this view.");
 }
 
@@ -879,19 +879,6 @@ static void draw_dialog(shell_state *const state)
             (void)ncplane_putchar_yx(overlay, (int)y, (int)x, ' ');
         }
     }
-
-    for (unsigned x = 1; x + 1 < cols; ++x) {
-        (void)ncplane_putchar_yx(overlay, 0, (int)x, '-');
-        (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)x, '-');
-    }
-    for (unsigned y = 1; y + 1 < rows; ++y) {
-        (void)ncplane_putchar_yx(overlay, (int)y, 0, '|');
-        (void)ncplane_putchar_yx(overlay, (int)y, (int)(cols - 1), '|');
-    }
-    (void)ncplane_putchar_yx(overlay, 0, 0, '+');
-    (void)ncplane_putchar_yx(overlay, 0, (int)(cols - 1), '+');
-    (void)ncplane_putchar_yx(overlay, (int)(rows - 1), 0, '+');
-    (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)(cols - 1), '+');
 
     apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG_TITLE);
     apl_tui_frame_draw_text(overlay, 1, 2, state->dialog.title);
@@ -983,6 +970,22 @@ static void draw_dialog(shell_state *const state)
     case APL_TUI_DIALOG_NONE:
         break;
     }
+
+    /* Draw the frame last so long values can never overwrite its edges. */
+    apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG);
+    for (unsigned x = 1; x + 1 < cols; ++x) {
+        (void)ncplane_putchar_yx(overlay, 0, (int)x, '-');
+        (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)x, '-');
+    }
+    for (unsigned y = 1; y + 1 < rows; ++y) {
+        (void)ncplane_putchar_yx(overlay, (int)y, 0, '|');
+        (void)ncplane_putchar_yx(overlay, (int)y, (int)(cols - 1), '|');
+    }
+    (void)ncplane_putchar_yx(overlay, 0, 0, '+');
+    (void)ncplane_putchar_yx(overlay, 0, (int)(cols - 1), '+');
+    (void)ncplane_putchar_yx(overlay, (int)(rows - 1), 0, '+');
+    (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)(cols - 1), '+');
+
     apl_tui_theme_reset(overlay);
 }
 
@@ -1888,6 +1891,16 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     if (id == 'm' || id == 'M') {
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
         apl_tui_menu_open(&state->menu, state->menu.group_focus);
+        return;
+    }
+    /* Easy view-switch keys for layouts where [ and ] need a modifier.
+     * The bracket keys remain as aliases. */
+    if (!state->menu.open && (id == ',' || id == '[')) {
+        switch_section(state, false);
+        return;
+    }
+    if (!state->menu.open && (id == '.' || id == ']')) {
+        switch_section(state, true);
         return;
     }
     if (state->focus.region == APL_TUI_FOCUS_WINDOW) {

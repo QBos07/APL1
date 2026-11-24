@@ -154,7 +154,7 @@ size_t apl_tui_status_render(const apl_tui_status *const status, const unsigned 
 
     const char *hint = nullptr;
     if (columns >= FULL_HINT_MIN_COLUMNS) {
-        hint = ": commands \xc2\xb7 m menu \xc2\xb7 t team";
+        hint = ": commands \xc2\xb7 m menu \xc2\xb7 t team \xc2\xb7 , . views";
     } else if (columns >= HINT_MIN_COLUMNS) {
         hint = ": commands";
     }

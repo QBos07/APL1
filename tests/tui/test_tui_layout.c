@@ -140,16 +140,19 @@ Test(tui_layout, overlay_stays_inside_the_body)
     }
 }
 
-Test(tui_layout, normal_overlay_is_centered_and_compact_overlay_fills_body)
+Test(tui_layout, overlay_fills_the_body_at_supported_sizes)
 {
     const apl_tui_layout normal = apl_tui_layout_compute(24, 80);
     cr_assert_eq(normal.mode, APL_TUI_LAYOUT_NORMAL);
-    cr_assert_eq(normal.overlay.y, normal.body.y + (normal.body.rows - normal.overlay.rows) / 2);
-    cr_assert_eq(normal.overlay.x, normal.body.x + (normal.body.cols - normal.overlay.cols) / 2);
+    cr_assert_eq(normal.overlay.y, normal.body.y);
+    cr_assert_eq(normal.overlay.x, normal.body.x);
+    cr_assert_eq(normal.overlay.rows, normal.body.rows);
+    cr_assert_eq(normal.overlay.cols, normal.body.cols);
 
     const apl_tui_layout compact = apl_tui_layout_compute(17, 80);
     cr_assert_eq(compact.mode, APL_TUI_LAYOUT_COMPACT);
     cr_assert_eq(compact.overlay.y, compact.body.y);
+    cr_assert_eq(compact.overlay.x, compact.body.x);
     cr_assert_eq(compact.overlay.rows, compact.body.rows);
     cr_assert_eq(compact.overlay.cols, compact.body.cols);
 }

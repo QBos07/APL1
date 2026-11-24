@@ -24,16 +24,12 @@ static apl_tui_rect make_rect(const unsigned y, const unsigned x, const unsigned
     };
 }
 
-/** Centered dialog rectangle inside the body for a normal-size terminal. */
-static apl_tui_rect normal_overlay(const apl_tui_rect body)
+/** Dialog rectangle inside the body. Dialogs fill the body so underlying body
+ *  text cannot collide with the first content line; the window bar, tab rail,
+ *  team switcher, and status bar remain visible around it. */
+static apl_tui_rect overlay_rect(const apl_tui_rect body)
 {
-    if (body.rows == 0 || body.cols == 0) {
-        return (apl_tui_rect){};
-    }
-    const unsigned overlay_rows = min_u(body.rows, max_u(8, (body.rows * 4) / 5));
-    const unsigned overlay_cols = min_u(body.cols, max_u(30, (body.cols * 4) / 5));
-    return make_rect(body.y + (body.rows - overlay_rows) / 2,
-                     body.x + (body.cols - overlay_cols) / 2, overlay_rows, overlay_cols);
+    return body;
 }
 
 apl_tui_layout apl_tui_layout_compute(const unsigned rows, const unsigned cols)
@@ -68,6 +64,6 @@ apl_tui_layout apl_tui_layout_compute(const unsigned rows, const unsigned cols)
     layout.team_switcher =
         make_rect(layout.tabs.y + layout.tabs.rows - switcher_rows, 0, switcher_rows, rail_cols);
 
-    layout.overlay = normal ? normal_overlay(layout.body) : layout.body;
+    layout.overlay = overlay_rect(layout.body);
     return layout;
 }

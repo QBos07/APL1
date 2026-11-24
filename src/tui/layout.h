@@ -21,9 +21,10 @@
  *     status  (bottom row, full width)
  * - The team switcher is the bottom strip of the tab rail. It never overlaps
  *   the tab rows; compact mode keeps a single visible line.
- * - The dialog overlay stays inside the body. In compact mode it fills the
- *   body so form controls remain usable at the supported minimum. It is
- *   computed even when no modal is active; callers use it only on demand.
+ * - The dialog overlay fills the body. The window bar, tab rail, team
+ *   switcher, and status bar remain visible around it, while background body
+ *   text cannot collide with the dialog's first line. It is computed even when
+ *   no modal is active; callers use it only on demand.
  * - All coordinates are absolute terminal cells. No caller may draw outside
  *   its assigned rectangle.
  */

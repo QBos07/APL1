@@ -28,7 +28,7 @@ Test(tui_status, shows_team_view_context_message_and_hint)
     (void)apl_tui_status_render(&status, 120, line, sizeof(line));
     cr_assert_str_eq(line,
                      "Ferrari \xc2\xb7 Teams \xc2\xb7 [ok] Changes saved. \xc2\xb7 : commands "
-                     "\xc2\xb7 m menu \xc2\xb7 t team");
+                     "\xc2\xb7 m menu \xc2\xb7 t team \xc2\xb7 , . views");
     cr_assert_eq(apl_tui_status_team_hit_width(&status, 120), strlen("Ferrari"));
     cr_assert_neq(apl_tui_status_command_hit_start(&status, 120), 120);
 
