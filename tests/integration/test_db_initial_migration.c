@@ -38,7 +38,7 @@ static apl_status open_temp_database(apl_db_connection *connection, char *dir,
     return apl_db_open(connection, path, &err);
 }
 
-Test(db_initial_migration, new_database_is_marked_at_initial_version)
+Test(db_initial_migration, new_database_is_marked_at_latest_version)
 {
     char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
@@ -50,20 +50,20 @@ Test(db_initial_migration, new_database_is_marked_at_initial_version)
 
     int version = -1;
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 1);
+    cr_assert_eq(version, 2);
 
     int version_rows = -1;
     cr_assert_eq(
         query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows),
         APL_OK);
-    cr_assert_eq(version_rows, 1);
+    cr_assert_eq(version_rows, 2);
 
     apl_db_close(&connection);
     apl_error_init(&err);
     cr_assert_eq(apl_test_remove_temp_dir(dir, &err), APL_OK);
 }
 
-Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
+Test(db_initial_migration, baseline_contains_no_team_or_sample_records)
 {
     char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
@@ -73,20 +73,29 @@ Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
     apl_error_init(&err);
     cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
 
-    /* Only the migration infrastructure table exists. */
+    /* The migration infrastructure, teams, and singleton settings tables exist. */
     int table_count = -1;
     cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table';",
                            &table_count),
                  APL_OK);
-    cr_assert_eq(table_count, 1);
+    cr_assert_eq(table_count, 3);
 
-    int domain_tables = -1;
-    cr_assert_eq(query_int(&connection,
-                           "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
-                           " AND name NOT IN ('apl_schema_migrations');",
-                           &domain_tables),
+    /* No team or sample domain record is seeded. */
+    int team_rows = -1;
+    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM teams;", &team_rows), APL_OK);
+    cr_assert_eq(team_rows, 0);
+
+    int settings_rows = -1;
+    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM app_settings;", &settings_rows),
                  APL_OK);
-    cr_assert_eq(domain_tables, 0);
+    cr_assert_eq(settings_rows, 1);
+
+    int active_rows = -1;
+    cr_assert_eq(query_int(&connection,
+                           "SELECT COUNT(*) FROM app_settings WHERE active_team_id IS NULL;",
+                           &active_rows),
+                 APL_OK);
+    cr_assert_eq(active_rows, 1);
 
     apl_db_close(&connection);
     apl_error_init(&err);
@@ -112,7 +121,7 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
 
     int version = -1;
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 1);
+    cr_assert_eq(version, 2);
 
     int version_rows_after = -1;
     cr_assert_eq(

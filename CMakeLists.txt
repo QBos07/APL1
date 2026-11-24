@@ -35,6 +35,7 @@ if(BUILD_TESTING)
     include(CriterionDependency)
 
     add_library(apl_test_support STATIC
+        tests/support/db_fixture.c
         tests/support/test_support.c
     )
 
@@ -45,6 +46,8 @@ if(BUILD_TESTING)
 
     target_link_libraries(apl_test_support PRIVATE
         apl_core
+        apl_db
+        SQLite::SQLite3
     )
 
     add_executable(apl1_tests
@@ -62,6 +65,9 @@ if(BUILD_TESTING)
         tests/integration/test_db_migration_rollback.c
         tests/integration/test_app_lifecycle.c
         tests/integration/test_cli.c
+        tests/integration/test_settings_repository.c
+        tests/integration/test_team_repository.c
+        tests/integration/test_transaction.c
     )
 
     target_include_directories(apl1_tests PRIVATE src)
@@ -142,6 +148,9 @@ add_library(apl_db STATIC
     src/db/path.c
     src/db/migrations.c
     src/db/migrations_list.c
+    src/db/settings_repository.c
+    src/db/team_repository.c
+    src/db/transaction.c
 )
 
 target_include_directories(apl_db PUBLIC src)
