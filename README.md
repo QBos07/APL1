@@ -55,4 +55,6 @@ The application currently prints a placeholder message; its eventual terminal st
 
 ## Contributing / implementation workflow
 
+Code conventions for this project are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Take one unchecked item at a time from [WORK_BREAKDOWN.md](WORK_BREAKDOWN.md). Keep each change small, add or update tests with business logic, and update the checklist only when the item is implemented and verified. Later phases intentionally remain less detailed so their work can be split based on what is learned from the earlier slices.

@@ -20,7 +20,7 @@ Goal: know what builds today and clean up only the minimum needed to make small 
 - [x] **0.1 Verify the current configure/build/test commands.** [Work item](work-items/phase-0/0.1-baseline-build-test.md)
 - [x] **0.2 Rename the test target and CTest test.** [Work item](work-items/phase-0/0.2-test-target-names.md)
 - [x] **0.3 Confirm the initial source layout.** [Work item](work-items/phase-0/0.3-source-layout.md)
-- [ ] **0.4 Document the small-project code conventions.** [Work item](work-items/phase-0/0.4-code-conventions.md)
+- [x] **0.4 Document the small-project code conventions.** [Work item](work-items/phase-0/0.4-code-conventions.md)
 
 **Gate:** the existing placeholder app builds, and the test runner is easy to invoke by a documented command.
 
