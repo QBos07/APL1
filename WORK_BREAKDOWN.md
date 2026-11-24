@@ -103,7 +103,7 @@ Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4
 ### Phase 2 verification (2026-11-24)
 
 - `ctest --test-dir cmake-build-debug --output-on-failure`: 2/2 CTest tests pass
-  (`apl1_unit_tests` 114/114 Criterion tests, `apl1_tui_tests` 25/25).
+  (`apl1_unit_tests` 115/115 Criterion tests, `apl1_tui_tests` 25/25).
 - `python3 scripts/smoke_tui.py --app cmake-build-debug/apl1`: passed the full
   gate flow — welcome, create Ferrari and McLaren, switch active team to Ferrari,
   quit with status 0, relaunch the same database, and verify Ferrari is still

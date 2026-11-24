@@ -133,3 +133,41 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
     apl_error_init(&err);
     cr_assert_eq(apl_test_remove_temp_dir(dir, &err), APL_OK);
 }
+
+Test(db_initial_migration, version_one_database_upgrades_through_team_and_settings_migrations)
+{
+    char dir[APL_TEST_DIR_MAX];
+    apl_db_connection connection = {};
+    cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
+
+    apl_error err;
+    apl_error_init(&err);
+
+    /* Simulate a database created by the Phase 1 application at version 1. */
+    size_t production_count = 0;
+    const apl_db_migration *const production = apl_db_migrations_list(&production_count);
+    cr_assert_geq(production_count, 3);
+    cr_assert_eq(apl_db_migrations_run_list(&connection, production, 1, &err), APL_OK);
+
+    int version = -1;
+    cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
+    cr_assert_eq(version, 1);
+
+    /* Startup migrates it forward exactly once. */
+    cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
+    cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
+    cr_assert_eq(version, 3);
+
+    int team_rows = -1;
+    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM teams;", &team_rows), APL_OK);
+    cr_assert_eq(team_rows, 0);
+
+    int settings_rows = -1;
+    cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM app_settings;", &settings_rows),
+                 APL_OK);
+    cr_assert_eq(settings_rows, 1);
+
+    apl_db_close(&connection);
+    apl_error_init(&err);
+    cr_assert_eq(apl_test_remove_temp_dir(dir, &err), APL_OK);
+}
