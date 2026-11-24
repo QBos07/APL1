@@ -20,6 +20,17 @@ include(SQLiteDependency)
 include(GNUInstallDirs)
 include(CTest)
 
+option(APL1_ENABLE_TUI_SMOKE
+        "Register the interactive TUI smoke test (requires Python 3, Xvfb, xterm, and xdotool)"
+        OFF
+)
+
+if(APL1_ENABLE_TUI_SMOKE AND NOT BUILD_TESTING)
+    message(FATAL_ERROR
+            "APL1_ENABLE_TUI_SMOKE requires BUILD_TESTING=ON so the smoke test can be registered"
+    )
+endif()
+
 if(BUILD_TESTING)
     include(CriterionDependency)
 
@@ -84,6 +95,27 @@ if(BUILD_TESTING)
         NAME apl1_tui_tests
         COMMAND apl1_tui_tests
     )
+
+    if(APL1_ENABLE_TUI_SMOKE)
+        find_package(Python3 REQUIRED COMPONENTS Interpreter)
+        find_program(APL1_XVFB_EXECUTABLE NAMES Xvfb REQUIRED)
+        find_program(APL1_XTERM_EXECUTABLE NAMES xterm REQUIRED)
+        find_program(APL1_XDOTOOL_EXECUTABLE NAMES xdotool REQUIRED)
+
+        add_test(
+            NAME apl1_tui_smoke
+            COMMAND
+                ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/scripts/smoke_tui.py
+                --app $<TARGET_FILE:apl1>
+                --timeout 20
+        )
+
+        set_tests_properties(apl1_tui_smoke PROPERTIES
+            TIMEOUT 90
+            LABELS "tui;smoke"
+        )
+    endif()
 endif()
 
 add_library(apl_core STATIC

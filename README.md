@@ -47,6 +47,43 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+### Clean check
+
+One command configures a fresh temporary build directory, builds all targets,
+and runs CTest:
+
+```sh
+./scripts/check.sh
+```
+
+Set `APL1_CHECK_BUILD_DIR=build` to reuse a specific build directory (it is
+kept, not deleted), or `APL1_CHECK_CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug"` to add
+configure arguments. Manual incremental CMake/CTest commands remain available.
+
+### TUI smoke test (opt-in)
+
+The interactive startup/resize/quit check runs the real application in xterm on
+a private Xvfb display. It requires Python 3, `Xvfb`, `xterm`, and `xdotool`:
+
+```sh
+./scripts/smoke_tui.py --app build/apl1
+```
+
+Use `--output /tmp/apl1-smoke.log` to keep the harness log and raw terminal
+output, `--timeout` to bound each step, or `--keep` to keep the temporary
+database and logs. The script uses a fresh temporary database beneath a private
+`XDG_DATA_HOME` and never touches the user's real database.
+
+The same check can be registered with CTest, off by default:
+
+```sh
+cmake -S . -B build -DBUILD_TESTING=ON -DAPL1_ENABLE_TUI_SMOKE=ON
+ctest --test-dir build -R apl1_tui_smoke --output-on-failure
+```
+
+The regular test suite stays headless and does not require Xvfb, xterm, or
+xdotool.
+
 Run the application from an interactive terminal with:
 
 ```sh

@@ -78,6 +78,21 @@ adopted.
 - Run one suite during development with
   `ctest --test-dir build --output-on-failure -R apl1_unit_tests` or by running
   the `apl1_tests` binary directly, which supports Criterion's filters.
+- `scripts/check.sh` is the one-command clean check (fresh temporary build
+  directory, configure with tests, build, CTest). It never deletes an existing
+  build directory; `APL1_CHECK_BUILD_DIR` opts into reusing a specific one.
+- The interactive TUI smoke test (`scripts/smoke_tui.py`) uses xterm on a
+  private Xvfb display because Notcurses interrogates the terminal palette and
+  a detached tmux/screen server does not answer those queries. It is opt-in at
+  configure time with `-DAPL1_ENABLE_TUI_SMOKE=ON`; the default test suite does
+  not need Python, Xvfb, xterm, or xdotool.
+- Sanitizer check (optional, not forced on normal builds):
+
+  ```sh
+  cmake -S . -B build-sanitize -DBUILD_TESTING=ON -DENABLE_ASAN=ON -DENABLE_UBSAN=ON
+  cmake --build build-sanitize
+  ctest --test-dir build-sanitize --output-on-failure
+  ```
 
 ## Boundaries recap
 
