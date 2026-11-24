@@ -36,6 +36,28 @@ void apl_error_set(apl_error *const error, const apl_status code, const char *co
     va_end(args);
 }
 
+void apl_error_prefix(apl_error *const error, const apl_status code, const char *const context)
+{
+    if (error == nullptr) {
+        return;
+    }
+    if (context == nullptr || context[0] == '\0') {
+        error->code = code;
+        return;
+    }
+
+    /* Copy the detail before rewriting the error: apl_error_set must never
+     * read the same buffer it is formatting into. */
+    char detail[APL_ERROR_MESSAGE_MAX];
+    snprintf(detail, sizeof(detail), "%s", error->message);
+
+    if (detail[0] == '\0') {
+        apl_error_set(error, code, "%s", context);
+        return;
+    }
+    apl_error_set(error, code, "%s: %s", context, detail);
+}
+
 apl_status apl_error_code(const apl_error *const error)
 {
     if (error == nullptr) {

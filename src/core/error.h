@@ -60,6 +60,16 @@ void apl_error_set(apl_error *error, apl_status code, const char *fmt, ...);
 /** Fill an error value using an argument list (see apl_error_set). */
 void apl_error_setv(apl_error *error, apl_status code, const char *fmt, va_list args);
 
+/** Add context in front of an existing failure message without losing the
+ *  original detail.
+ *
+ * The current message is copied before the error value is rewritten, so the
+ * source and destination buffers never overlap. On a truncated result the
+ * combined message is cut safely according to APL_ERROR_MESSAGE_MAX. A null
+ * error pointer is a no-op; a null or empty context keeps the existing message
+ * (only the status code is updated). */
+void apl_error_prefix(apl_error *error, apl_status code, const char *context);
+
 /** Return the stored status code (APL_OK on a cleared/initialized value). */
 apl_status apl_error_code(const apl_error *error);
 

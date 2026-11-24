@@ -67,6 +67,81 @@ Test(error, getters_defend_against_null)
     cr_assert_str_eq(apl_error_message(nullptr), "no error value supplied");
 }
 
+Test(error, prefix_adds_context_before_original_detail)
+{
+    apl_error err;
+    apl_error_init(&err);
+    apl_error_set(&err, APL_ERR_DB_QUERY, "no such table: teams");
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, "migration to version 2 failed");
+
+    cr_assert_eq(apl_error_code(&err), APL_ERR_DB_MIGRATION);
+    cr_assert_str_eq(apl_error_message(&err),
+                     "migration to version 2 failed: no such table: teams");
+}
+
+Test(error, prefix_on_empty_message_uses_context_only)
+{
+    apl_error err;
+    apl_error_init(&err);
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, "migration failed");
+
+    cr_assert_eq(apl_error_code(&err), APL_ERR_DB_MIGRATION);
+    cr_assert_str_eq(apl_error_message(&err), "migration failed");
+}
+
+Test(error, prefix_with_null_or_empty_context_keeps_detail)
+{
+    apl_error err;
+    apl_error_init(&err);
+    apl_error_set(&err, APL_ERR_IO, "cannot write file");
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, nullptr);
+    cr_assert_eq(apl_error_code(&err), APL_ERR_DB_MIGRATION);
+    cr_assert_str_eq(apl_error_message(&err), "cannot write file");
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, "");
+    cr_assert_eq(apl_error_code(&err), APL_ERR_DB_MIGRATION);
+    cr_assert_str_eq(apl_error_message(&err), "cannot write file");
+}
+
+Test(error, prefix_accepts_null_error_without_crashing)
+{
+    apl_error_prefix(nullptr, APL_ERR_DB_MIGRATION, "ignored");
+    cr_assert(true);
+}
+
+Test(error, prefix_truncates_long_combined_message_safely)
+{
+    apl_error err;
+    apl_error_init(&err);
+
+    char long_detail[APL_ERROR_MESSAGE_MAX];
+    memset(long_detail, 'd', sizeof(long_detail) - 1);
+    long_detail[sizeof(long_detail) - 1] = '\0';
+    apl_error_set(&err, APL_ERR_DB_QUERY, "%s", long_detail);
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, "migration failed");
+
+    const char *const message = apl_error_message(&err);
+    cr_assert_lt(strlen(message), APL_ERROR_MESSAGE_MAX);
+    cr_assert_eq(strncmp(message, "migration failed: ", strlen("migration failed: ")), 0);
+    cr_assert_eq(message[APL_ERROR_MESSAGE_MAX - 1], '\0');
+}
+
+Test(error, prefix_handles_repeated_prefixing)
+{
+    apl_error err;
+    apl_error_init(&err);
+    apl_error_set(&err, APL_ERR_DB_QUERY, "disk I/O error");
+
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, "migration 3");
+    apl_error_prefix(&err, APL_ERR_DB_MIGRATION, "startup");
+
+    cr_assert_str_eq(apl_error_message(&err), "startup: migration 3: disk I/O error");
+}
+
 Test(error, status_strings_are_stable)
 {
     cr_assert_str_eq(apl_status_string(APL_OK), "APL_OK");

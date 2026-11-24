@@ -122,19 +122,6 @@ static apl_status validate_list(const apl_db_migration *const migrations, const 
     return APL_OK;
 }
 
-/** Prepend `context` to an existing error message safely: the old message is
- *  copied before the error value is overwritten (apl_error_set must never
- *  read apl_error_message of the same buffer as its own argument). */
-static void prefix_error(apl_error *const error, const apl_status code, const char *const context)
-{
-    if (error == nullptr) {
-        return;
-    }
-    char detail[APL_ERROR_MESSAGE_MAX];
-    snprintf(detail, sizeof(detail), "%s", error->message);
-    apl_error_set(error, code, "%s: %s", context, detail);
-}
-
 /** Apply one migration and its version record inside a single transaction. */
 static apl_status apply_migration(apl_db_connection *const connection,
                                   const apl_db_migration *const migration,
@@ -181,7 +168,7 @@ static apl_status apply_migration(apl_db_connection *const connection,
         (void)exec_sql(handle, "ROLLBACK;", error);
         char context[128];
         snprintf(context, sizeof(context), "migration %d could not be committed", migration->version);
-        prefix_error(error, APL_ERR_DB_MIGRATION, context);
+        apl_error_prefix(error, APL_ERR_DB_MIGRATION, context);
         return APL_ERR_DB_MIGRATION;
     }
     return APL_OK;
@@ -243,7 +230,7 @@ apl_status apl_db_migrations_run_list(apl_db_connection *const connection,
             char context[128];
             snprintf(context, sizeof(context), "migration to version %d failed",
                      migrations[index].version);
-            prefix_error(error, status, context);
+            apl_error_prefix(error, status, context);
             return status;
         }
     }
