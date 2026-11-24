@@ -22,6 +22,7 @@ Examples:
 
 import argparse
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -34,6 +35,7 @@ import uuid
 from pathlib import Path
 
 DEFAULT_TIMEOUT = 20.0
+ANSI_ESCAPE = re.compile(r"\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\([A-Za-z0-9]|[=>])")
 APP_CANDIDATES = (
     "build/apl1",
     "cmake-build-debug/apl1",
@@ -81,6 +83,16 @@ class Smoke:
             return self.xterm_log.read_bytes().decode("utf-8", "replace")
         except FileNotFoundError:
             return ""
+
+    def visible_text(self) -> str:
+        """Return terminal output with ANSI control sequences replaced by spaces.
+
+        Notcurses skips over unchanged space cells instead of writing them, so
+        raw logs split phrases at cursor movements. Normalizing to collapsed
+        whitespace lets assertions check the visible text, not the byte stream.
+        """
+        text = ANSI_ESCAPE.sub(" ", self.read_xterm_log())
+        return " ".join(text.split())
 
     # ------------------------------------------------------------- subprocess
     def run(self, command: list[str], *, env: dict[str, str] | None = None) -> str:
@@ -238,8 +250,8 @@ class Smoke:
 
     def wait_for_content(self, description: str, needles: tuple[str, ...]) -> None:
         def present() -> bool:
-            log = self.read_xterm_log()
-            return all(needle in log for needle in needles)
+            text = self.visible_text()
+            return all(needle in text for needle in needles)
 
         self.wait_for(description, present, timeout=10.0)
 
@@ -466,6 +478,16 @@ class Smoke:
             "window bar labels",
             ("Overview", "Settings", "Help", "About"),
         )
+        self.wait_for_content(
+            "vertical tab rail",
+            ("Teams", "People", "Money", "History"),
+        )
+        self.click_cell(3, 3)
+        self.wait_for_content("mouse tab switch", ("People is not implemented in this phase.",))
+        self.click_cell(2, 3)
+        self.wait_for_content("tab return to Teams", ("No teams have been added yet.",))
+        self.send_keys("Escape")
+        self.log("switched tabs by mouse and returned to Teams")
         self.send_keys("m")
         self.wait_for_content("keyboard menu dropdown", ("Active team overview",))
         self.send_keys("Escape", "Escape")

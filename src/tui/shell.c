@@ -52,6 +52,7 @@ typedef struct shell_state {
     shell_screen screen;
     shell_screen form_return_screen;
     apl_tui_list list;
+    apl_tui_list tabs;
     apl_team *teams;
     size_t team_count;
     bool include_archived;
@@ -370,12 +371,15 @@ static void toggle_archived_view(shell_state *const state, apl_error *const erro
 static void set_section(shell_state *const state, const apl_tui_section section)
 {
     state->section = section;
+    const size_t tab = apl_tui_section_tab_index(section);
+    if (tab != SIZE_MAX) {
+        apl_tui_list_select(&state->tabs, tab);
+    }
     if (section == APL_TUI_SECTION_TEAMS) {
         state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
     } else {
         state->screen = SHELL_SCREEN_PLACEHOLDER;
     }
-    state->status[0] = '\0';
 }
 
 static void switch_section(shell_state *const state, const bool forward)
@@ -523,6 +527,46 @@ static void draw_menu_popup(shell_state *const state)
     apl_tui_frame_set_styles(popup, 0);
 }
 
+static void draw_tab_rail(shell_state *const state)
+{
+    struct ncplane *const rail = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_TABS);
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (rail == nullptr || layout == nullptr) {
+        return;
+    }
+
+    const bool compact = layout->mode == APL_TUI_LAYOUT_COMPACT;
+    const unsigned content_rows =
+        (layout->tabs.rows > layout->team_switcher.rows)
+            ? layout->tabs.rows - layout->team_switcher.rows
+            : layout->tabs.rows;
+    apl_tui_list_set_viewport_rows(&state->tabs, content_rows);
+    const size_t tab = apl_tui_section_tab_index(state->section);
+    if (tab != SIZE_MAX) {
+        apl_tui_list_select(&state->tabs, tab);
+    }
+
+    const size_t visible = apl_tui_list_visible_count(&state->tabs);
+    for (size_t offset = 0; offset < visible && offset < content_rows; ++offset) {
+        const size_t index = state->tabs.offset + offset;
+        const apl_tui_section section = apl_tui_section_tab_at(index);
+        if (section == APL_TUI_SECTION_COUNT) {
+            break;
+        }
+        const bool active = section == state->section;
+        const bool focused =
+            state->focus.region == APL_TUI_FOCUS_TABS && index == state->tabs.selected;
+        const char *const label = compact ? apl_tui_section_short_label(section)
+                                          : apl_tui_section_label(section);
+        char line[64];
+        (void)snprintf(line, sizeof(line), "%c%c %s", active ? '*' : ' ', focused ? '>' : ' ',
+                       label);
+        apl_tui_frame_set_styles(rail, (active || focused) ? NCSTYLE_BOLD : 0);
+        apl_tui_frame_draw_line(rail, (int)offset, line);
+    }
+    apl_tui_frame_set_styles(rail, 0);
+}
+
 static void draw_welcome(shell_state *const state)
 {
     struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
@@ -648,7 +692,8 @@ static void draw_placeholder(shell_state *const state)
     (void)snprintf(line, sizeof(line), "%s is not implemented in this phase.",
                    apl_tui_section_label(state->section));
     apl_tui_frame_draw_line(body, 1, line);
-    apl_tui_frame_draw_line(body, 3, "Use [ and ] to return to Teams.");
+    apl_tui_frame_draw_line(body, 3, "Use the tab rail or [ and ] to switch views.");
+    apl_tui_frame_draw_line(body, 5, "No records are generated for this view.");
 }
 
 static void draw_dialog(shell_state *const state)
@@ -699,6 +744,7 @@ static void draw_dialog(shell_state *const state)
 static void draw_screen(shell_state *const state)
 {
     draw_window_bar(state);
+    draw_tab_rail(state);
 
     if (state->section != APL_TUI_SECTION_TEAMS) {
         draw_placeholder(state);
@@ -903,6 +949,23 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
     }
 
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
+        point_in_rect(layout->tabs, input->y, input->x)) {
+        const unsigned row = (unsigned)(input->y - (int)layout->tabs.y);
+        const unsigned content_rows =
+            (layout->tabs.rows > layout->team_switcher.rows)
+                ? layout->tabs.rows - layout->team_switcher.rows
+                : layout->tabs.rows;
+        if (row < content_rows) {
+            const size_t index = state->tabs.offset + row;
+            if (index < apl_tui_section_tab_count()) {
+                apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_TABS);
+                apl_tui_list_select(&state->tabs, index);
+                set_section(state, apl_tui_section_tab_at(index));
+            }
+        }
+        return;
+    }
     if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
         point_in_rect(layout->window, input->y, input->x)) {
         const apl_tui_menu_group group = apl_tui_menu_group_at_column((unsigned)input->x);
@@ -1218,7 +1281,7 @@ static void handle_window_input(shell_state *const state, const ncinput *const i
             return;
         case NCKEY_TAB:
             apl_tui_menu_close(&state->menu);
-            apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+            apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
             return;
         default:
             break;
@@ -1242,14 +1305,66 @@ static void handle_window_input(shell_state *const state, const ncinput *const i
         apl_tui_menu_open(&state->menu, state->menu.group_focus);
         return;
     case NCKEY_ESC:
-    case NCKEY_TAB:
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    case NCKEY_TAB:
+        apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
         return;
     default:
         break;
     }
     if (is_enter_key(id)) {
         apl_tui_menu_open(&state->menu, state->menu.group_focus);
+    }
+}
+
+static void handle_tabs_input(shell_state *const state, const ncinput *const input)
+{
+    switch (input->id) {
+    case NCKEY_UP:
+        apl_tui_list_move(&state->tabs, -1);
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        return;
+    case NCKEY_DOWN:
+        apl_tui_list_move(&state->tabs, 1);
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        return;
+    case NCKEY_PGUP:
+        apl_tui_list_page(&state->tabs, -1);
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        return;
+    case NCKEY_PGDOWN:
+        apl_tui_list_page(&state->tabs, 1);
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        return;
+    case NCKEY_HOME:
+        apl_tui_list_home(&state->tabs);
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        return;
+    case NCKEY_END:
+        apl_tui_list_end(&state->tabs);
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+        return;
+    case NCKEY_TAB:
+        apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
+        return;
+    case NCKEY_ESC:
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(input->id)) {
+        set_section(state, apl_tui_section_tab_at(state->tabs.selected));
+    }
+}
+
+static void handle_status_input(shell_state *const state, const ncinput *const input)
+{
+    if (input->id == NCKEY_TAB) {
+        apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
+    } else if (input->id == NCKEY_ESC) {
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
     }
 }
 
@@ -1274,10 +1389,18 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         handle_window_input(state, input);
         return;
     }
+    if (state->focus.region == APL_TUI_FOCUS_TABS) {
+        handle_tabs_input(state, input);
+        return;
+    }
+    if (state->focus.region == APL_TUI_FOCUS_STATUS) {
+        handle_status_input(state, input);
+        return;
+    }
     if (id == NCKEY_TAB &&
         !(state->section == APL_TUI_SECTION_TEAMS && state->screen == SHELL_SCREEN_TEAM_FORM)) {
         apl_tui_menu_close(&state->menu);
-        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_WINDOW);
+        apl_tui_focus_cycle(&state->focus, ncinput_shift_p(input) ? -1 : 1);
         return;
     }
     if (state->section != APL_TUI_SECTION_TEAMS) {
@@ -1319,6 +1442,8 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
     state->screen = SHELL_SCREEN_WELCOME;
     state->include_archived = false;
     apl_tui_list_init(&state->list, 10);
+    apl_tui_list_init(&state->tabs, 6);
+    apl_tui_list_set_count(&state->tabs, apl_tui_section_tab_count());
     apl_tui_dialog_init(&state->dialog);
     apl_tui_menu_init(&state->menu);
     apl_tui_focus_init(&state->focus);

@@ -134,7 +134,7 @@ commands open prefilled dialogs; complete valid commands execute the shared acti
 - [x] **2.16 Redesign layout geometry.** [Work item](work-items/phase-2/2.16-redesign-layout-geometry.md)
 - [x] **2.17 Add the window-bar dropdown menu model.** [Work item](work-items/phase-2/2.17-window-menu-model.md)
 - [x] **2.18 Render and operate the window-bar dropdowns.** [Work item](work-items/phase-2/2.18-window-menu-rendering.md)
-- [ ] **2.19 Add the vertical view-tab rail.** [Work item](work-items/phase-2/2.19-vertical-view-tabs.md)
+- [x] **2.19 Add the vertical view-tab rail.** [Work item](work-items/phase-2/2.19-vertical-view-tabs.md)
 - [ ] **2.20 Anchor the team switcher at the bottom of the tab rail.** [Work item](work-items/phase-2/2.20-team-switcher-rail.md)
 - [ ] **2.21 Implement the persistent status bar.** [Work item](work-items/phase-2/2.21-status-bar.md)
 - [ ] **2.22 Add a consistent color theme.** [Work item](work-items/phase-2/2.22-color-theme.md)
