@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.2)
-project(apl1 C)
+project(apl1 VERSION 0.1.0 LANGUAGES C)
 
 list(APPEND CMAKE_MODULE_PATH
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
@@ -97,6 +97,7 @@ if(BUILD_TESTING)
         tests/tui/test_tui_list.c
         tests/tui/test_tui_navigation.c
         tests/tui/test_tui_shell.c
+        tests/tui/test_tui_text.c
     )
 
     target_include_directories(apl1_tui_tests PRIVATE src)
@@ -174,6 +175,7 @@ add_library(apl_tui STATIC
     src/tui/list.c
     src/tui/navigation.c
     src/tui/shell.c
+    src/tui/text.c
 )
 
 target_include_directories(apl_tui PUBLIC src)
@@ -188,6 +190,20 @@ add_library(apl_app STATIC
     src/app/args.c
     src/app/exit_code.c
     src/app/team_service.c
+    src/app/version.c
+)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(APL1_BUILD_TYPE "unspecified")
+elseif(CMAKE_BUILD_TYPE)
+    set(APL1_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+else()
+    set(APL1_BUILD_TYPE "$<CONFIG>")
+endif()
+
+target_compile_definitions(apl_app PUBLIC
+    APL1_VERSION_STRING="${PROJECT_VERSION}"
+    APL1_BUILD_TYPE="${APL1_BUILD_TYPE}"
 )
 
 target_include_directories(apl_app PUBLIC src)

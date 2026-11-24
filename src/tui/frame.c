@@ -7,9 +7,9 @@
 constexpr size_t WRAP_BUFFER_SIZE = 1024;
 
 static const char *const REGION_NAMES[APL_TUI_REGION_COUNT] = {
-    "header",
+    "window",
+    "tabs",
     "body",
-    "actions",
     "status",
 };
 
@@ -17,12 +17,12 @@ static const char *const REGION_NAMES[APL_TUI_REGION_COUNT] = {
 static apl_tui_rect region_rect(const apl_tui_layout *const layout, const apl_tui_region region)
 {
     switch (region) {
-    case APL_TUI_REGION_HEADER:
-        return layout->header;
+    case APL_TUI_REGION_WINDOW:
+        return layout->window;
+    case APL_TUI_REGION_TABS:
+        return layout->tabs;
     case APL_TUI_REGION_BODY:
         return layout->body;
-    case APL_TUI_REGION_ACTIONS:
-        return layout->actions;
     case APL_TUI_REGION_STATUS:
         return layout->status;
     case APL_TUI_REGION_COUNT:
@@ -31,7 +31,7 @@ static apl_tui_rect region_rect(const apl_tui_layout *const layout, const apl_tu
     return (apl_tui_rect){};
 }
 
-/** Destroy every child plane but keep the semantic overlay-open flag. */
+/** Destroy every child plane but keep the semantic popup/overlay flags. */
 static void destroy_planes(apl_tui_frame *const frame)
 {
     for (size_t index = 0; index < APL_TUI_REGION_COUNT; ++index) {
@@ -39,6 +39,10 @@ static void destroy_planes(apl_tui_frame *const frame)
             ncplane_destroy(frame->planes[index]);
             frame->planes[index] = nullptr;
         }
+    }
+    if (frame->popup != nullptr) {
+        ncplane_destroy(frame->popup);
+        frame->popup = nullptr;
     }
     if (frame->overlay != nullptr) {
         ncplane_destroy(frame->overlay);
@@ -159,6 +163,17 @@ apl_status apl_tui_frame_sync(apl_tui_frame *const frame, const apl_tui *const t
         }
     }
 
+    if (frame->popup_open) {
+        const apl_status status =
+            place_plane(frame, &frame->popup, frame->popup_rect, "popup", true, error);
+        if (status != APL_OK) {
+            return status;
+        }
+    } else if (frame->popup != nullptr) {
+        ncplane_destroy(frame->popup);
+        frame->popup = nullptr;
+    }
+
     if (frame->overlay_open) {
         const apl_status status =
             place_plane(frame, &frame->overlay, frame->layout.overlay, "overlay", true, error);
@@ -184,6 +199,9 @@ void apl_tui_frame_begin(apl_tui_frame *const frame)
             ncplane_erase(frame->planes[index]);
         }
     }
+    if (frame->popup != nullptr) {
+        ncplane_erase(frame->popup);
+    }
     if (frame->overlay != nullptr) {
         ncplane_erase(frame->overlay);
     }
@@ -191,11 +209,19 @@ void apl_tui_frame_begin(apl_tui_frame *const frame)
 
 struct ncplane *apl_tui_frame_plane(const apl_tui_frame *const frame, const apl_tui_region region)
 {
-    if (frame == nullptr || !frame->normal || region < APL_TUI_REGION_HEADER ||
+    if (frame == nullptr || !frame->normal || region < APL_TUI_REGION_WINDOW ||
         region >= APL_TUI_REGION_COUNT) {
         return nullptr;
     }
     return frame->planes[region];
+}
+
+struct ncplane *apl_tui_frame_popup(const apl_tui_frame *const frame)
+{
+    if (frame == nullptr || !frame->normal || !frame->popup_open) {
+        return nullptr;
+    }
+    return frame->popup;
 }
 
 struct ncplane *apl_tui_frame_overlay(const apl_tui_frame *const frame)
@@ -211,6 +237,16 @@ void apl_tui_frame_set_overlay(apl_tui_frame *const frame, const bool open)
     if (frame != nullptr) {
         frame->overlay_open = open;
     }
+}
+
+void apl_tui_frame_set_popup(apl_tui_frame *const frame, const bool open, const apl_tui_rect rect)
+{
+    if (frame == nullptr) {
+        return;
+    }
+    const bool usable = rect.rows > 0 && rect.cols > 0;
+    frame->popup_open = open && usable;
+    frame->popup_rect = usable ? rect : (apl_tui_rect){};
 }
 
 bool apl_tui_frame_normal(const apl_tui_frame *const frame)
@@ -243,6 +279,7 @@ void apl_tui_frame_stop(apl_tui_frame *const frame)
     }
     destroy_planes(frame);
     frame->overlay_open = false;
+    frame->popup_open = false;
     frame->normal = false;
     frame->notcurses = nullptr;
 }

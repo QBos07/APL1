@@ -393,7 +393,7 @@ static void backspace_utf8(char *const buffer)
 
 static void draw_header(shell_state *const state)
 {
-    struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_HEADER);
+    struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_WINDOW);
     if (plane == nullptr) {
         return;
     }
@@ -535,50 +535,6 @@ static void draw_placeholder(shell_state *const state)
     apl_tui_frame_draw_line(body, 3, "Use [ and ] to return to Teams.");
 }
 
-static void draw_actions(shell_state *const state)
-{
-    struct ncplane *const actions = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_ACTIONS);
-    if (actions == nullptr) {
-        return;
-    }
-
-    if (state->section != APL_TUI_SECTION_TEAMS) {
-        apl_tui_frame_draw_line(actions, 0, "[ ] section    q quit");
-        return;
-    }
-
-    switch (state->screen) {
-    case SHELL_SCREEN_WELCOME:
-        apl_tui_frame_draw_line(actions, 0, "n create team    [ ] section    q quit");
-        break;
-    case SHELL_SCREEN_TEAM_LIST:
-        apl_tui_frame_draw_line(
-            actions, 0,
-            state->include_archived
-                ? "n new   Enter open   s set active   a hide archived   [ ] section   q quit"
-                : "n new   Enter open   s set active   a show archived   [ ] section   q quit");
-        break;
-    case SHELL_SCREEN_TEAM_DETAIL:
-        if (state->detail.archived) {
-            apl_tui_frame_draw_line(actions, 0, "Esc back   e unavailable (archived)   q quit");
-        } else if (can_archive_team(state, &state->detail)) {
-            apl_tui_frame_draw_line(actions, 0,
-                                    "e edit   s set active   x archive   Esc back   q quit");
-        } else {
-            apl_tui_frame_draw_line(
-                actions, 0,
-                "e edit   s set active   x unavailable (last active team)   Esc back   q quit");
-        }
-        break;
-    case SHELL_SCREEN_TEAM_FORM:
-        apl_tui_frame_draw_line(actions, 0, "Tab next field   Enter save   Esc cancel");
-        break;
-    case SHELL_SCREEN_PLACEHOLDER:
-        apl_tui_frame_draw_line(actions, 0, "[ ] section    q quit");
-        break;
-    }
-}
-
 static void draw_dialog(shell_state *const state)
 {
     struct ncplane *const overlay = apl_tui_frame_overlay(&state->frame);
@@ -649,8 +605,6 @@ static void draw_screen(shell_state *const state)
             break;
         }
     }
-
-    draw_actions(state);
 
     struct ncplane *const status = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_STATUS);
     if (status != nullptr && state->status[0] != '\0') {

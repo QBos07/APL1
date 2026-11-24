@@ -131,7 +131,7 @@ the status bar. Forms/selections use interactive dialogs. An ex-style `:` comman
 line supports both navigation shortcuts and structured actions: incomplete
 commands open prefilled dialogs; complete valid commands execute the shared action.
 
-- [ ] **2.16 Redesign layout geometry.** [Work item](work-items/phase-2/2.16-redesign-layout-geometry.md)
+- [x] **2.16 Redesign layout geometry.** [Work item](work-items/phase-2/2.16-redesign-layout-geometry.md)
 - [ ] **2.17 Add the window-bar dropdown menu model.** [Work item](work-items/phase-2/2.17-window-menu-model.md)
 - [ ] **2.18 Render and operate the window-bar dropdowns.** [Work item](work-items/phase-2/2.18-window-menu-rendering.md)
 - [ ] **2.19 Add the vertical view-tab rail.** [Work item](work-items/phase-2/2.19-vertical-view-tabs.md)
