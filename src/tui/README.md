@@ -7,3 +7,11 @@ Rules:
 
 - Calls application/domain/db use cases; never bypasses them with direct SQL.
 - Keeps drawing/input logic out of the lifecycle module.
+- Layout geometry is pure (`layout.h`): it computes region rectangles without a
+  Notcurses context so it can be unit-tested. The shared frame owns all child
+  planes; screens borrow a region only for one draw. The standard plane is the
+  base surface except for the "terminal too small" notice. See
+  [2.0.1](../../work-items/phase-2/2.0.1-tui-layout-resize-decision.md).
+- Focus is semantic screen state. Mouse clicks resolve through a hit-region map
+  and invoke the same commands as the keyboard; see
+  [2.0.2](../../work-items/phase-2/2.0.2-mouse-focus-decision.md).

@@ -52,9 +52,9 @@ Phase 0 and Phase 1 are implemented, but the implementation review found reprodu
 - [x] **FH-04 CI.** Run formatting, static analysis, build/tests, and the TUI smoke test in GitHub Actions. [Work item](work-items/foundation-hardening/FH-04-continuous-integration.md)
 - [x] **FH-05 Test-support target.** Remove integration-test headers from `apl_db`'s public include paths. [Work item](work-items/foundation-hardening/FH-05-test-support-library.md)
 - [x] **FH-06 Temporary test directories.** Honor `TMPDIR` and clean nested test artifacts safely. [Work item](work-items/foundation-hardening/FH-06-test-temp-directories.md)
-- [ ] **2.0.1 TUI plane/resize decision.** Decide the screen layout and resize/re-render model before building Phase 2 screens. [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
-- [ ] **2.0.2 Mouse/focus decision.** Define mouse actions and their keyboard equivalents before implementing widgets. [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
-- [ ] **2.0.3 Repository ownership decision.** Define statement, connection, and transaction boundaries before team repository work. [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
+- [x] **2.0.1 TUI plane/resize decision.** Decide the screen layout and resize/re-render model before building Phase 2 screens. [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
+- [x] **2.0.2 Mouse/focus decision.** Define mouse actions and their keyboard equivalents before implementing widgets. [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
+- [x] **2.0.3 Repository ownership decision.** Define statement, connection, and transaction boundaries before team repository work. [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
 
 ### Useful hardening; can proceed alongside early Phase 2
 
@@ -78,9 +78,9 @@ Goal: establish the navigation pattern and implement team creation and switching
 
 Complete the 2.0.1 and 2.0.2 interaction decisions before implementing 2.1–2.4. Complete 2.0.3 before the team schema/repository work (2.5/2.6).
 
-- [ ] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
-- [ ] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
-- [ ] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
+- [x] **2.0.1 Decide the TUI plane and resize model.** [Work item](work-items/phase-2/2.0.1-tui-layout-resize-decision.md)
+- [x] **2.0.2 Decide the mouse and focus interaction model.** [Work item](work-items/phase-2/2.0.2-mouse-focus-decision.md)
+- [x] **2.0.3 Define repository, statement, and transaction ownership.** [Work item](work-items/phase-2/2.0.3-repository-ownership-decision.md)
 
 - [ ] **2.1 Add the main navigation model.** Define sections and current-screen state independently of drawing code.
 - [ ] **2.2 Draw the shared screen frame.** Include section title, active-team context, message/status area, and available actions.
