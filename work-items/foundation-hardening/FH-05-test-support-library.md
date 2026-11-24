@@ -35,7 +35,7 @@
 ## Verification record (2026-11-24)
 
 - Clean configure/build/test passes.
-- `apl_db` now publishes only `src`; no target include path contains `tests/`.
+- `apl_db` now publishes only `src`; no production target has an include path under `tests/`.
 - The application target links `apl_app`, `apl_tui`, and Notcurses only; it does
   not link `apl_test_support`.
 
