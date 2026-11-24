@@ -30,7 +30,8 @@
   `APL1_CHECK_BUILD_DIR=ci-build`, so the build tree is retained and CTest and
   CMake configure logs are archived on both success and failure.
 - Added an equivalent `.github/workflows/ci.yml` for GitHub pushes to `main`,
-  pull requests, and manual runs. It installs the same toolchain, runs
+  pull requests, and manual runs. It runs on the `ubuntu-26.04` runner, installs
+  CMake 4.2+ directly from apt along with the other dependencies, runs
   `scripts/check.sh`, and uploads the same diagnostic files with
   `actions/upload-artifact`.
 - The TUI smoke test is deliberately not part of CI; the jobs use no private

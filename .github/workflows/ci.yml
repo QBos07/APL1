@@ -16,7 +16,7 @@ concurrency:
 jobs:
   check:
     name: Configure, build, and test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       # Keep the build tree so logs can be uploaded when the check fails.
@@ -31,21 +31,17 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential \
             ca-certificates \
+            cmake \
             git \
             libcriterion-dev \
             libnotcurses-dev \
             libsqlite3-dev \
-            pkg-config \
-            python3 \
-            python3-pip
-          # The project requires CMake 4.2+, newer than the Ubuntu package.
-          python3 -m pip install --break-system-packages "cmake>=4.2"
+            pkg-config
 
       - name: Show toolchain versions
         run: |
           cmake --version
           gcc --version | head -1
-          python3 --version
 
       - name: Run clean check
         run: scripts/check.sh
