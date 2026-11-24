@@ -229,3 +229,10 @@ apl_status apl_db_migrations_run_list(apl_db_connection *connection,
     }
     return APL_OK;
 }
+
+apl_status apl_db_migrate(apl_db_connection *connection, apl_error *error)
+{
+    size_t count = 0;
+    const apl_db_migration *migrations = apl_db_migrations_list(&count);
+    return apl_db_migrations_run_list(connection, migrations, count, error);
+}

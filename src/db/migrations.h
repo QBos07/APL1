@@ -50,4 +50,11 @@ apl_status apl_db_migrations_run_list(apl_db_connection *connection,
 apl_status apl_db_current_version(apl_db_connection *connection, int *out_version,
                                   apl_error *error);
 
+/** The compiled-in production migration list (see migrations_list.c). */
+const apl_db_migration *apl_db_migrations_list(size_t *out_count);
+
+/** Apply all missing compiled-in production migrations. This is the entry
+ *  point used by application startup. */
+apl_status apl_db_migrate(apl_db_connection *connection, apl_error *error);
+
 #endif /* APL_DB_MIGRATIONS_H */
