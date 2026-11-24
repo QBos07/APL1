@@ -7,12 +7,12 @@
 
 /** Start the database layer: resolve the path, open the connection, and
  *  migrate. Any failure is reported and leaves no open connection. */
-static apl_status start_database(apl_db_connection *db, const apl_app_config *config,
-                                 apl_error *error)
+static apl_status start_database(apl_db_connection *const db, const apl_app_config *const config,
+                                 apl_error *const error)
 {
     char path[APL_DB_PATH_MAX];
 
-    if (config->database_path != NULL && config->database_path[0] != '\0') {
+    if (config->database_path != nullptr && config->database_path[0] != '\0') {
         /* Explicit paths must already have a usable parent directory; no
          * implicit creation, so typos are not silently masked (1.3). */
         const int written = snprintf(path, sizeof(path), "%s", config->database_path);
@@ -22,7 +22,7 @@ static apl_status start_database(apl_db_connection *db, const apl_app_config *co
             return APL_ERR_INVALID_ARGUMENT;
         }
     } else {
-        apl_status status = apl_db_resolve_path(NULL, path, sizeof(path), error);
+        apl_status status = apl_db_resolve_path(nullptr, path, sizeof(path), error);
         if (status != APL_OK) {
             return status;
         }
@@ -32,23 +32,24 @@ static apl_status start_database(apl_db_connection *db, const apl_app_config *co
         }
     }
 
-    apl_status status = apl_db_open(db, path, error);
+    const apl_status status = apl_db_open(db, path, error);
     if (status != APL_OK) {
         return status;
     }
 
-    status = apl_db_migrate(db, error);
-    if (status != APL_OK) {
+    const apl_status migration_status = apl_db_migrate(db, error);
+    if (migration_status != APL_OK) {
         apl_db_close(db);
-        return status;
+        return migration_status;
     }
     return APL_OK;
 }
 
-apl_status apl_app_start(apl_app *app, const apl_app_config *config, apl_error *error)
+apl_status apl_app_start(apl_app *const app, const apl_app_config *const config,
+                         apl_error *const error)
 {
-    if (app == NULL || config == NULL) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "app or config is NULL");
+    if (app == nullptr || config == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "app or config is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
     if (app->db_open) {
@@ -68,9 +69,9 @@ apl_status apl_app_start(apl_app *app, const apl_app_config *config, apl_error *
     return APL_OK;
 }
 
-void apl_app_stop(apl_app *app)
+void apl_app_stop(apl_app *const app)
 {
-    if (app == NULL) {
+    if (app == nullptr) {
         return;
     }
     apl_db_close(&app->db); /* documented no-op on a closed connection */

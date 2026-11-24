@@ -13,7 +13,8 @@
  * tested separately in tests/tui and smoke-checked in the 1.9 work item. */
 
 /** Open a fresh temporary database, returning the directory and file path. */
-static apl_status make_temp_database(char *dir, size_t dir_size, char *path, size_t path_size)
+static apl_status make_temp_database(char *dir, const size_t dir_size, char *path,
+                                     const size_t path_size)
 {
     apl_error err;
     apl_error_init(&err);
@@ -37,10 +38,9 @@ Test(app_lifecycle, start_and_stop_with_temporary_database)
 
     cr_assert_eq(make_temp_database(dir, sizeof(dir), path, sizeof(path)), APL_OK);
 
-    apl_app_config config = {0};
-    config.database_path = path;
+    const apl_app_config config = {.database_path = path};
 
-    apl_app app = {0};
+    apl_app app = {};
     cr_assert_eq(apl_app_start(&app, &config, &err), APL_OK);
     cr_assert(apl_error_is_success(&err));
     cr_assert_not_null(apl_db_handle(&app.db));
@@ -72,10 +72,9 @@ Test(app_lifecycle, explicit_path_without_parent_directory_fails_without_leak)
     const int written = snprintf(path, sizeof(path), "%s/no-such-dir/data.sqlite3", dir);
     cr_assert(written > 0 && (size_t)written < sizeof(path));
 
-    apl_app_config config = {0};
-    config.database_path = path;
+    const apl_app_config config = {.database_path = path};
 
-    apl_app app = {0};
+    apl_app app = {};
     cr_assert_eq(apl_app_start(&app, &config, &err), APL_ERR_DB_OPEN);
     cr_assert_not(apl_error_is_success(&err));
     cr_assert_null(apl_db_handle(&app.db)); /* nothing leaked */
@@ -94,22 +93,21 @@ Test(app_lifecycle, schema_too_new_database_fails_without_leak)
     cr_assert_eq(make_temp_database(dir, sizeof(dir), path, sizeof(path)), APL_OK);
 
     /* Write a database produced by a newer application: schema version 99. */
-    sqlite3 *raw = NULL;
+    sqlite3 *raw = nullptr;
     cr_assert_eq(sqlite3_open(path, &raw), SQLITE_OK);
-    char *errmsg = NULL;
+    char *errmsg = nullptr;
     cr_assert_eq(sqlite3_exec(raw,
                               "CREATE TABLE apl_schema_migrations ("
                               "version INTEGER PRIMARY KEY);"
                               "INSERT INTO apl_schema_migrations (version) VALUES (99);",
-                              NULL, NULL, &errmsg),
+                              nullptr, nullptr, &errmsg),
                  SQLITE_OK);
     sqlite3_free(errmsg);
     cr_assert_eq(sqlite3_close(raw), SQLITE_OK);
 
-    apl_app_config config = {0};
-    config.database_path = path;
+    const apl_app_config config = {.database_path = path};
 
-    apl_app app = {0};
+    apl_app app = {};
     cr_assert_eq(apl_app_start(&app, &config, &err), APL_ERR_DB_SCHEMA_TOO_NEW);
     cr_assert_not(apl_error_is_success(&err));
     cr_assert_null(apl_db_handle(&app.db)); /* the connection was closed on failure */
@@ -120,8 +118,8 @@ Test(app_lifecycle, schema_too_new_database_fails_without_leak)
 
 Test(app_lifecycle, stop_on_uninitialized_and_null_app_is_safe)
 {
-    apl_app app = {0};
+    apl_app app = {};
     apl_app_stop(&app); /* must not crash */
-    apl_app_stop(NULL);
+    apl_app_stop(nullptr);
     cr_assert(true);
 }

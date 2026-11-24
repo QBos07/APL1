@@ -28,7 +28,7 @@ Test(error, set_failure_captures_code_and_formatted_message)
 
 Test(error, set_accepts_null_error_without_crashing)
 {
-    apl_error_set(NULL, APL_ERR_IO, "ignored");
+    apl_error_set(nullptr, APL_ERR_IO, "ignored");
 
     cr_assert(true);
 }
@@ -62,9 +62,9 @@ Test(error, oversize_message_is_truncated_and_terminated)
 
 Test(error, getters_defend_against_null)
 {
-    cr_assert_eq(apl_error_code(NULL), APL_ERR_INVALID_ARGUMENT);
-    cr_assert_not(apl_error_is_success(NULL));
-    cr_assert_str_eq(apl_error_message(NULL), "no error value supplied");
+    cr_assert_eq(apl_error_code(nullptr), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_not(apl_error_is_success(nullptr));
+    cr_assert_str_eq(apl_error_message(nullptr), "no error value supplied");
 }
 
 Test(error, status_strings_are_stable)

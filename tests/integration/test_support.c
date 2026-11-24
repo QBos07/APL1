@@ -10,35 +10,35 @@
 
 #define TEMPLATE "/tmp/apl1-test-XXXXXX"
 
-apl_status apl_test_temp_dir(char *buf, size_t buf_size, apl_error *error)
+apl_status apl_test_temp_dir(char *const buf, const size_t buf_size, apl_error *const error)
 {
-    if (buf == NULL || buf_size <= sizeof(TEMPLATE)) {
+    if (buf == nullptr || buf_size <= sizeof(TEMPLATE)) {
         return APL_ERR_INVALID_ARGUMENT;
     }
     memcpy(buf, TEMPLATE, sizeof(TEMPLATE));
-    if (mkdtemp(buf) == NULL) {
+    if (mkdtemp(buf) == nullptr) {
         apl_error_set(error, APL_ERR_IO, "cannot create temporary directory");
         return APL_ERR_IO;
     }
     return APL_OK;
 }
 
-apl_status apl_test_remove_temp_dir(const char *dir, apl_error *error)
+apl_status apl_test_remove_temp_dir(const char *const dir, apl_error *const error)
 {
-    if (dir == NULL) {
+    if (dir == nullptr) {
         return APL_ERR_INVALID_ARGUMENT;
     }
 
     /* Delete every regular file the test left in the directory, then remove
      * the directory itself. Tests only create flat directories of files. */
-    DIR *listing = opendir(dir);
-    if (listing == NULL) {
+    DIR *const listing = opendir(dir);
+    if (listing == nullptr) {
         apl_error_set(error, APL_ERR_IO, "cannot list temporary directory '%s'", dir);
         return APL_ERR_IO;
     }
 
     struct dirent *entry;
-    while ((entry = readdir(listing)) != NULL) {
+    while ((entry = readdir(listing)) != nullptr) {
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
             continue;
         }

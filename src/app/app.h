@@ -1,8 +1,6 @@
 #ifndef APL_APP_APP_H
 #define APL_APP_APP_H
 
-#include <stdbool.h>
-
 #include "core/error.h"
 #include "db/connection.h"
 
@@ -26,7 +24,7 @@
  *  defaults (database path resolved per the 1.3 policy from the
  *  environment). Tests pass a temporary database path. */
 typedef struct apl_app_config {
-    /** Database path to use directly, or NULL for the environment-derived
+    /** Database path to use directly, or nullptr for the environment-derived
      *  default. An explicit path must already have a usable parent
      *  directory (see src/db/path.h); it is never created implicitly. */
     const char *database_path;

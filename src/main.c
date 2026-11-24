@@ -17,14 +17,14 @@ int main(void)
 
     /* TUI first: a launch without a usable interactive terminal must fail
      * cleanly before any database file is created. */
-    apl_tui tui = {0};
+    apl_tui tui = {};
     if (apl_tui_start(&tui, &error) != APL_OK) {
         fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
         return 1;
     }
 
-    apl_app_config config = {0}; /* default database path from the environment */
-    apl_app app = {0};
+    const apl_app_config config = {}; /* default database path from the environment */
+    apl_app app = {};
     if (apl_app_start(&app, &config, &error) != APL_OK) {
         apl_tui_stop(&tui);
         fprintf(stderr, "apl1: %s\n", apl_error_message(&error));

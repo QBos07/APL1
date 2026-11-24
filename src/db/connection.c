@@ -7,19 +7,19 @@
  * Every application connection enforces declared foreign keys, and setup
  * fails (instead of continuing silently) if enforcement cannot be confirmed.
  */
-static apl_status enable_foreign_keys(sqlite3 *handle, apl_error *error)
+static apl_status enable_foreign_keys(sqlite3 *const handle, apl_error *const error)
 {
-    char *sqlite_error = NULL;
-    if (sqlite3_exec(handle, "PRAGMA foreign_keys = ON;", NULL, NULL, &sqlite_error) != SQLITE_OK) {
+    char *sqlite_error = nullptr;
+    if (sqlite3_exec(handle, "PRAGMA foreign_keys = ON;", nullptr, nullptr, &sqlite_error) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_FOREIGN_KEYS, "cannot enable foreign keys: %s",
-                      (sqlite_error != NULL) ? sqlite_error : "unknown error");
+                      (sqlite_error != nullptr) ? sqlite_error : "unknown error");
         sqlite3_free(sqlite_error);
         return APL_ERR_DB_FOREIGN_KEYS;
     }
     sqlite3_free(sqlite_error);
 
-    sqlite3_stmt *verification = NULL;
-    if (sqlite3_prepare_v2(handle, "PRAGMA foreign_keys;", -1, &verification, NULL) != SQLITE_OK) {
+    sqlite3_stmt *verification = nullptr;
+    if (sqlite3_prepare_v2(handle, "PRAGMA foreign_keys;", -1, &verification, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_FOREIGN_KEYS,
                       "cannot verify foreign-key enforcement: %s", sqlite3_errmsg(handle));
         return APL_ERR_DB_FOREIGN_KEYS;
@@ -39,31 +39,32 @@ static apl_status enable_foreign_keys(sqlite3 *handle, apl_error *error)
     return APL_OK;
 }
 
-apl_status apl_db_open(apl_db_connection *connection, const char *path, apl_error *error)
+apl_status apl_db_open(apl_db_connection *const connection, const char *const path,
+                       apl_error *const error)
 {
-    if (connection == NULL) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "connection pointer is NULL");
+    if (connection == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "connection pointer is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    if (path == NULL || path[0] == '\0') {
-        connection->handle = NULL;
+    if (path == nullptr || path[0] == '\0') {
+        connection->handle = nullptr;
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database path is empty");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
-    connection->handle = NULL;
+    connection->handle = nullptr;
 
-    sqlite3 *handle = NULL;
-    const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
-    const int result = sqlite3_open_v2(path, &handle, flags, NULL);
+    sqlite3 *handle = nullptr;
+    constexpr int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+    const int result = sqlite3_open_v2(path, &handle, flags, nullptr);
     if (result != SQLITE_OK) {
-        /* Capture the message before releasing the (possibly non-NULL) handle. */
+        /* Capture the message before releasing the (possibly non-nullptr) handle. */
         const char *sqlite_message =
-                (handle != NULL) ? sqlite3_errmsg(handle) : sqlite3_errstr(result);
+                (handle != nullptr) ? sqlite3_errmsg(handle) : sqlite3_errstr(result);
         apl_error_set(error, APL_ERR_DB_OPEN, "cannot open database '%s': %s",
-                      path, (sqlite_message != NULL) ? sqlite_message : "unknown error");
+                      path, (sqlite_message != nullptr) ? sqlite_message : "unknown error");
         sqlite3_close(handle);
-        connection->handle = NULL;
+        connection->handle = nullptr;
         return APL_ERR_DB_OPEN;
     }
 
@@ -71,7 +72,7 @@ apl_status apl_db_open(apl_db_connection *connection, const char *path, apl_erro
     if (key_status != APL_OK) {
         /* A connection whose initialization failed must not leak a handle. */
         sqlite3_close(handle);
-        connection->handle = NULL;
+        connection->handle = nullptr;
         return key_status;
     }
 
@@ -79,19 +80,19 @@ apl_status apl_db_open(apl_db_connection *connection, const char *path, apl_erro
     return APL_OK;
 }
 
-void apl_db_close(apl_db_connection *connection)
+void apl_db_close(apl_db_connection *const connection)
 {
-    if (connection == NULL || connection->handle == NULL) {
+    if (connection == nullptr || connection->handle == nullptr) {
         return;
     }
     sqlite3_close(connection->handle);
-    connection->handle = NULL;
+    connection->handle = nullptr;
 }
 
-sqlite3 *apl_db_handle(apl_db_connection *connection)
+sqlite3 *apl_db_handle(const apl_db_connection *const connection)
 {
-    if (connection == NULL) {
-        return NULL;
+    if (connection == nullptr) {
+        return nullptr;
     }
     return connection->handle;
 }

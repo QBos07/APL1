@@ -7,7 +7,7 @@
 
 /** Draw one line at `row`, truncated to the plane width. Rows beyond the
  *  plane are skipped so a tiny terminal cannot produce out-of-area drawing. */
-static void draw_line(struct ncplane *plane, int row, const char *text)
+static void draw_line(struct ncplane *const plane, const int row, const char *const text)
 {
     unsigned rows = 0;
     unsigned cols = 0;
@@ -18,22 +18,27 @@ static void draw_line(struct ncplane *plane, int row, const char *text)
     (void)ncplane_printf_yx(plane, row, 0, "%.*s", (int)cols, text);
 }
 
-static void draw_screen(struct ncplane *plane)
+static void draw_screen(struct ncplane *const plane)
 {
-    draw_line(plane, 0, "apl1 - Formula 1 Team Management Database");
-    draw_line(plane, 2, "No teams have been added yet. Management screens arrive in later phases.");
-    draw_line(plane, 4, "Press q to quit.");
+    constexpr int title_row = 0;
+    constexpr int empty_state_row = 2;
+    constexpr int exit_hint_row = 4;
+
+    draw_line(plane, title_row, "apl1 - Formula 1 Team Management Database");
+    draw_line(plane, empty_state_row,
+              "No teams have been added yet. Management screens arrive in later phases.");
+    draw_line(plane, exit_hint_row, "Press q to quit.");
 }
 
-apl_status apl_tui_shell_run(apl_tui *tui, apl_error *error)
+apl_status apl_tui_shell_run(const apl_tui *const tui, apl_error *const error)
 {
-    if (tui == NULL || tui->notcurses == NULL) {
+    if (tui == nullptr || tui->notcurses == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "TUI is not started");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
-    struct notcurses *nc = tui->notcurses;
-    struct ncplane *plane = notcurses_stdplane(nc);
+    struct notcurses *const nc = tui->notcurses;
+    struct ncplane *const plane = notcurses_stdplane(nc);
 
     for (;;) {
         ncplane_erase(plane);
@@ -44,7 +49,7 @@ apl_status apl_tui_shell_run(apl_tui *tui, apl_error *error)
             return APL_ERR_TUI_RENDER;
         }
 
-        ncinput input;
+        ncinput input = {};
         const uint32_t id = notcurses_get_blocking(nc, &input);
         if (id == (uint32_t)-1) {
             /* The input stream failed: without input the shell cannot be

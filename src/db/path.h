@@ -7,7 +7,7 @@
 
 /** Maximum path length accepted by the database path module, including the
  *  terminating NUL. Longer paths are rejected instead of truncated. */
-#define APL_DB_PATH_MAX 4096
+constexpr size_t APL_DB_PATH_MAX = 4096;
 
 /*
  * Database path policy (v1, confirmed from the 1.3 work item):

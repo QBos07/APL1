@@ -12,14 +12,14 @@
 
 Test(tui_shell, run_requires_a_started_tui)
 {
-    apl_tui tui = {0};
+    apl_tui tui = {};
 
     apl_error err;
     apl_error_init(&err);
 
     cr_assert_eq(apl_tui_shell_run(&tui, &err), APL_ERR_INVALID_ARGUMENT);
     cr_assert_null(tui.notcurses);
-    cr_assert_neq(strstr(apl_error_message(&err), "not started"), (char *)NULL);
+    cr_assert_neq(strstr(apl_error_message(&err), "not started"), nullptr);
 }
 
 Test(tui_shell, run_accepts_null_tui)
@@ -27,6 +27,6 @@ Test(tui_shell, run_accepts_null_tui)
     apl_error err;
     apl_error_init(&err);
 
-    cr_assert_eq(apl_tui_shell_run(NULL, &err), APL_ERR_INVALID_ARGUMENT);
-    cr_assert_neq(strstr(apl_error_message(&err), "not started"), (char *)NULL);
+    cr_assert_eq(apl_tui_shell_run(nullptr, &err), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_neq(strstr(apl_error_message(&err), "not started"), nullptr);
 }

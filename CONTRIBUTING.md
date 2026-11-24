@@ -16,6 +16,22 @@ adopted.
 - Files that call POSIX APIs (temporary directories, `mkdir`, etc.) define
   `_POSIX_C_SOURCE 200809L` at the top of the file, before any include.
 
+## C23 language usage
+
+- Use the C23 keywords directly: `bool`, `true`, and `false`. Do not include
+  `<stdbool.h>`.
+- Use `nullptr` for null pointer constants instead of `NULL`.
+- Use the C23 one-argument form of `va_start(args)`; its second parameter is
+  obsolete.
+- Use `{}` for zero initialization instead of `{0}`.
+- Declare compile-time integer constants with `constexpr` (for example
+  `APL_DB_PATH_MAX`) and use `const` for everything that is not mutated:
+  local variables, pointers that are not reseated (`T *const`), and pointees
+  that are only read (`const T *`).
+- Use standard C23 attributes where they apply, for example
+  `[[gnu::format(printf, 3, 4)]]` for printf-like functions and
+  `[[maybe_unused]]` for intentionally unused parameters.
+
 ## File, header, and type naming
 
 - Modules live in the directories confirmed in

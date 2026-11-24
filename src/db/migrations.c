@@ -6,11 +6,11 @@
 
 #define SCHEMA_VERSION_TABLE "apl_schema_migrations"
 
-static apl_status exec_sql(sqlite3 *handle, const char *sql, apl_error *error)
+static apl_status exec_sql(sqlite3 *const handle, const char *const sql, apl_error *const error)
 {
-    char *sqlite_error = NULL;
-    if (sqlite3_exec(handle, sql, NULL, NULL, &sqlite_error) != SQLITE_OK) {
-        apl_error_set(error, APL_ERR_DB_QUERY, "%s", (sqlite_error != NULL) ? sqlite_error : "unknown SQL error");
+    char *sqlite_error = nullptr;
+    if (sqlite3_exec(handle, sql, nullptr, nullptr, &sqlite_error) != SQLITE_OK) {
+        apl_error_set(error, APL_ERR_DB_QUERY, "%s", (sqlite_error != nullptr) ? sqlite_error : "unknown SQL error");
         sqlite3_free(sqlite_error);
         return APL_ERR_DB_QUERY;
     }
@@ -20,12 +20,13 @@ static apl_status exec_sql(sqlite3 *handle, const char *sql, apl_error *error)
 
 /** Report whether a table exists. Returns APL_OK and stores the answer in
  *  *out_exists; a failed query returns APL_ERR_DB_QUERY. */
-static apl_status table_exists(sqlite3 *handle, const char *name, bool *out_exists, apl_error *error)
+static apl_status table_exists(sqlite3 *const handle, const char *const name,
+                               bool *const out_exists, apl_error *const error)
 {
     *out_exists = false;
-    sqlite3_stmt *statement = NULL;
+    sqlite3_stmt *statement = nullptr;
     if (sqlite3_prepare_v2(handle, "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1;",
-                           -1, &statement, NULL) != SQLITE_OK) {
+                           -1, &statement, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot inspect schema: %s", sqlite3_errmsg(handle));
         return APL_ERR_DB_QUERY;
     }
@@ -36,10 +37,10 @@ static apl_status table_exists(sqlite3 *handle, const char *name, bool *out_exis
 }
 
 /** Ensure the schema-version table exists. */
-static apl_status ensure_version_table(sqlite3 *handle, apl_error *error)
+static apl_status ensure_version_table(sqlite3 *const handle, apl_error *const error)
 {
     bool exists = false;
-    apl_status status = table_exists(handle, SCHEMA_VERSION_TABLE, &exists, error);
+    const apl_status status = table_exists(handle, SCHEMA_VERSION_TABLE, &exists, error);
     if (status != APL_OK) {
         return status;
     }
@@ -53,24 +54,25 @@ static apl_status ensure_version_table(sqlite3 *handle, apl_error *error)
                     error);
 }
 
-apl_status apl_db_current_version(apl_db_connection *connection, int *out_version, apl_error *error)
+apl_status apl_db_current_version(apl_db_connection *const connection, int *const out_version,
+                                  apl_error *const error)
 {
-    if (out_version != NULL) {
+    if (out_version != nullptr) {
         *out_version = 0;
     }
-    if (connection == NULL || out_version == NULL) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "migration version arguments are NULL");
+    if (connection == nullptr || out_version == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "migration version arguments are nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
-    sqlite3 *handle = apl_db_handle(connection);
-    if (handle == NULL) {
+    sqlite3 *const handle = apl_db_handle(connection);
+    if (handle == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is closed");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
     bool version_table_exists = false;
-    apl_status status = table_exists(handle, SCHEMA_VERSION_TABLE, &version_table_exists, error);
+    const apl_status status = table_exists(handle, SCHEMA_VERSION_TABLE, &version_table_exists, error);
     if (status != APL_OK) {
         return status;
     }
@@ -79,9 +81,9 @@ apl_status apl_db_current_version(apl_db_connection *connection, int *out_versio
         return APL_OK;
     }
 
-    sqlite3_stmt *statement = NULL;
+    sqlite3_stmt *statement = nullptr;
     if (sqlite3_prepare_v2(handle, "SELECT COALESCE(MAX(version), 0) FROM " SCHEMA_VERSION_TABLE ";",
-                           -1, &statement, NULL) != SQLITE_OK) {
+                           -1, &statement, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot read schema version: %s",
                       sqlite3_errmsg(handle));
         return APL_ERR_DB_QUERY;
@@ -100,7 +102,8 @@ apl_status apl_db_current_version(apl_db_connection *connection, int *out_versio
 }
 
 /** Validate the compiled migration list before touching the database. */
-static apl_status validate_list(const apl_db_migration *migrations, size_t count, apl_error *error)
+static apl_status validate_list(const apl_db_migration *const migrations, const size_t count,
+                                apl_error *const error)
 {
     for (size_t index = 0; index < count; ++index) {
         if (migrations[index].version != (int)(index + 1)) {
@@ -110,7 +113,7 @@ static apl_status validate_list(const apl_db_migration *migrations, size_t count
                           index, index + 1, migrations[index].version);
             return APL_ERR_DB_MIGRATION;
         }
-        if (migrations[index].sql == NULL) {
+        if (migrations[index].sql == nullptr) {
             apl_error_set(error, APL_ERR_DB_MIGRATION,
                           "compiled migration %d has no SQL", migrations[index].version);
             return APL_ERR_DB_MIGRATION;
@@ -122,9 +125,9 @@ static apl_status validate_list(const apl_db_migration *migrations, size_t count
 /** Prepend `context` to an existing error message safely: the old message is
  *  copied before the error value is overwritten (apl_error_set must never
  *  read apl_error_message of the same buffer as its own argument). */
-static void prefix_error(apl_error *error, apl_status code, const char *context)
+static void prefix_error(apl_error *const error, const apl_status code, const char *const context)
 {
-    if (error == NULL) {
+    if (error == nullptr) {
         return;
     }
     char detail[APL_ERROR_MESSAGE_MAX];
@@ -133,10 +136,11 @@ static void prefix_error(apl_error *error, apl_status code, const char *context)
 }
 
 /** Apply one migration and its version record inside a single transaction. */
-static apl_status apply_migration(apl_db_connection *connection, const apl_db_migration *migration,
-                                  apl_error *error)
+static apl_status apply_migration(apl_db_connection *const connection,
+                                  const apl_db_migration *const migration,
+                                  apl_error *const error)
 {
-    sqlite3 *handle = apl_db_handle(connection);
+    sqlite3 *const handle = apl_db_handle(connection);
 
     apl_status status = exec_sql(handle, "BEGIN IMMEDIATE;", error);
     if (status != APL_OK) {
@@ -145,11 +149,11 @@ static apl_status apply_migration(apl_db_connection *connection, const apl_db_mi
 
     status = exec_sql(handle, migration->sql, error);
     if (status == APL_OK) {
-        sqlite3_stmt *record = NULL;
+        sqlite3_stmt *record = nullptr;
         if (sqlite3_prepare_v2(handle,
                                "INSERT INTO " SCHEMA_VERSION_TABLE
                                " (version, applied_at) VALUES (?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
-                               -1, &record, NULL) != SQLITE_OK) {
+                               -1, &record, nullptr) != SQLITE_OK) {
             status = APL_ERR_DB_QUERY;
             apl_error_set(error, APL_ERR_DB_QUERY, "cannot record migration %d: %s",
                           migration->version, sqlite3_errmsg(handle));
@@ -183,17 +187,17 @@ static apl_status apply_migration(apl_db_connection *connection, const apl_db_mi
     return APL_OK;
 }
 
-apl_status apl_db_migrations_run_list(apl_db_connection *connection,
-                                      const apl_db_migration *migrations,
-                                      size_t count,
-                                      apl_error *error)
+apl_status apl_db_migrations_run_list(apl_db_connection *const connection,
+                                      const apl_db_migration *const migrations,
+                                      const size_t count,
+                                      apl_error *const error)
 {
-    if (connection == NULL) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is NULL");
+    if (connection == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    if (migrations == NULL && count > 0) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "migration list is NULL");
+    if (migrations == nullptr && count > 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "migration list is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
@@ -204,8 +208,8 @@ apl_status apl_db_migrations_run_list(apl_db_connection *connection,
         return status;
     }
 
-    sqlite3 *handle = apl_db_handle(connection);
-    if (handle == NULL) {
+    sqlite3 *const handle = apl_db_handle(connection);
+    if (handle == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is closed");
         return APL_ERR_INVALID_ARGUMENT;
     }
@@ -246,9 +250,9 @@ apl_status apl_db_migrations_run_list(apl_db_connection *connection,
     return APL_OK;
 }
 
-apl_status apl_db_migrate(apl_db_connection *connection, apl_error *error)
+apl_status apl_db_migrate(apl_db_connection *const connection, apl_error *const error)
 {
     size_t count = 0;
-    const apl_db_migration *migrations = apl_db_migrations_list(&count);
+    const apl_db_migration *const migrations = apl_db_migrations_list(&count);
     return apl_db_migrations_run_list(connection, migrations, count, error);
 }

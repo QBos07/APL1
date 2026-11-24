@@ -16,9 +16,9 @@ static const apl_db_migration apl_migrations[] = {
         "-- Domain schemas are introduced as later, ordered migrations.\n"},
 };
 
-const apl_db_migration *apl_db_migrations_list(size_t *out_count)
+const apl_db_migration *apl_db_migrations_list(size_t *const out_count)
 {
-    if (out_count != NULL) {
+    if (out_count != nullptr) {
         *out_count = sizeof(apl_migrations) / sizeof(apl_migrations[0]);
     }
     return apl_migrations;

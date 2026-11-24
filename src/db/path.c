@@ -9,15 +9,15 @@
 #include <sys/stat.h>
 
 /** Absolute-directory check used for XDG/HOME candidates. */
-static bool is_absolute_path(const char *value)
+static bool is_absolute_path(const char *const value)
 {
-    return value != NULL && value[0] == '/';
+    return value != nullptr && value[0] == '/';
 }
 
 /** Build a path in `out`; fails with APL_ERR_INVALID_ARGUMENT when it does
  *  not fit instead of silently truncating. */
-static apl_status join_path(char *out, size_t out_size, const char *fmt, const char *base,
-                            apl_error *error)
+static apl_status join_path(char *const out, const size_t out_size, const char *const fmt,
+                            const char *const base, apl_error *const error)
 {
     const int written = snprintf(out, out_size, fmt, base);
     if (written < 0 || (size_t)written >= out_size) {
@@ -28,19 +28,19 @@ static apl_status join_path(char *out, size_t out_size, const char *fmt, const c
     return APL_OK;
 }
 
-apl_status apl_db_resolve_path_ex(const char *explicit_path,
-                                  const char *xdg_data_home,
-                                  const char *home,
-                                  char *out,
-                                  size_t out_size,
-                                  apl_error *error)
+apl_status apl_db_resolve_path_ex(const char *const explicit_path,
+                                  const char *const xdg_data_home,
+                                  const char *const home,
+                                  char *const out,
+                                  const size_t out_size,
+                                  apl_error *const error)
 {
-    if (out == NULL || out_size < 2) {
+    if (out == nullptr || out_size < 2) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database path buffer is not usable");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
-    if (explicit_path != NULL && explicit_path[0] != '\0') {
+    if (explicit_path != nullptr && explicit_path[0] != '\0') {
         return join_path(out, out_size, "%s", explicit_path, error);
     }
 
@@ -59,16 +59,16 @@ apl_status apl_db_resolve_path_ex(const char *explicit_path,
     return APL_ERR_NOT_FOUND;
 }
 
-apl_status apl_db_resolve_path(const char *explicit_path, char *out, size_t out_size,
-                               apl_error *error)
+apl_status apl_db_resolve_path(const char *const explicit_path, char *const out, const size_t out_size,
+                               apl_error *const error)
 {
-    const char *xdg = getenv("XDG_DATA_HOME");
-    const char *home = getenv("HOME");
+    const char *const xdg = getenv("XDG_DATA_HOME");
+    const char *const home = getenv("HOME");
     return apl_db_resolve_path_ex(explicit_path, xdg, home, out, out_size, error);
 }
 
 /** Create one directory component unless it already exists as a directory. */
-static apl_status ensure_directory(const char *directory, apl_error *error)
+static apl_status ensure_directory(const char *const directory, apl_error *const error)
 {
     struct stat existing;
     if (stat(directory, &existing) == 0) {
@@ -78,7 +78,8 @@ static apl_status ensure_directory(const char *directory, apl_error *error)
         apl_error_set(error, APL_ERR_IO, "'%s' exists and is not a directory", directory);
         return APL_ERR_IO;
     }
-    if (mkdir(directory, 0777) != 0) {
+    constexpr mode_t directory_mode = 0777;
+    if (mkdir(directory, directory_mode) != 0) {
         apl_error_set(error, APL_ERR_IO, "cannot create directory '%s': %s", directory,
                       strerror(errno));
         return APL_ERR_IO;
@@ -86,9 +87,9 @@ static apl_status ensure_directory(const char *directory, apl_error *error)
     return APL_OK;
 }
 
-apl_status apl_db_ensure_parent_directory(const char *path, apl_error *error)
+apl_status apl_db_ensure_parent_directory(const char *const path, apl_error *const error)
 {
-    if (path == NULL || path[0] == '\0') {
+    if (path == nullptr || path[0] == '\0') {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database path is empty");
         return APL_ERR_INVALID_ARGUMENT;
     }
@@ -96,8 +97,8 @@ apl_status apl_db_ensure_parent_directory(const char *path, apl_error *error)
     char buffer[APL_DB_PATH_MAX];
     const int written = snprintf(buffer, sizeof(buffer), "%s", path);
     if (written < 0 || (size_t)written >= sizeof(buffer)) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database path does not fit in %d bytes",
-                      APL_DB_PATH_MAX);
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database path does not fit in %zu bytes",
+                      sizeof(buffer));
         return APL_ERR_INVALID_ARGUMENT;
     }
 

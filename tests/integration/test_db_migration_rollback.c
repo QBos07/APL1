@@ -7,10 +7,11 @@
 #include "db/migrations.h"
 #include "test_support.h"
 
-static apl_status query_int(apl_db_connection *connection, const char *sql, int *out_value)
+static apl_status query_int(const apl_db_connection *const connection, const char *const sql,
+                            int *const out_value)
 {
-    sqlite3_stmt *statement = NULL;
-    if (sqlite3_prepare_v2(apl_db_handle(connection), sql, -1, &statement, NULL) != SQLITE_OK) {
+    sqlite3_stmt *statement = nullptr;
+    if (sqlite3_prepare_v2(apl_db_handle(connection), sql, -1, &statement, nullptr) != SQLITE_OK) {
         return APL_ERR_DB_QUERY;
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
@@ -32,7 +33,7 @@ Test(db_migration_rollback, failing_migration_leaves_no_partial_schema_or_versio
     cr_assert_eq(apl_test_temp_dir(dir, sizeof(dir), &err), APL_OK);
     snprintf(path, sizeof(path), "%s/data.sqlite3", dir);
 
-    apl_db_connection connection = {0};
+    apl_db_connection connection = {};
     cr_assert_eq(apl_db_open(&connection, path, &err), APL_OK);
 
     /* Migration 1 succeeds and commits. Migration 2 makes one valid schema
@@ -47,11 +48,11 @@ Test(db_migration_rollback, failing_migration_leaves_no_partial_schema_or_versio
     cr_assert_eq(apl_db_migrations_run_list(&connection, failing_list, 2, &err),
                  APL_ERR_DB_MIGRATION);
     cr_assert_not(apl_error_is_success(&err));
-    cr_assert_neq(strstr(apl_error_message(&err), "apl_roll_missing"), (char *)NULL);
+    cr_assert_neq(strstr(apl_error_message(&err), "apl_roll_missing"), nullptr);
 
     /* The earlier migration is still applied and recorded. */
     int version = -1;
-    cr_assert_eq(apl_db_current_version(&connection, &version, NULL), APL_OK);
+    cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
     cr_assert_eq(version, 1);
 
     int version_rows = -1;
@@ -87,7 +88,7 @@ Test(db_migration_rollback, corrected_migration_recovers_on_the_same_database)
     cr_assert_eq(apl_test_temp_dir(dir, sizeof(dir), &err), APL_OK);
     snprintf(path, sizeof(path), "%s/data.sqlite3", dir);
 
-    apl_db_connection connection = {0};
+    apl_db_connection connection = {};
     cr_assert_eq(apl_db_open(&connection, path, &err), APL_OK);
 
     const apl_db_migration failing_list[] = {
@@ -107,7 +108,7 @@ Test(db_migration_rollback, corrected_migration_recovers_on_the_same_database)
     cr_assert_eq(apl_db_migrations_run_list(&connection, corrected_list, 2, &err), APL_OK);
 
     int version = -1;
-    cr_assert_eq(apl_db_current_version(&connection, &version, NULL), APL_OK);
+    cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
     cr_assert_eq(version, 2);
 
     int version_rows = -1;

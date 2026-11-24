@@ -18,13 +18,13 @@
 
 /** Run the scaffold shell until the user requests exit.
  *
- * Requires a started TUI; on a NULL/unstarted value returns
+ * Requires a started TUI; on a nullptr/unstarted value returns
  * APL_ERR_INVALID_ARGUMENT without touching the terminal. Returns APL_OK
  * after the user pressed the exit key. APL_ERR_TUI_RENDER means a frame
  * could not be drawn; APL_ERR_TUI_INPUT means the terminal input stream
  * became unavailable (without input the shell cannot be operated). After
  * any return the caller stops the TUI through apl_tui_stop.
  */
-apl_status apl_tui_shell_run(apl_tui *tui, apl_error *error);
+apl_status apl_tui_shell_run(const apl_tui *tui, apl_error *error);
 
 #endif /* APL_TUI_SHELL_H */

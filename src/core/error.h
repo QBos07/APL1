@@ -2,13 +2,14 @@
 #define APL_CORE_ERROR_H
 
 #include <stdarg.h>
+#include <stddef.h>
 
 /*
  * Application error reporting for apl1.
  *
  * Conventions (see CONTRIBUTING.md):
  * - Fallible functions return an apl_status and may accept a caller-supplied
- *   apl_error* (optional: NULL is allowed) that is only written on failure.
+ *   apl_error* (optional: nullptr is allowed) that is only written on failure.
  * - No hidden global "last error" state: every error is a value the caller owns.
  * - apl_error owns its message as a fixed-size buffer, so no dynamic allocation
  *   is involved and callers need no destructor.
@@ -34,7 +35,7 @@ typedef enum apl_status {
 } apl_status;
 
 /** Maximum length of an apl_error message, including the terminating NUL. */
-#define APL_ERROR_MESSAGE_MAX 256
+constexpr size_t APL_ERROR_MESSAGE_MAX = 256;
 
 /** A caller-owned error value. On success paths code is APL_OK and message is
  *  empty; on failure code is one of the APL_ERR_* values and message is a
@@ -52,9 +53,9 @@ void apl_error_init(apl_error *error);
 void apl_error_clear(apl_error *error);
 
 /** Fill an error value with a failure code and a printf-formatted message
- *  (truncated to APL_ERROR_MESSAGE_MAX). Ignored if error is NULL. */
-void apl_error_set(apl_error *error, apl_status code, const char *fmt, ...)
-        __attribute__((format(printf, 3, 4)));
+ *  (truncated to APL_ERROR_MESSAGE_MAX). Ignored if error is nullptr. */
+[[gnu::format(printf, 3, 4)]]
+void apl_error_set(apl_error *error, apl_status code, const char *fmt, ...);
 
 /** Fill an error value using an argument list (see apl_error_set). */
 void apl_error_setv(apl_error *error, apl_status code, const char *fmt, va_list args);

@@ -6,10 +6,11 @@
 #include "db/migrations.h"
 #include "test_support.h"
 
-static apl_status query_int(apl_db_connection *connection, const char *sql, int *out_value)
+static apl_status query_int(const apl_db_connection *const connection, const char *const sql,
+                            int *const out_value)
 {
-    sqlite3_stmt *statement = NULL;
-    if (sqlite3_prepare_v2(apl_db_handle(connection), sql, -1, &statement, NULL) != SQLITE_OK) {
+    sqlite3_stmt *statement = nullptr;
+    if (sqlite3_prepare_v2(apl_db_handle(connection), sql, -1, &statement, nullptr) != SQLITE_OK) {
         return APL_ERR_DB_QUERY;
     }
     if (sqlite3_step(statement) != SQLITE_ROW) {
@@ -22,13 +23,14 @@ static apl_status query_int(apl_db_connection *connection, const char *sql, int 
 }
 
 /** Open one temporary database. */
-static apl_status open_temp_database(apl_db_connection *connection, char *dir, size_t dir_size)
+static apl_status open_temp_database(apl_db_connection *connection, char *dir,
+                                     const size_t dir_size)
 {
     char path[192];
 
     apl_error err;
     apl_error_init(&err);
-    apl_status status = apl_test_temp_dir(dir, dir_size, &err);
+    const apl_status status = apl_test_temp_dir(dir, dir_size, &err);
     if (status != APL_OK) {
         return status;
     }
@@ -39,7 +41,7 @@ static apl_status open_temp_database(apl_db_connection *connection, char *dir, s
 Test(db_initial_migration, new_database_is_marked_at_initial_version)
 {
     char dir[128];
-    apl_db_connection connection = {0};
+    apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
     apl_error err;
@@ -47,7 +49,7 @@ Test(db_initial_migration, new_database_is_marked_at_initial_version)
     cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
 
     int version = -1;
-    cr_assert_eq(apl_db_current_version(&connection, &version, NULL), APL_OK);
+    cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
     cr_assert_eq(version, 1);
 
     int version_rows = -1;
@@ -63,7 +65,7 @@ Test(db_initial_migration, new_database_is_marked_at_initial_version)
 Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
 {
     char dir[128];
-    apl_db_connection connection = {0};
+    apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
     apl_error err;
@@ -92,7 +94,7 @@ Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
 Test(db_initial_migration, second_migration_run_is_a_noop)
 {
     char dir[128];
-    apl_db_connection connection = {0};
+    apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
     apl_error err;
@@ -106,7 +108,7 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
     cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
 
     int version = -1;
-    cr_assert_eq(apl_db_current_version(&connection, &version, NULL), APL_OK);
+    cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
     cr_assert_eq(version, 1);
 
     int version_rows_after = -1;
