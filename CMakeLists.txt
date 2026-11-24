@@ -51,7 +51,6 @@ if(BUILD_TESTING)
     )
 
     add_executable(apl1_tests
-        tests/test_main.c
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
         tests/unit/test_args.c
