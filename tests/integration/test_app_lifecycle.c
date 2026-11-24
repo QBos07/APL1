@@ -31,8 +31,8 @@ static apl_status make_temp_database(char *dir, const size_t dir_size, char *pat
 
 Test(app_lifecycle, start_and_stop_with_temporary_database)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     apl_error err;
     apl_error_init(&err);
 
@@ -63,8 +63,8 @@ Test(app_lifecycle, start_and_stop_with_temporary_database)
 
 Test(app_lifecycle, explicit_path_without_parent_directory_fails_without_leak)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     apl_error err;
     apl_error_init(&err);
 
@@ -85,8 +85,8 @@ Test(app_lifecycle, explicit_path_without_parent_directory_fails_without_leak)
 
 Test(app_lifecycle, schema_too_new_database_fails_without_leak)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     apl_error err;
     apl_error_init(&err);
 

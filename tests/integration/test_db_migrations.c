@@ -12,7 +12,7 @@
 static apl_status open_temp_database(apl_db_connection *connection, char *dir,
                                      const size_t dir_size)
 {
-    char path[192];
+    char path[APL_TEST_PATH_MAX];
 
     apl_error err;
     apl_error_init(&err);
@@ -52,7 +52,7 @@ static void expect_int(const apl_db_connection *const connection, const char *co
 
 Test(db_migrations, first_run_creates_version_table_and_reaches_latest)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -82,7 +82,7 @@ Test(db_migrations, first_run_creates_version_table_and_reaches_latest)
 
 Test(db_migrations, repeated_run_is_a_noop)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -117,7 +117,7 @@ Test(db_migrations, repeated_run_is_a_noop)
 
 Test(db_migrations, newer_database_is_reported_and_not_modified)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -152,7 +152,7 @@ Test(db_migrations, newer_database_is_reported_and_not_modified)
 
 Test(db_migrations, duplicate_versions_are_rejected_without_touching_database)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -176,7 +176,7 @@ Test(db_migrations, duplicate_versions_are_rejected_without_touching_database)
 
 Test(db_migrations, gaps_are_rejected_without_touching_database)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -198,12 +198,12 @@ Test(db_migrations, gaps_are_rejected_without_touching_database)
 
 Test(db_migrations, current_version_is_zero_for_fresh_database)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_error err;
     apl_error_init(&err);
     cr_assert_eq(apl_test_temp_dir(dir, sizeof(dir), &err), APL_OK);
 
-    char path[192];
+    char path[APL_TEST_PATH_MAX];
     snprintf(path, sizeof(path), "%s/data.sqlite3", dir);
 
     apl_db_connection connection = {};

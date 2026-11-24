@@ -26,7 +26,7 @@ static apl_status query_int(const apl_db_connection *const connection, const cha
 static apl_status open_temp_database(apl_db_connection *connection, char *dir,
                                      const size_t dir_size)
 {
-    char path[192];
+    char path[APL_TEST_PATH_MAX];
 
     apl_error err;
     apl_error_init(&err);
@@ -40,7 +40,7 @@ static apl_status open_temp_database(apl_db_connection *connection, char *dir,
 
 Test(db_initial_migration, new_database_is_marked_at_initial_version)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -64,7 +64,7 @@ Test(db_initial_migration, new_database_is_marked_at_initial_version)
 
 Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 
@@ -93,7 +93,7 @@ Test(db_initial_migration, baseline_contains_no_domain_or_sample_records)
 
 Test(db_initial_migration, second_migration_run_is_a_noop)
 {
-    char dir[128];
+    char dir[APL_TEST_DIR_MAX];
     apl_db_connection connection = {};
     cr_assert_eq(open_temp_database(&connection, dir, sizeof(dir)), APL_OK);
 

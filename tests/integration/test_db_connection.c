@@ -39,8 +39,8 @@ static apl_status make_test_database(char *dir, const size_t dir_size, char *pat
 
 Test(db_connection, open_creates_usable_database)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     cr_assert_eq(make_test_database(dir, sizeof(dir), path, sizeof(path)), APL_OK);
 
     apl_error err;
@@ -68,8 +68,8 @@ Test(db_connection, open_creates_usable_database)
 
 Test(db_connection, reopen_persists_data)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     cr_assert_eq(make_test_database(dir, sizeof(dir), path, sizeof(path)), APL_OK);
 
     apl_error err;
@@ -104,8 +104,8 @@ Test(db_connection, close_is_safe_on_uninitialized_and_repeated)
 
 Test(db_connection, invalid_path_fails_without_leaked_handle)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     apl_error err;
     apl_error_init(&err);
     cr_assert_eq(apl_test_temp_dir(dir, sizeof(dir), &err), APL_OK);

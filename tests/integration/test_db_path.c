@@ -94,9 +94,9 @@ Test(db_path, too_small_buffer_is_rejected_not_truncated)
 
 Test(db_path, ensure_parent_directory_creates_missing_directories)
 {
-    char root[128];
-    char path[192];
-    char leaf[192];
+    char root[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    char leaf[APL_TEST_PATH_MAX];
 
     apl_error err;
     apl_error_init(&err);
@@ -120,9 +120,9 @@ Test(db_path, ensure_parent_directory_creates_missing_directories)
 
 Test(db_path, ensure_parent_directory_fails_on_file_collision)
 {
-    char root[128];
-    char blocker_path[192];
-    char path[192];
+    char root[APL_TEST_DIR_MAX];
+    char blocker_path[APL_TEST_PATH_MAX];
+    char path[APL_TEST_PATH_MAX];
 
     apl_error err;
     apl_error_init(&err);

@@ -39,6 +39,7 @@ if(BUILD_TESTING)
     add_executable(apl1_tests
         tests/test_main.c
         tests/unit/test_error.c
+        tests/integration/test_test_support.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
         tests/integration/test_db_foreign_keys.c

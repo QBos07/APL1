@@ -25,8 +25,8 @@ static apl_status open_temp_database(apl_db_connection *connection, char *dir,
 
 Test(db_foreign_keys, new_connection_reports_enforcement_enabled)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     apl_error err;
     apl_error_init(&err);
 
@@ -46,8 +46,8 @@ Test(db_foreign_keys, new_connection_reports_enforcement_enabled)
 
 Test(db_foreign_keys, invalid_child_insert_is_rejected)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
     apl_error err;
     apl_error_init(&err);
 

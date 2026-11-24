@@ -25,8 +25,8 @@ static apl_status query_int(const apl_db_connection *const connection, const cha
 
 Test(db_migration_rollback, failing_migration_leaves_no_partial_schema_or_version_record)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
 
     apl_error err;
     apl_error_init(&err);
@@ -80,8 +80,8 @@ Test(db_migration_rollback, failing_migration_leaves_no_partial_schema_or_versio
 
 Test(db_migration_rollback, corrected_migration_recovers_on_the_same_database)
 {
-    char dir[128];
-    char path[192];
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
 
     apl_error err;
     apl_error_init(&err);
