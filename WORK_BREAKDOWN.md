@@ -152,18 +152,22 @@ versus incomplete ex commands behave as documented without bypassing business lo
 
 ## Phase 3 — Shared records, people, and audit groundwork
 
-Goal: add only reference records needed by money, development, parts, and outcomes, and establish traceable changes.
+Goal: add manually maintained people/season/car references and a user-inspectable, traceable history of team changes. Do not generate seasons, drivers, memberships, or cars.
 
-- [ ] **3.1 Add a season/period record.** User-created label and optional dates; test that the application does not generate seasons.
-- [ ] **3.2 Add a driver profile repository and use case.** Create, view, rename, and archive a driver with minimal optional fields.
-- [ ] **3.3 Add dated team-driver membership.** Record joins/leaves so historical results can keep their original team/driver association.
-- [ ] **3.4 Add a car/chassis reference record.** User-created identifier and optional notes; no auto-created car.
-- [ ] **3.5 Add an audit/activity table and repository.** Store timestamp, team, action, entity type/ID, and a concise description; test persistence and team scoping.
-- [ ] **3.6 Record team create/rename/archive activity.** Verify the audit entry is written atomically with the team operation.
-- [ ] **3.7 Define which fields get before/after audit values.** Start with team and financial changes; do not build a generic diff engine before a real use case needs it.
-- [ ] **3.8 Add the people/reference list and detail views.** Reuse list/form patterns and clearly distinguish archived from active references.
+- [ ] **3.1 Add user-created season/period records.** [Work item](work-items/phase-3/3.1-season-records.md)
+- [ ] **3.2 Add driver profile records.** [Work item](work-items/phase-3/3.2-driver-profiles.md)
+- [ ] **3.3 Add dated team-driver membership records.** [Work item](work-items/phase-3/3.3-team-driver-membership.md)
+- [ ] **3.4 Add user-created car/chassis records.** [Work item](work-items/phase-3/3.4-car-records.md)
+- [ ] **3.5 Add the audit/activity schema and repository.** [Work item](work-items/phase-3/3.5-audit-schema-repository.md)
+- [ ] **3.6 Record team create/rename/archive activity.** [Work item](work-items/phase-3/3.6-team-audit-events.md)
+- [ ] **3.7 Define and record before/after values for team changes.** [Work item](work-items/phase-3/3.7-team-audit-change-policy.md)
+- [ ] **3.8 Build People views for drivers and team membership.** [Work item](work-items/phase-3/3.8-people-views.md)
+- [ ] **3.9 Build season/period views.** [Work item](work-items/phase-3/3.9-season-views.md)
+- [ ] **3.10 Build car/chassis reference views.** [Work item](work-items/phase-3/3.10-car-views.md)
+- [ ] **3.11 Add a team-scoped activity history view.** [Work item](work-items/phase-3/3.11-team-activity-history-view.md)
+- [ ] **3.12 Add commands for Phase 3 reference records.** [Work item](work-items/phase-3/3.12-reference-commands.md)
 
-**Gate:** teams, drivers, seasons, and cars are user-created references; historical membership is retained; important team changes appear in history.
+**Gate:** users can create and manage their own seasons, drivers, memberships, and cars; historical relationships remain intact; team changes are transactionally recorded and visible in History; and menus/dialogs/commands use the same operations.
 
 ## Phase 4 — Money ledger and budgets
 
