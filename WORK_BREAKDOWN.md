@@ -32,7 +32,7 @@ Goal: start and stop cleanly, open a local SQLite database, and evolve its schem
 - [x] **1.2 Add a SQLite connection lifecycle wrapper.** [Work item](work-items/phase-1/1.2-database-connection.md)
 - [x] **1.3 Define and implement database-path resolution.** [Work item](work-items/phase-1/1.3-database-path.md)
 - [x] **1.4 Enable and verify SQLite foreign keys.** [Work item](work-items/phase-1/1.4-foreign-keys.md)
-- [ ] **1.5 Add schema versioning and a migration runner.** [Work item](work-items/phase-1/1.5-migration-runner.md)
+- [x] **1.5 Add schema versioning and a migration runner.** [Work item](work-items/phase-1/1.5-migration-runner.md)
 - [ ] **1.6 Add the empty initial migration.** [Work item](work-items/phase-1/1.6-initial-migration.md)
 - [ ] **1.7 Prove migration failures roll back.** [Work item](work-items/phase-1/1.7-migration-rollback.md)
 - [ ] **1.8 Own the Notcurses initialize/stop lifecycle.** [Work item](work-items/phase-1/1.8-notcurses-lifecycle.md)

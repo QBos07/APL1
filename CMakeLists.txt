@@ -30,6 +30,7 @@ if(BUILD_TESTING)
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
         tests/integration/test_db_foreign_keys.c
+        tests/integration/test_db_migrations.c
     )
 
     target_include_directories(apl1_tests PRIVATE src tests/integration)
@@ -56,6 +57,7 @@ target_include_directories(apl_core PUBLIC src)
 add_library(apl_db STATIC
     src/db/connection.c
     src/db/path.c
+    src/db/migrations.c
 )
 
 target_include_directories(apl_db PUBLIC src tests/integration)
