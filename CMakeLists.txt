@@ -90,6 +90,7 @@ if(BUILD_TESTING)
 
     add_executable(apl1_tui_tests
         tests/tui/test_tui_dialog.c
+        tests/tui/test_tui_frame.c
         tests/tui/test_tui_lifecycle.c
         tests/tui/test_tui_layout.c
         tests/tui/test_tui_list.c
@@ -166,6 +167,7 @@ target_link_libraries(apl_db PUBLIC
 
 add_library(apl_tui STATIC
     src/tui/dialog.c
+    src/tui/frame.c
     src/tui/layout.c
     src/tui/lifecycle.c
     src/tui/list.c
@@ -176,6 +178,7 @@ add_library(apl_tui STATIC
 target_include_directories(apl_tui PUBLIC src)
 target_link_libraries(apl_tui PUBLIC
     apl_core
+    apl_app
     PRIVATE Notcurses::Notcurses
 )
 

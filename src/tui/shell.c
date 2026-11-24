@@ -1,72 +1,1031 @@
 #include "tui/shell.h"
 
 #include <notcurses/notcurses.h>
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-/* Screen text for the temporary scaffold shell. Deliberately small: the
- * first-run/team flow belongs to Phase 2 (see work item 1.9). */
+#include "app/team_service.h"
+#include "tui/dialog.h"
+#include "tui/frame.h"
+#include "tui/list.h"
+#include "tui/navigation.h"
 
-/** Draw one line at `row`, truncated to the plane width. Rows beyond the
- *  plane are skipped so a tiny terminal cannot produce out-of-area drawing. */
-static void draw_line(struct ncplane *const plane, const int row, const char *const text)
+typedef enum shell_screen {
+    SHELL_SCREEN_WELCOME = 0,
+    SHELL_SCREEN_TEAM_LIST,
+    SHELL_SCREEN_TEAM_DETAIL,
+    SHELL_SCREEN_TEAM_FORM,
+    SHELL_SCREEN_PLACEHOLDER,
+} shell_screen;
+
+typedef enum shell_pending_action {
+    SHELL_PENDING_NONE = 0,
+    SHELL_PENDING_DISCARD_FORM,
+    SHELL_PENDING_ARCHIVE_TEAM,
+} shell_pending_action;
+
+typedef struct shell_form {
+    bool editing;
+    int64_t team_id;
+    char name[APL_TEAM_NAME_MAX];
+    char notes[APL_TEAM_NOTES_MAX];
+    char original_name[APL_TEAM_NAME_MAX];
+    char original_notes[APL_TEAM_NOTES_MAX];
+    unsigned focus; /* 0 = name, 1 = notes */
+} shell_form;
+
+constexpr size_t SHELL_STATUS_MAX = 320;
+
+typedef struct shell_state {
+    apl_app *app;
+    apl_tui_frame frame;
+    apl_tui_section section;
+    shell_screen screen;
+    shell_screen form_return_screen;
+    apl_tui_list list;
+    apl_team *teams;
+    size_t team_count;
+    bool include_archived;
+    bool any_teams;
+    apl_team active_team;
+    apl_active_team_status active_status;
+    apl_team detail;
+    shell_form form;
+    apl_tui_dialog dialog;
+    shell_pending_action pending;
+    int64_t pending_team_id;
+    char status[SHELL_STATUS_MAX];
+    bool quit;
+} shell_state;
+
+static void set_status(shell_state *const state, const char *const format, ...)
 {
-    unsigned rows = 0;
-    unsigned cols = 0;
-    ncplane_dim_yx(plane, &rows, &cols);
-    if (row < 0 || (unsigned)row >= rows) {
+    va_list args;
+    va_start(args);
+    (void)vsnprintf(state->status, sizeof(state->status), format, args);
+    va_end(args);
+}
+
+static void set_status_from_error(shell_state *const state, const char *const context,
+                                  const apl_error *const error)
+{
+    const char *const message = apl_error_message(error);
+    if (message != nullptr && message[0] != '\0') {
+        set_status(state, "%s: %s", context, message);
+    } else {
+        set_status(state, "%s", context);
+    }
+}
+
+/** Find a team index by stable ID; SIZE_MAX means missing. */
+static size_t find_team_index(const shell_state *const state, const int64_t id)
+{
+    for (size_t index = 0; index < state->team_count; ++index) {
+        if (state->teams[index].id == id) {
+            return index;
+        }
+    }
+    return SIZE_MAX;
+}
+
+static const apl_team *selected_team(const shell_state *const state)
+{
+    if (state->teams == nullptr || state->team_count == 0 ||
+        state->list.selected >= state->team_count) {
+        return nullptr;
+    }
+    return &state->teams[state->list.selected];
+}
+
+static apl_status refresh_active(shell_state *const state, apl_error *const error)
+{
+    return apl_team_service_active(state->app, &state->active_team, &state->active_status, error);
+}
+
+static apl_status detect_any_teams(shell_state *const state, apl_error *const error)
+{
+    apl_team *teams = nullptr;
+    size_t count = 0;
+    const apl_status status = apl_team_service_list(state->app, true, &teams, &count, error);
+    if (status != APL_OK) {
+        return status;
+    }
+    state->any_teams = count > 0;
+    apl_team_service_free_list(teams);
+    return APL_OK;
+}
+
+/** Reload the visible team list, preserving/choosing a stable team ID. */
+static apl_status refresh_teams(shell_state *const state, const int64_t preferred_id,
+                                apl_error *const error)
+{
+    int64_t keep_id = preferred_id;
+    const apl_team *current = selected_team(state);
+    if (keep_id == 0 && current != nullptr) {
+        keep_id = current->id;
+    }
+
+    apl_team *teams = nullptr;
+    size_t count = 0;
+    const apl_status status =
+        apl_team_service_list(state->app, state->include_archived, &teams, &count, error);
+    if (status != APL_OK) {
+        return status;
+    }
+
+    apl_team_service_free_list(state->teams);
+    state->teams = teams;
+    state->team_count = count;
+    apl_tui_list_set_count(&state->list, count);
+
+    if (keep_id != 0) {
+        const size_t index = find_team_index(state, keep_id);
+        if (index != SIZE_MAX) {
+            apl_tui_list_select(&state->list, index);
+        }
+    }
+    return APL_OK;
+}
+
+static bool form_is_dirty(const shell_state *const state)
+{
+    return strcmp(state->form.name, state->form.original_name) != 0 ||
+           strcmp(state->form.notes, state->form.original_notes) != 0;
+}
+
+static void open_create_form(shell_state *const state)
+{
+    state->form = (shell_form){};
+    state->form_return_screen = state->screen;
+    state->screen = SHELL_SCREEN_TEAM_FORM;
+    set_status(state, "Enter a team name and optional notes. Tab moves between fields.");
+}
+
+static void open_edit_form(shell_state *const state)
+{
+    state->form = (shell_form){
+        .editing = true,
+        .team_id = state->detail.id,
+        .focus = 0,
+    };
+    (void)snprintf(state->form.name, sizeof(state->form.name), "%s", state->detail.name);
+    (void)snprintf(state->form.notes, sizeof(state->form.notes), "%s", state->detail.notes);
+    (void)snprintf(state->form.original_name, sizeof(state->form.original_name), "%s",
+                   state->detail.name);
+    (void)snprintf(state->form.original_notes, sizeof(state->form.original_notes), "%s",
+                   state->detail.notes);
+    state->form_return_screen = SHELL_SCREEN_TEAM_DETAIL;
+    state->screen = SHELL_SCREEN_TEAM_FORM;
+    set_status(state, "Editing team. Enter saves; Esc cancels.");
+}
+
+static void close_form(shell_state *const state)
+{
+    if (state->form.editing) {
+        state->screen = SHELL_SCREEN_TEAM_DETAIL;
         return;
     }
-    (void)ncplane_printf_yx(plane, row, 0, "%.*s", (int)cols, text);
+    state->screen = (state->form_return_screen == SHELL_SCREEN_TEAM_FORM)
+                        ? SHELL_SCREEN_TEAM_LIST
+                        : state->form_return_screen;
+    if (state->screen == SHELL_SCREEN_WELCOME && state->any_teams) {
+        state->screen = SHELL_SCREEN_TEAM_LIST;
+    }
 }
 
-static void draw_screen(struct ncplane *const plane)
+static void show_error_dialog(shell_state *const state, const apl_error *const error)
 {
-    constexpr int title_row = 0;
-    constexpr int empty_state_row = 2;
-    constexpr int exit_hint_row = 4;
-
-    draw_line(plane, title_row, "apl1 - Formula 1 Team Management Database");
-    draw_line(plane, empty_state_row,
-              "No teams have been added yet. Management screens arrive in later phases.");
-    draw_line(plane, exit_hint_row, "Press q to quit.");
+    set_status_from_error(state, "Operation failed", error);
+    apl_tui_dialog_open_error(&state->dialog, "Operation failed", apl_error_message(error));
+    state->pending = SHELL_PENDING_NONE;
 }
 
-apl_status apl_tui_shell_run(const apl_tui *const tui, apl_error *const error)
+static void perform_create(shell_state *const state, apl_error *const error)
 {
-    if (tui == nullptr || tui->notcurses == nullptr) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "TUI is not started");
+    apl_team created = {};
+    const apl_status status =
+        apl_team_service_create(state->app, state->form.name, state->form.notes, &created, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot create team", error);
+        return;
+    }
+
+    state->any_teams = true;
+    state->detail = created;
+    apl_error_init(error);
+    apl_status reload = refresh_active(state, error);
+    if (reload == APL_OK) {
+        reload = refresh_teams(state, created.id, error);
+    }
+    if (reload != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_TEAM_DETAIL;
+    set_status(state, "Team created. Press Esc to return to the team list.");
+}
+
+static void perform_update(shell_state *const state, apl_error *const error)
+{
+    apl_team updated = {};
+    const apl_status status = apl_team_service_update(
+        state->app, state->form.team_id, state->form.name, state->form.notes, &updated, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save team", error);
+        return;
+    }
+
+    state->detail = updated;
+    apl_error_init(error);
+    apl_status reload = refresh_active(state, error);
+    if (reload == APL_OK) {
+        reload = refresh_teams(state, updated.id, error);
+    }
+    if (reload != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    state->screen = SHELL_SCREEN_TEAM_DETAIL;
+    set_status(state, "Changes saved.");
+}
+
+static void perform_archive(shell_state *const state, const int64_t team_id, apl_error *const error)
+{
+    apl_team archived = {};
+    const apl_status status = apl_team_service_archive(state->app, team_id, &archived, error);
+    if (status != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+
+    apl_error_init(error);
+    apl_status reload = refresh_active(state, error);
+    if (reload == APL_OK) {
+        reload = refresh_teams(state, 0, error);
+    }
+    if (reload != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
+    if (state->active_status == APL_ACTIVE_TEAM_NONE) {
+        set_status(state, "Team archived. No active team; select another team.");
+    } else {
+        set_status(state, "Team archived. Its history remains available in the archived view.");
+    }
+}
+
+static void perform_set_active(shell_state *const state, const int64_t team_id,
+                               apl_error *const error)
+{
+    const apl_status status = apl_team_service_set_active(state->app, team_id, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot switch team", error);
+        return;
+    }
+    apl_error_init(error);
+    if (refresh_active(state, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    set_status(state, "Active team: %s", state->active_team.name);
+}
+
+static void toggle_archived_view(shell_state *const state, apl_error *const error)
+{
+    state->include_archived = !state->include_archived;
+    apl_error_init(error);
+    if (refresh_teams(state, 0, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    set_status(state,
+               state->include_archived ? "Showing archived teams." : "Hiding archived teams.");
+}
+
+static void switch_section(shell_state *const state, const bool forward)
+{
+    state->section =
+        forward ? apl_tui_section_next(state->section) : apl_tui_section_previous(state->section);
+    if (state->section == APL_TUI_SECTION_TEAMS) {
+        state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
+    } else {
+        state->screen = SHELL_SCREEN_PLACEHOLDER;
+    }
+    state->status[0] = '\0';
+}
+
+static void append_utf8(char *const buffer, const size_t capacity, const char *const text)
+{
+    if (buffer == nullptr || text == nullptr || capacity == 0) {
+        return;
+    }
+    const size_t length = strlen(buffer);
+    const size_t addition = strlen(text);
+    if (length + addition >= capacity) {
+        return;
+    }
+    memcpy(buffer + length, text, addition + 1);
+}
+
+static void backspace_utf8(char *const buffer)
+{
+    size_t length = strlen(buffer);
+    if (length == 0) {
+        return;
+    }
+    --length;
+    while (length > 0 && ((unsigned char)buffer[length] & 0xC0U) == 0x80U) {
+        --length;
+    }
+    buffer[length] = '\0';
+}
+
+static void draw_header(shell_state *const state)
+{
+    struct ncplane *const plane = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_HEADER);
+    if (plane == nullptr) {
+        return;
+    }
+    const char *const active =
+        (state->active_status == APL_ACTIVE_TEAM_ACTIVE) ? state->active_team.name : "(none)";
+    char line[256];
+    (void)snprintf(line, sizeof(line), "apl1  |  %s  |  Active: %s",
+                   apl_tui_section_label(state->section), active);
+    apl_tui_frame_set_styles(plane, NCSTYLE_BOLD);
+    apl_tui_frame_draw_line(plane, 0, line);
+    apl_tui_frame_set_styles(plane, 0);
+}
+
+static void draw_welcome(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    apl_tui_frame_draw_line(body, 0, "Welcome to apl1.");
+    apl_tui_frame_draw_line(body, 2, "No teams have been added yet.");
+    apl_tui_frame_draw_line(body, 4, "Press n to create your first team.");
+    apl_tui_frame_draw_line(body, 6, "Press q to quit.");
+}
+
+static void draw_team_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+
+    if (state->team_count == 0) {
+        if (state->any_teams && !state->include_archived) {
+            apl_tui_frame_draw_line(body, 0, "No active teams. Press a to show archived teams.");
+        } else {
+            apl_tui_frame_draw_line(body, 0,
+                                    "No teams have been added yet. Press n to create one.");
+        }
+        return;
+    }
+
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_team *const team = &state->teams[index];
+        const bool focused = index == state->list.selected;
+        const bool active =
+            state->active_status == APL_ACTIVE_TEAM_ACTIVE && team->id == state->active_team.id;
+
+        char line[APL_TEAM_NAME_MAX + APL_TEAM_NOTES_MAX + 32];
+        (void)snprintf(line, sizeof(line), "%c%c %s%s%s%s", focused ? '>' : ' ', active ? '*' : ' ',
+                       team->name, team->archived ? " [archived]" : "",
+                       team->notes[0] != '\0' ? "  -  " : "", team->notes);
+        apl_tui_frame_set_styles(body, focused ? NCSTYLE_BOLD : 0);
+        apl_tui_frame_draw_line(body, (int)offset, line);
+        apl_tui_frame_set_styles(body, 0);
+    }
+}
+
+static void draw_team_detail(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    const unsigned cols = apl_tui_frame_layout(&state->frame)->body.cols;
+
+    int row = 0;
+    char line[APL_TEAM_NAME_MAX + 64];
+    (void)snprintf(line, sizeof(line), "Name: %s", state->detail.name);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Status: %s",
+                   state->detail.archived ? "Archived" : "Active");
+    apl_tui_frame_draw_line(body, row++, line);
+
+    apl_tui_frame_draw_line(body, row++, "Notes:");
+    const char *const notes = state->detail.notes[0] != '\0' ? state->detail.notes : "not recorded";
+    const unsigned note_rows =
+        apl_tui_frame_draw_wrapped(body, row, 2, cols > 2 ? cols - 2 : cols, notes);
+    row += (note_rows > 0) ? (int)note_rows : 1;
+
+    ++row;
+    (void)snprintf(line, sizeof(line), "Created: %s", state->detail.created_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Updated: %s", state->detail.updated_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    if (state->detail.archived) {
+        (void)snprintf(line, sizeof(line), "Archived: %s", state->detail.archived_at);
+        apl_tui_frame_draw_line(body, row++, line);
+    }
+
+    ++row;
+    apl_tui_frame_draw_line(body, row++, "Related records");
+    apl_tui_frame_draw_line(body, row++, "  People: not implemented in this phase");
+    apl_tui_frame_draw_line(body, row++, "  Cars: not implemented in this phase");
+    apl_tui_frame_draw_line(body, row++, "  Money: not implemented in this phase");
+}
+
+static void draw_team_form(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+
+    apl_tui_frame_draw_line(body, 0, state->form.editing ? "Edit team" : "Create a new team");
+
+    char line[APL_TEAM_NAME_MAX + APL_TEAM_NOTES_MAX + 16];
+    int row = 2;
+    (void)snprintf(line, sizeof(line), "%c Name:  %s", state->form.focus == 0 ? '>' : ' ',
+                   state->form.name);
+    apl_tui_frame_set_styles(body, state->form.focus == 0 ? NCSTYLE_BOLD : 0);
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_set_styles(body, 0);
+
+    (void)snprintf(line, sizeof(line), "%c Notes: %s", state->form.focus == 1 ? '>' : ' ',
+                   state->form.notes);
+    apl_tui_frame_set_styles(body, state->form.focus == 1 ? NCSTYLE_BOLD : 0);
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_set_styles(body, 0);
+
+    apl_tui_frame_draw_line(body, row + 2, "Tab next field   Enter save   Esc cancel");
+}
+
+static void draw_placeholder(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    char line[128];
+    (void)snprintf(line, sizeof(line), "%s is not implemented in this phase.",
+                   apl_tui_section_label(state->section));
+    apl_tui_frame_draw_line(body, 1, line);
+    apl_tui_frame_draw_line(body, 3, "Use [ and ] to return to Teams.");
+}
+
+static void draw_actions(shell_state *const state)
+{
+    struct ncplane *const actions = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_ACTIONS);
+    if (actions == nullptr) {
+        return;
+    }
+
+    if (state->section != APL_TUI_SECTION_TEAMS) {
+        apl_tui_frame_draw_line(actions, 0, "[ ] section    q quit");
+        return;
+    }
+
+    switch (state->screen) {
+    case SHELL_SCREEN_WELCOME:
+        apl_tui_frame_draw_line(actions, 0, "n create team    [ ] section    q quit");
+        break;
+    case SHELL_SCREEN_TEAM_LIST:
+        apl_tui_frame_draw_line(
+            actions, 0,
+            state->include_archived
+                ? "n new   Enter open   s set active   a hide archived   [ ] section   q quit"
+                : "n new   Enter open   s set active   a show archived   [ ] section   q quit");
+        break;
+    case SHELL_SCREEN_TEAM_DETAIL:
+        apl_tui_frame_draw_line(actions, 0,
+                                state->detail.archived
+                                    ? "Esc back   e unavailable (archived)   q quit"
+                                    : "e edit   s set active   x archive   Esc back   q quit");
+        break;
+    case SHELL_SCREEN_TEAM_FORM:
+        apl_tui_frame_draw_line(actions, 0, "Tab next field   Enter save   Esc cancel");
+        break;
+    case SHELL_SCREEN_PLACEHOLDER:
+        apl_tui_frame_draw_line(actions, 0, "[ ] section    q quit");
+        break;
+    }
+}
+
+static void draw_dialog(shell_state *const state)
+{
+    struct ncplane *const overlay = apl_tui_frame_overlay(&state->frame);
+    if (overlay == nullptr) {
+        return;
+    }
+    unsigned rows = 0;
+    unsigned cols = 0;
+    ncplane_dim_yx(overlay, &rows, &cols);
+    if (rows < 3 || cols < 4) {
+        return;
+    }
+
+    for (unsigned x = 1; x + 1 < cols; ++x) {
+        (void)ncplane_putchar_yx(overlay, 0, (int)x, '-');
+        (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)x, '-');
+    }
+    for (unsigned y = 1; y + 1 < rows; ++y) {
+        (void)ncplane_putchar_yx(overlay, (int)y, 0, '|');
+        (void)ncplane_putchar_yx(overlay, (int)y, (int)(cols - 1), '|');
+    }
+    (void)ncplane_putchar_yx(overlay, 0, 0, '+');
+    (void)ncplane_putchar_yx(overlay, 0, (int)(cols - 1), '+');
+    (void)ncplane_putchar_yx(overlay, (int)(rows - 1), 0, '+');
+    (void)ncplane_putchar_yx(overlay, (int)(rows - 1), (int)(cols - 1), '+');
+
+    apl_tui_frame_draw_text(overlay, 1, 2, state->dialog.title);
+    const unsigned message_rows = apl_tui_frame_draw_wrapped(
+        overlay, 3, 2, cols > 4 ? cols - 4 : cols, state->dialog.message);
+    (void)message_rows;
+
+    const int button_row = (int)rows - 2;
+    if (state->dialog.kind == APL_TUI_DIALOG_CONFIRM) {
+        apl_tui_frame_set_styles(overlay, state->dialog.focus == 0 ? NCSTYLE_BOLD : 0);
+        apl_tui_frame_draw_text(overlay, button_row, 2, "[ Cancel ]");
+        apl_tui_frame_set_styles(overlay, state->dialog.focus == 1 ? NCSTYLE_BOLD : 0);
+        apl_tui_frame_draw_text(overlay, button_row, 15, "[ Confirm ]");
+        apl_tui_frame_set_styles(overlay, 0);
+    } else {
+        apl_tui_frame_set_styles(overlay, NCSTYLE_BOLD);
+        apl_tui_frame_draw_text(overlay, button_row, 2, "[ OK ]");
+        apl_tui_frame_set_styles(overlay, 0);
+    }
+}
+
+static void draw_screen(shell_state *const state)
+{
+    draw_header(state);
+
+    if (state->section != APL_TUI_SECTION_TEAMS) {
+        draw_placeholder(state);
+    } else {
+        switch (state->screen) {
+        case SHELL_SCREEN_WELCOME:
+            draw_welcome(state);
+            break;
+        case SHELL_SCREEN_TEAM_LIST:
+            draw_team_list(state);
+            break;
+        case SHELL_SCREEN_TEAM_DETAIL:
+            draw_team_detail(state);
+            break;
+        case SHELL_SCREEN_TEAM_FORM:
+            draw_team_form(state);
+            break;
+        case SHELL_SCREEN_PLACEHOLDER:
+            draw_placeholder(state);
+            break;
+        }
+    }
+
+    draw_actions(state);
+
+    struct ncplane *const status = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_STATUS);
+    if (status != nullptr && state->status[0] != '\0') {
+        apl_tui_frame_draw_line(status, 0, state->status);
+    }
+
+    if (apl_tui_dialog_active(&state->dialog)) {
+        draw_dialog(state);
+    }
+}
+
+static bool is_enter_key(const uint32_t id)
+{
+    return id == NCKEY_ENTER || id == '\n' || id == '\r';
+}
+
+static void handle_dialog_input(shell_state *const state, const ncinput *const input)
+{
+    const uint32_t id = input->id;
+    if (id == NCKEY_LEFT) {
+        apl_tui_dialog_move_focus(&state->dialog, -1);
+        return;
+    }
+    if (id == NCKEY_RIGHT) {
+        apl_tui_dialog_move_focus(&state->dialog, 1);
+        return;
+    }
+    if (id == NCKEY_TAB) {
+        apl_tui_dialog_move_focus(&state->dialog, ncinput_shift_p(input) ? -1 : 1);
+        return;
+    }
+
+    apl_tui_dialog_result result = APL_TUI_DIALOG_PENDING;
+    if (is_enter_key(id)) {
+        result = apl_tui_dialog_activate(&state->dialog);
+    } else if (id == NCKEY_ESC) {
+        result = apl_tui_dialog_dismiss(&state->dialog);
+    }
+    if (result == APL_TUI_DIALOG_PENDING) {
+        return;
+    }
+
+    apl_error error;
+    apl_error_init(&error);
+    const shell_pending_action pending = state->pending;
+    const int64_t pending_team = state->pending_team_id;
+    state->pending = SHELL_PENDING_NONE;
+    state->pending_team_id = 0;
+    apl_tui_dialog_init(&state->dialog);
+
+    if (pending == SHELL_PENDING_DISCARD_FORM) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            close_form(state);
+            set_status(state, "Changes discarded.");
+        } else {
+            set_status(state, "Kept editing.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_TEAM) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_archive(state, pending_team, &error);
+        } else {
+            set_status(state, "Archive cancelled.");
+        }
+    }
+}
+
+static void handle_form_input(shell_state *const state, const ncinput *const input)
+{
+    const uint32_t id = input->id;
+    if (id == NCKEY_ESC) {
+        if (form_is_dirty(state)) {
+            state->pending = SHELL_PENDING_DISCARD_FORM;
+            apl_tui_dialog_open_confirm(&state->dialog, "Discard changes?",
+                                        "The values you typed will be lost.");
+            return;
+        }
+        close_form(state);
+        return;
+    }
+    if (id == NCKEY_TAB) {
+        if (ncinput_shift_p(input)) {
+            state->form.focus = (state->form.focus == 0) ? 1 : 0;
+        } else {
+            state->form.focus = (state->form.focus + 1) % 2;
+        }
+        return;
+    }
+    if (is_enter_key(id)) {
+        apl_error error;
+        apl_error_init(&error);
+        if (state->form.editing) {
+            perform_update(state, &error);
+        } else {
+            perform_create(state, &error);
+        }
+        return;
+    }
+    if (id == NCKEY_BACKSPACE || id == 127) {
+        if (state->form.focus == 0) {
+            backspace_utf8(state->form.name);
+        } else {
+            backspace_utf8(state->form.notes);
+        }
+        return;
+    }
+
+    if (id >= 0x20 && id < PRETERUNICODEBASE && input->utf8[0] != '\0') {
+        if (state->form.focus == 0) {
+            append_utf8(state->form.name, sizeof(state->form.name), input->utf8);
+        } else {
+            append_utf8(state->form.notes, sizeof(state->form.notes), input->utf8);
+        }
+    }
+}
+
+static void open_selected_detail(shell_state *const state)
+{
+    const apl_team *const team = selected_team(state);
+    if (team == nullptr) {
+        return;
+    }
+    state->detail = *team;
+    state->screen = SHELL_SCREEN_TEAM_DETAIL;
+    set_status(state, "Press e to edit, s to set active, x to archive, Esc to go back.");
+}
+
+static void handle_list_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+
+    switch (id) {
+    case NCKEY_UP:
+        apl_tui_list_move(&state->list, -1);
+        return;
+    case NCKEY_DOWN:
+        apl_tui_list_move(&state->list, 1);
+        return;
+    case NCKEY_PGUP:
+        apl_tui_list_page(&state->list, -1);
+        return;
+    case NCKEY_PGDOWN:
+        apl_tui_list_page(&state->list, 1);
+        return;
+    case NCKEY_HOME:
+        apl_tui_list_home(&state->list);
+        return;
+    case NCKEY_END:
+        apl_tui_list_end(&state->list);
+        return;
+    default:
+        break;
+    }
+
+    if (is_enter_key(id)) {
+        open_selected_detail(state);
+        return;
+    }
+    switch (id) {
+    case 'n':
+    case 'N':
+        open_create_form(state);
+        return;
+    case 'a':
+    case 'A':
+        toggle_archived_view(state, &error);
+        if (!apl_error_is_success(&error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case 's':
+    case 'S': {
+        const apl_team *const team = selected_team(state);
+        if (team != nullptr) {
+            if (team->archived) {
+                set_status(state, "Archived teams cannot be active; choose an active team.");
+            } else {
+                perform_set_active(state, team->id, &error);
+                if (!apl_error_is_success(&error)) {
+                    show_error_dialog(state, &error);
+                }
+            }
+        }
+        return;
+    }
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    case '[':
+        switch_section(state, false);
+        return;
+    case ']':
+        switch_section(state, true);
+        return;
+    default:
+        return;
+    }
+}
+
+static void handle_detail_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+
+    switch (id) {
+    case NCKEY_ESC:
+        state->screen = state->any_teams ? SHELL_SCREEN_TEAM_LIST : SHELL_SCREEN_WELCOME;
+        return;
+    case 'e':
+    case 'E':
+        if (state->detail.archived) {
+            set_status(state, "Archived teams cannot be edited in this phase.");
+        } else {
+            open_edit_form(state);
+        }
+        return;
+    case 's':
+    case 'S':
+        if (state->detail.archived) {
+            set_status(state, "Archived teams cannot be active; choose an active team.");
+        } else {
+            perform_set_active(state, state->detail.id, &error);
+            if (!apl_error_is_success(&error)) {
+                show_error_dialog(state, &error);
+            }
+        }
+        return;
+    case 'x':
+    case 'X':
+        if (state->detail.archived) {
+            set_status(state, "This team is already archived.");
+        } else {
+            state->pending = SHELL_PENDING_ARCHIVE_TEAM;
+            state->pending_team_id = state->detail.id;
+            apl_tui_dialog_open_confirm(&state->dialog, "Archive team?",
+                                        "The team will be hidden from the active list. Its "
+                                        "records and history are kept.");
+        }
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    case '[':
+        switch_section(state, false);
+        return;
+    case ']':
+        switch_section(state, true);
+        return;
+    default:
+        return;
+    }
+}
+
+static void handle_welcome_input(shell_state *const state, const uint32_t id)
+{
+    switch (id) {
+    case 'n':
+    case 'N':
+        open_create_form(state);
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    case '[':
+        switch_section(state, false);
+        return;
+    case ']':
+        switch_section(state, true);
+        return;
+    default:
+        return;
+    }
+}
+
+static void handle_input(shell_state *const state, const ncinput *const input)
+{
+    const uint32_t id = input->id;
+    if (apl_tui_dialog_active(&state->dialog)) {
+        handle_dialog_input(state, input);
+        return;
+    }
+    if (state->section != APL_TUI_SECTION_TEAMS) {
+        if (id == 'q' || id == 'Q') {
+            state->quit = true;
+        } else if (id == '[') {
+            switch_section(state, false);
+        } else if (id == ']') {
+            switch_section(state, true);
+        }
+        return;
+    }
+
+    switch (state->screen) {
+    case SHELL_SCREEN_WELCOME:
+        handle_welcome_input(state, id);
+        break;
+    case SHELL_SCREEN_TEAM_LIST:
+        handle_list_input(state, id);
+        break;
+    case SHELL_SCREEN_TEAM_DETAIL:
+        handle_detail_input(state, id);
+        break;
+    case SHELL_SCREEN_TEAM_FORM:
+        handle_form_input(state, input);
+        break;
+    case SHELL_SCREEN_PLACEHOLDER:
+        if (id == 'q' || id == 'Q') {
+            state->quit = true;
+        }
+        break;
+    }
+}
+
+/** Load the initial team state and choose the starting screen. */
+static apl_status initialize_state(shell_state *const state, apl_error *const error)
+{
+    state->section = apl_tui_section_default();
+    state->screen = SHELL_SCREEN_WELCOME;
+    state->include_archived = false;
+    apl_tui_list_init(&state->list, 10);
+    apl_tui_dialog_init(&state->dialog);
+
+    apl_status status = detect_any_teams(state, error);
+    if (status != APL_OK) {
+        return status;
+    }
+    status = refresh_active(state, error);
+    if (status != APL_OK) {
+        return status;
+    }
+
+    if (!state->any_teams) {
+        state->screen = SHELL_SCREEN_WELCOME;
+        return APL_OK;
+    }
+
+    if (state->active_status == APL_ACTIVE_TEAM_ARCHIVED) {
+        state->include_archived = true;
+    }
+    status = refresh_teams(state, state->active_team.id, error);
+    if (status != APL_OK) {
+        return status;
+    }
+
+    state->screen = SHELL_SCREEN_TEAM_LIST;
+    if (state->active_status == APL_ACTIVE_TEAM_ARCHIVED) {
+        set_status(state, "Previously selected team '%s' is archived. Select another team.",
+                   state->active_team.name);
+    } else if (state->active_status == APL_ACTIVE_TEAM_ACTIVE) {
+        set_status(state, "Active team: %s", state->active_team.name);
+    } else if (state->active_status == APL_ACTIVE_TEAM_NONE && state->team_count > 0) {
+        set_status(state, "No active team selected. Use s to choose one.");
+    }
+
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    apl_tui_list_set_viewport_rows(&state->list, layout->body.rows);
+    return APL_OK;
+}
+
+apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_error *const error)
+{
+    if (tui == nullptr || tui->notcurses == nullptr || app == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "TUI shell requires a started TUI and app");
         return APL_ERR_INVALID_ARGUMENT;
     }
 
-    struct notcurses *const nc = tui->notcurses;
-    struct ncplane *const plane = notcurses_stdplane(nc);
+    shell_state state = {.app = app};
+    apl_status status = apl_tui_frame_start(&state.frame, tui, error);
+    if (status != APL_OK) {
+        apl_tui_frame_stop(&state.frame);
+        return status;
+    }
 
-    for (;;) {
-        ncplane_erase(plane);
-        draw_screen(plane);
+    status = initialize_state(&state, error);
+    if (status != APL_OK) {
+        apl_tui_frame_stop(&state.frame);
+        apl_team_service_free_list(state.teams);
+        return status;
+    }
 
-        if (notcurses_render(nc) != 0) {
-            apl_error_set(error, APL_ERR_TUI_RENDER, "screen rendering failed");
-            return APL_ERR_TUI_RENDER;
+    while (!state.quit) {
+        apl_tui_frame_set_overlay(&state.frame, apl_tui_dialog_active(&state.dialog));
+        status = apl_tui_frame_sync(&state.frame, tui, error);
+        if (status != APL_OK) {
+            break;
+        }
+
+        if (apl_tui_frame_normal(&state.frame)) {
+            const apl_tui_layout *const layout = apl_tui_frame_layout(&state.frame);
+            apl_tui_list_set_viewport_rows(&state.list, layout->body.rows);
+            apl_tui_frame_begin(&state.frame);
+            draw_screen(&state);
+        }
+        status = apl_tui_frame_render(&state.frame, error);
+        if (status != APL_OK) {
+            break;
         }
 
         ncinput input = {};
-        const uint32_t id = notcurses_get_blocking(nc, &input);
+        const uint32_t id = notcurses_get_blocking(tui->notcurses, &input);
         if (id == (uint32_t)-1) {
-            /* The input stream failed: without input the shell cannot be
-             * operated, so report instead of spinning forever. */
             apl_error_set(error, APL_ERR_TUI_INPUT, "terminal input became unavailable");
-            return APL_ERR_TUI_INPUT;
+            status = APL_ERR_TUI_INPUT;
+            break;
         }
         if (id == NCKEY_EOF) {
-            /* The input stream reached EOF (e.g. the terminal closed): the
-             * same report, since the shell cannot be operated without it. */
             apl_error_set(error, APL_ERR_TUI_INPUT, "terminal input reached EOF");
-            return APL_ERR_TUI_INPUT;
+            status = APL_ERR_TUI_INPUT;
+            break;
         }
-        if (id == 'q' || id == 'Q') {
-            return APL_OK;
+        if (id == NCKEY_RESIZE) {
+            continue;
         }
-        /* Any other key, including NCKEY_RESIZE, redraws from the current
-         * plane dimensions on the next iteration. */
+        if (!apl_tui_frame_normal(&state.frame)) {
+            if (id == 'q' || id == 'Q') {
+                state.quit = true;
+            }
+            continue;
+        }
+
+        handle_input(&state, &input);
     }
+
+    apl_tui_frame_stop(&state.frame);
+    apl_team_service_free_list(state.teams);
+    if (status == APL_OK) {
+        apl_error_clear(error);
+    }
+    return status;
 }

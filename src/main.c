@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         return (int)apl_exit_code_for_status(status);
     }
 
-    status = apl_tui_shell_run(&tui, &error);
+    status = apl_tui_shell_run(&tui, &app, &error);
     apl_app_stop(&app);
     apl_tui_stop(&tui);
 
