@@ -36,7 +36,7 @@ Goal: start and stop cleanly, open a local SQLite database, and evolve its schem
 - [x] **1.6 Add the empty initial migration.** [Work item](work-items/phase-1/1.6-initial-migration.md)
 - [x] **1.7 Prove migration failures roll back.** [Work item](work-items/phase-1/1.7-migration-rollback.md)
 - [ ] **1.8 Own the Notcurses initialize/stop lifecycle.** [Work item](work-items/phase-1/1.8-notcurses-lifecycle.md)
-- [ ] **1.9 Replace the placeholder with an empty TUI shell.** [Work item](work-items/phase-1/1.9-empty-tui-shell.md)
+- [x] **1.9 Replace the placeholder with an empty TUI shell.** [Work item](work-items/phase-1/1.9-empty-tui-shell.md)
 - [ ] **1.10 Separate application lifecycle from interactive terminal input.** [Work item](work-items/phase-1/1.10-application-test-seam.md)
 
 **Gate:** a new local database can be opened and migrated; the app handles startup/shutdown failures without crashing or creating fake records.

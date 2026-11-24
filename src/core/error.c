@@ -84,6 +84,10 @@ const char *apl_status_string(apl_status status)
         return "APL_ERR_DB_SCHEMA_TOO_NEW";
     case APL_ERR_TUI_INIT:
         return "APL_ERR_TUI_INIT";
+    case APL_ERR_TUI_RENDER:
+        return "APL_ERR_TUI_RENDER";
+    case APL_ERR_TUI_INPUT:
+        return "APL_ERR_TUI_INPUT";
     default:
         return "APL_STATUS_INVALID";
     }

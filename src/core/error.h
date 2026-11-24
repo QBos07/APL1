@@ -29,6 +29,8 @@ typedef enum apl_status {
     APL_ERR_DB_MIGRATION = 9,   /**< A schema migration failed or the list is invalid. */
     APL_ERR_DB_SCHEMA_TOO_NEW = 10, /**< Database was written by a newer application. */
     APL_ERR_TUI_INIT = 11,      /**< Notcurses initialization failed. */
+    APL_ERR_TUI_RENDER = 12,    /**< A screen frame could not be drawn. */
+    APL_ERR_TUI_INPUT = 13,     /**< Terminal input became unavailable. */
 } apl_status;
 
 /** Maximum length of an apl_error message, including the terminating NUL. */

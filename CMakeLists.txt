@@ -51,6 +51,7 @@ if(BUILD_TESTING)
 
     add_executable(apl1_tui_tests
         tests/tui/test_tui_lifecycle.c
+        tests/tui/test_tui_shell.c
     )
 
     target_include_directories(apl1_tui_tests PRIVATE src)
@@ -87,6 +88,7 @@ target_link_libraries(apl_db PUBLIC
 
 add_library(apl_tui STATIC
     src/tui/lifecycle.c
+    src/tui/shell.c
 )
 
 target_include_directories(apl_tui PUBLIC src)
