@@ -23,10 +23,22 @@ include(CTest)
 if(BUILD_TESTING)
     include(CriterionDependency)
 
+    add_library(apl_test_support STATIC
+        tests/support/test_support.c
+    )
+
+    target_include_directories(apl_test_support
+        PUBLIC tests/support
+        PRIVATE src
+    )
+
+    target_link_libraries(apl_test_support PRIVATE
+        apl_core
+    )
+
     add_executable(apl1_tests
         tests/test_main.c
         tests/unit/test_error.c
-        tests/integration/test_support.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
         tests/integration/test_db_foreign_keys.c
@@ -36,12 +48,13 @@ if(BUILD_TESTING)
         tests/integration/test_app_lifecycle.c
     )
 
-    target_include_directories(apl1_tests PRIVATE src tests/integration)
+    target_include_directories(apl1_tests PRIVATE src)
 
     target_link_libraries(apl1_tests PRIVATE
         apl_core
         apl_db
         apl_app
+        apl_test_support
         Criterion::Criterion
         SQLite::SQLite3
     )
@@ -82,7 +95,7 @@ add_library(apl_db STATIC
     src/db/migrations_list.c
 )
 
-target_include_directories(apl_db PUBLIC src tests/integration)
+target_include_directories(apl_db PUBLIC src)
 target_link_libraries(apl_db PUBLIC
     apl_core
     SQLite::SQLite3

@@ -63,6 +63,10 @@ adopted.
   integration tests live in `tests/integration/` and use a fresh temporary
   database per test; TUI tests live in `tests/tui/` and must not require an
   interactive Notcurses terminal.
+- Shared test-only helpers (temporary directories, database fixtures) live in
+  `tests/support/` and build as the `apl_test_support` target. Only test
+  executables link that target; production libraries must not expose or depend
+  on headers under `tests/`.
 - `Test` suites are named after the module under test and test names describe the
   behavior, for example `Test(error, set_failure_captures_message)`.
 - All business-logic and integration tests compile into the single test
