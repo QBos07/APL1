@@ -652,6 +652,17 @@ class Smoke:
         self.send_keys("Escape", "Escape")
         self.log("opened and closed the window menu by mouse")
 
+        self.send_keys("m", "Right", "Return")
+        self.wait_for_content("database information dialog", ("Database information",))
+        dialog_screen = self.visible_text()
+        if dialog_screen.count("| Database information") != 1:
+            self.fail("database information title was rendered more than once")
+        if dialog_screen.count("The SQLite database is chosen at launch with") != 1:
+            self.fail("database information message first line was duplicated")
+        self.send_keys("Escape")
+        self.send_keys("Escape")
+        self.log("database information dialog rendered its first line once")
+
         self.send_keys("n")
         self.type_text("Ferrari")
         self.send_keys("Tab")
@@ -791,7 +802,7 @@ class Smoke:
         self.log("opened the command prompt from the status hint by mouse")
 
         self.send_keys("m")
-        self.resize_and_check_redraw(("Active team overview",), wake_key="F10")
+        self.resize_and_check_redraw(("Database information",), wake_key="F10")
         self.send_keys("Escape", "Escape")
         self.send_keys("t")
         self.resize_and_check_redraw(("Switch active team",), wake_key="F10")

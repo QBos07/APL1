@@ -578,7 +578,6 @@ static void handle_menu_action(shell_state *const state, const apl_tui_menu_acti
         apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
         return;
     case APL_TUI_MENU_ACTION_DATABASE_INFO:
-        set_section(state, APL_TUI_SECTION_SETTINGS);
         show_info_dialog(
             state, "Database information",
             "The SQLite database is chosen at launch with --database or the default data "
@@ -883,7 +882,9 @@ static void draw_dialog(shell_state *const state)
     apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG_TITLE);
     apl_tui_frame_draw_text(overlay, 1, 2, state->dialog.title);
     apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG);
-    apl_tui_frame_draw_text(overlay, 2, 2, state->dialog.message);
+    if (state->dialog.kind == APL_TUI_DIALOG_FORM || state->dialog.kind == APL_TUI_DIALOG_CHOICE) {
+        apl_tui_frame_draw_text(overlay, 2, 2, state->dialog.message);
+    }
 
     const int button_row = (int)rows - 2;
     switch (state->dialog.kind) {
