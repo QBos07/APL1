@@ -31,6 +31,10 @@
   `bugprone-easily-swappable-parameters` for small C APIs that intentionally
   take adjacent name/notes/row/column values, and related CERT aliases. No
   broad “ignore all” suppression is used.
+- Two C23/ASCII false positives are also excluded: `clang-analyzer-valist.Uninitialized`
+  does not recognize C23's `__builtin_c23_va_start` when a `va_list` is passed
+  to a forwarding helper, and `bugprone-narrowing-conversions` flags the
+  intentional `int`-to-`char` narrowing used by ASCII case folding.
 - Added `scripts/check-static.sh`, which configures a compile-commands database
   (`$TMPDIR/apl1-tidy-build` by default) and analyzes production `src/*.c`
   files. It is not a build dependency; the GitHub workflow runs it as a

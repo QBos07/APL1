@@ -4,13 +4,21 @@
 # This is an optional developer check, not a build dependency or CI gate.
 # Checks are intentionally limited to high-signal families; the exclusions
 # below are documented in work-items/foundation-hardening/FH-09-static-analysis-baseline.md.
+#
+# Narrow C23/ASCII false positives:
+# - clang-analyzer-valist.Uninitialized does not recognize C23's
+#   __builtin_c23_va_start when a va_list is forwarded to a helper.
+# - bugprone-narrowing-conversions flags the intentional int-to-char narrowing
+#   in ASCII case folding.
 Checks: >
   -*,
   clang-analyzer-*,
   -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-valist.Uninitialized,
   bugprone-*,
   -bugprone-reserved-identifier,
   -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
   cert-*,
   -cert-err33-c,
   -cert-dcl37-c,
