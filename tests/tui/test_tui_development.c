@@ -141,3 +141,41 @@ Test(tui_development, filters_and_empty_detail_states_stay_explicit)
 
     close_test_app(&app, dir, &err);
 }
+
+Test(tui_development, prefilled_create_form_preserves_values_and_cancel_writes_nothing)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    apl_tui_list_init(&state.list, 8);
+
+    open_project_create_form_prefilled(&state, "Aero", "Body", "Floor", "Open", "2026-05-01",
+                                       "2026-06-01", 7, 9, "notes");
+    cr_assert(apl_tui_dialog_active(&state.dialog));
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PROJECT_CREATE);
+    cr_assert_eq(state.dialog_project_id, 0);
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 0)->value, "Aero");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 3)->value, "Open");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 6)->value, "7");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 7)->value, "9");
+    cr_assert(apl_tui_dialog_field_at(&state.dialog, 0)->required);
+
+    cr_assert_eq(apl_tui_dialog_dismiss(&state.dialog), APL_TUI_DIALOG_DISMISSED);
+    apl_project_filter filter = {.team_id = team.id, .include_archived = true};
+    apl_project *projects = nullptr;
+    size_t count = 1;
+    cr_assert_eq(apl_project_service_list(&app, &filter, &projects, &count, &err), APL_OK);
+    cr_assert_eq(count, 0);
+    apl_project_service_free_list(projects);
+
+    close_test_app(&app, dir, &err);
+}

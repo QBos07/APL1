@@ -320,3 +320,47 @@ Test(project_service, failed_audit_rolls_back_the_project_write)
 
     close_test_app(&app, dir, &err);
 }
+
+Test(project_service, persists_project_and_timeline_after_reopen)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, "Ferrari", &err);
+
+    apl_project project = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "Body", "Floor", "Open",
+                                            "2026-05-01", "", 0, 0, "notes", &project, &err),
+                 APL_OK);
+    apl_project_update update = {};
+    apl_project after = {};
+    cr_assert_eq(apl_project_service_log_update(&app, team.id, project.id, "2026-04-01",
+                                                "First update", "", "", &update, &after, &err),
+                 APL_OK);
+    apl_app_stop(&app);
+
+    apl_app reopened = {};
+    const apl_app_config config = {.database_path = path};
+    cr_assert_eq(apl_app_start(&reopened, &config, &err), APL_OK, "reopen failed: %s",
+                 apl_error_message(&err));
+    apl_project reread = {};
+    cr_assert_eq(apl_project_service_get(&reopened, team.id, project.id, &reread, &err), APL_OK);
+    cr_assert_str_eq(reread.title, "Aero");
+    cr_assert_str_eq(reread.status, "Open");
+    cr_assert_str_eq(reread.target_date, "2026-05-01");
+
+    apl_project_update *updates = nullptr;
+    size_t count = 0;
+    cr_assert_eq(
+        apl_project_service_list_updates(&reopened, team.id, project.id, &updates, &count, &err),
+        APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_str_eq(updates[0].summary, "First update");
+    apl_project_service_free_updates(updates);
+    apl_app_stop(&reopened);
+
+    cr_assert_eq(apl_test_remove_temp_dir(dir, &err), APL_OK);
+}

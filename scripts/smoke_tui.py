@@ -561,8 +561,8 @@ class Smoke:
                 ).fetchone()[0]
         except sqlite3.Error as error:
             self.fail(f"database is not a usable migrated apl1 database: {error}")
-        if version != 11:
-            self.fail(f"database schema version is {version}, expected 11")
+        if version != 14:
+            self.fail(f"database schema version is {version}, expected 14")
 
         with sqlite3.connect(self.database_path) as connection:
             teams = connection.execute(
@@ -590,6 +590,12 @@ class Smoke:
             budgets = connection.execute(
                 "SELECT category, amount_minor, currency, start_date, end_date FROM budget_plans ORDER BY id"
             ).fetchall()
+            projects = connection.execute(
+                "SELECT title, status, target_date FROM projects ORDER BY id"
+            ).fetchall()
+            project_updates = connection.execute(
+                "SELECT update_date, summary, status_change FROM project_updates ORDER BY id"
+            ).fetchall()
             team_currency = connection.execute(
                 "SELECT currency FROM teams WHERE name = 'Ferrari'"
             ).fetchone()
@@ -615,6 +621,10 @@ class Smoke:
             self.fail(f"unexpected ledger rows after smoke run: {ledger!r}")
         if budgets != [("Tyres", 30000, "EUR", "2026-01-01", "2026-01-31")]:
             self.fail(f"unexpected budget rows after smoke run: {budgets!r}")
+        if projects != [("Aero", "", None)]:
+            self.fail(f"unexpected project rows after smoke run: {projects!r}")
+        if project_updates != [("2026-01-10", "First update", "")]:
+            self.fail(f"unexpected project update rows after smoke run: {project_updates!r}")
         expected_activity = [
             ("team_created",),
             ("team_created",),
@@ -628,6 +638,8 @@ class Smoke:
             ("ledger_expense",),
             ("budget_created",),
             ("ledger_corrected",),
+            ("project_created",),
+            ("project_update_logged",),
         ]
         if activity != expected_activity:
             self.fail(f"unexpected activity rows after smoke run: {activity!r}")
@@ -1008,6 +1020,42 @@ class Smoke:
         self.send_keys("Return")
         self.wait_for_content("return to teams after money", ("Ferrari", "McLaren", "Red Bull"))
         self.log("currency, opening balance, expense, budget, and correction flows persisted")
+
+        # Phase 5: the Development view lists active-team projects, creates
+        # one through the shared form path, and logs a dated update.
+        self.type_text(":")
+        self.type_text("view development")
+        self.send_keys("Return")
+        self.wait_for_content("development view", ("Development:", "No projects match"))
+        self.send_keys("n")
+        self.wait_for_content("project form", ("Create project", "Title"))
+        self.type_text("Aero")
+        self.send_keys("Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab", "Tab")
+        self.send_keys("Return")
+        self.wait_for_database(
+            "project row",
+            lambda: self.database_query("SELECT COUNT(*) FROM projects;") == (1,),
+        )
+        self.wait_for_content("project detail", ("Project: Aero", "No updates recorded"))
+        self.send_keys("u")
+        self.wait_for_content("project update form", ("Log project update", "Update date"))
+        self.type_text("2026-01-10")
+        self.send_keys("Tab")
+        self.type_text("First update")
+        self.send_keys("Tab", "Tab", "Tab")
+        self.send_keys("Return")
+        self.wait_for_database(
+            "project update row",
+            lambda: self.database_query("SELECT COUNT(*) FROM project_updates;") == (1,),
+        )
+        self.wait_for_content("project timeline", ("First update",))
+        self.send_keys("Escape")
+        self.wait_for_content("project list after detail", ("Aero",))
+        self.type_text(":")
+        self.type_text("tl")
+        self.send_keys("Return")
+        self.wait_for_content("return to teams after development", ("Ferrari", "McLaren"))
+        self.log("created a project and logged a dated update through the forms")
 
         self.type_text(":")
         self.type_text("team switch Missing")

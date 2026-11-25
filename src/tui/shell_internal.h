@@ -386,6 +386,11 @@ void build_project_filter_bar(const shell_state *state, char *out, size_t out_si
                               unsigned starts[5], unsigned ends[5]);
 
 void open_project_dialog(shell_state *state, bool edit);
+/** Open the create form with partial values from a future command route. */
+void open_project_create_form_prefilled(shell_state *state, const char *title, const char *category,
+                                        const char *description, const char *status,
+                                        const char *target_date, const char *actual_date,
+                                        int64_t season_id, int64_t car_id, const char *notes);
 void open_project_update_dialog(shell_state *state);
 void open_project_filter_dialog(shell_state *state);
 unsigned project_form_error_field(const apl_error *error);

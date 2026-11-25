@@ -513,37 +513,54 @@ static void format_optional_id(const int64_t id, char *const out, const size_t o
     }
 }
 
-void open_project_dialog(shell_state *const state, const bool edit)
+static void open_project_form(shell_state *const state, const bool edit, const char *const title,
+                              const char *const category, const char *const description,
+                              const char *const status, const char *const target_date,
+                              const char *const actual_date, const int64_t season_id,
+                              const int64_t car_id, const char *const notes)
 {
     apl_tui_dialog_open_form(
         &state->dialog, edit ? "Edit project" : "Create project",
         "Title is required. Category/status are free text. Season/car links use same-team IDs.");
-    const apl_project *const project = edit ? &state->project_detail : nullptr;
-    char season_id[32];
-    char car_id[32];
-    format_optional_id(project != nullptr ? project->season_id : 0, season_id, sizeof(season_id));
-    format_optional_id(project != nullptr ? project->car_id : 0, car_id, sizeof(car_id));
-    (void)apl_tui_dialog_add_field(&state->dialog, "Title",
-                                   project != nullptr ? project->title : "", true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Category (optional)",
-                                   project != nullptr ? project->category : "", false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Description (optional)",
-                                   project != nullptr ? project->description : "", false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Status (optional)",
-                                   project != nullptr ? project->status : "", false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Target date (YYYY-MM-DD)",
-                                   project != nullptr ? project->target_date : "", false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Actual date (YYYY-MM-DD)",
-                                   project != nullptr ? project->actual_date : "", false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Season ID (optional)", season_id, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Car ID (optional)", car_id, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)",
-                                   project != nullptr ? project->notes : "", false);
+    char season_text[32];
+    char car_text[32];
+    format_optional_id(season_id, season_text, sizeof(season_text));
+    format_optional_id(car_id, car_text, sizeof(car_text));
+    (void)apl_tui_dialog_add_field(&state->dialog, "Title", title, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Category (optional)", category, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Description (optional)", description, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Status (optional)", status, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Target date (YYYY-MM-DD)", target_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Actual date (YYYY-MM-DD)", actual_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Season ID (optional)", season_text, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Car ID (optional)", car_text, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context =
         edit ? SHELL_DIALOG_CONTEXT_PROJECT_EDIT : SHELL_DIALOG_CONTEXT_PROJECT_CREATE;
     state->dialog_project_id = edit ? state->project_detail.id : 0;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
     set_status(state, "Tab moves fields. Enter saves; Esc cancels without writing.");
+}
+
+void open_project_dialog(shell_state *const state, const bool edit)
+{
+    const apl_project *const project = edit ? &state->project_detail : nullptr;
+    open_project_form(
+        state, edit, project != nullptr ? project->title : "",
+        project != nullptr ? project->category : "", project != nullptr ? project->description : "",
+        project != nullptr ? project->status : "", project != nullptr ? project->target_date : "",
+        project != nullptr ? project->actual_date : "", project != nullptr ? project->season_id : 0,
+        project != nullptr ? project->car_id : 0, project != nullptr ? project->notes : "");
+}
+
+void open_project_create_form_prefilled(shell_state *const state, const char *const title,
+                                        const char *const category, const char *const description,
+                                        const char *const status, const char *const target_date,
+                                        const char *const actual_date, const int64_t season_id,
+                                        const int64_t car_id, const char *const notes)
+{
+    open_project_form(state, false, title, category, description, status, target_date, actual_date,
+                      season_id, car_id, notes);
 }
 
 void open_project_update_dialog(shell_state *const state)
