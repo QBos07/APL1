@@ -67,6 +67,7 @@ if(BUILD_TESTING)
     add_executable(apl1_tests
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
+        tests/unit/test_money.c
         tests/unit/test_args.c
         tests/unit/test_reference.c
         tests/unit/test_record.c
@@ -174,6 +175,7 @@ add_library(apl_core STATIC
 target_include_directories(apl_core PUBLIC src)
 
 add_library(apl_domain STATIC
+    src/domain/money.c
     src/domain/record.c
     src/domain/reference.c
     src/domain/team.c
