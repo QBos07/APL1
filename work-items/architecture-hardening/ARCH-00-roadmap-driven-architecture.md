@@ -13,7 +13,7 @@ explicit triggers.
 | ---- | ------- | ------ | ------ |
 | [ARCH-01](ARCH-01-shared-use-case-transaction.md) | Shared write-use-case transaction/error plumbing | Before 4.6 | Implemented |
 | [ARCH-02](ARCH-02-database-growth-overflow.md) | Shared array-growth and overflow checks | Before 4.3 | Implemented |
-| [ARCH-03](ARCH-03-structured-field-validation.md) | Structured validation field identifiers | Before 4.4 | Planned |
+| [ARCH-03](ARCH-03-structured-field-validation.md) | Structured validation field identifiers | Before 4.4 | Implemented |
 | [ARCH-04](ARCH-04-record-metadata-composition.md) | Compose shared record metadata | Before 5.1 | Planned |
 | [ARCH-05](ARCH-05-record-kinds-and-links.md) | Typed record references and cross-feature links | Before 5.5 / 8.1 | Planned |
 | [ARCH-06](ARCH-06-money-and-ledger-model.md) | Money representation and ledger/correction model | Before 4.1 | Planned |

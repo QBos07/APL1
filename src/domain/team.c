@@ -60,9 +60,14 @@ apl_status apl_team_name_normalize(const char *const name, char *const out, cons
 
     if (length == 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team name is required");
+        apl_error_set_field(error, APL_FIELD_NAME);
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return copy_trimmed(begin, length, out, out_size, "team name", error);
+    const apl_status status = copy_trimmed(begin, length, out, out_size, "team name", error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_NAME);
+    }
+    return status;
 }
 
 apl_status apl_team_notes_normalize(const char *const notes, char *const out, const size_t out_size,
@@ -70,5 +75,9 @@ apl_status apl_team_notes_normalize(const char *const notes, char *const out, co
 {
     const char *begin = nullptr;
     const size_t length = trimmed_span(notes, &begin);
-    return copy_trimmed(begin, length, out, out_size, "team notes", error);
+    const apl_status status = copy_trimmed(begin, length, out, out_size, "team notes", error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_NOTES);
+    }
+    return status;
 }

@@ -38,11 +38,28 @@ typedef enum apl_status {
 /** Maximum length of an apl_error message, including the terminating NUL. */
 constexpr size_t APL_ERROR_MESSAGE_MAX = 256;
 
+/** Optional form-field identity for validation failures.
+ *
+ * Values are part of the public contract: append new fields at the end and
+ * never renumber. APL_FIELD_NONE means the error is not tied to one field. */
+typedef enum apl_field {
+    APL_FIELD_NONE = 0,
+    APL_FIELD_NAME,
+    APL_FIELD_SHORT_NAME,
+    APL_FIELD_LABEL,
+    APL_FIELD_CHASSIS,
+    APL_FIELD_NOTES,
+    APL_FIELD_ROLE,
+    APL_FIELD_START_DATE,
+    APL_FIELD_END_DATE,
+} apl_field;
+
 /** A caller-owned error value. On success paths code is APL_OK and message is
  *  empty; on failure code is one of the APL_ERR_* values and message is a
  *  concise, NUL-terminated human-readable description (truncated to fit). */
 typedef struct apl_error {
     apl_status code;
+    apl_field field;
     char message[APL_ERROR_MESSAGE_MAX];
 } apl_error;
 
@@ -60,6 +77,13 @@ void apl_error_set(apl_error *error, apl_status code, const char *fmt, ...);
 
 /** Fill an error value using an argument list (see apl_error_set). */
 void apl_error_setv(apl_error *error, apl_status code, const char *fmt, va_list args);
+
+/** Annotate an existing error with the form field that caused it.
+ *  A null error pointer is a no-op. */
+void apl_error_set_field(apl_error *error, apl_field field);
+
+/** Return the field annotation, or APL_FIELD_NONE when absent. */
+apl_field apl_error_field_id(const apl_error *error);
 
 /** Add context in front of an existing failure message without losing the
  *  original detail.

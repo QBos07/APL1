@@ -256,52 +256,65 @@ static bool can_archive_team(const shell_state *const state, const apl_team *con
 /** Form field index for a business validation message. */
 static unsigned form_error_field(const apl_error *const error)
 {
-    return (strstr(apl_error_message(error), "notes") != nullptr) ? 1 : 0;
+    return (apl_error_field_id(error) == APL_FIELD_NOTES) ? 1 : 0;
 }
 
 static unsigned reference_form_error_field(const shell_dialog_context context,
                                            const apl_error *const error)
 {
-    const char *const message = apl_error_message(error);
+    const apl_field field = apl_error_field_id(error);
     switch (context) {
     case SHELL_DIALOG_CONTEXT_SEASON_CREATE:
     case SHELL_DIALOG_CONTEXT_SEASON_EDIT:
-        if (strstr(message, "label") != nullptr) {
+        switch (field) {
+        case APL_FIELD_LABEL:
+            return 0;
+        case APL_FIELD_START_DATE:
+            return 1;
+        case APL_FIELD_END_DATE:
+            return 2;
+        case APL_FIELD_NOTES:
+            return 3;
+        default:
             return 0;
         }
-        if (strstr(message, "start") != nullptr) {
-            return 1;
-        }
-        if (strstr(message, "end") != nullptr) {
-            return 2;
-        }
-        return 3;
     case SHELL_DIALOG_CONTEXT_CAR_CREATE:
     case SHELL_DIALOG_CONTEXT_CAR_EDIT:
-        if (strstr(message, "label") != nullptr) {
+        switch (field) {
+        case APL_FIELD_LABEL:
+            return 0;
+        case APL_FIELD_CHASSIS:
+            return 1;
+        case APL_FIELD_NOTES:
+            return 2;
+        default:
             return 0;
         }
-        if (strstr(message, "chassis") != nullptr) {
-            return 1;
-        }
-        return 2;
     case SHELL_DIALOG_CONTEXT_DRIVER_CREATE:
     case SHELL_DIALOG_CONTEXT_DRIVER_EDIT:
-        if (strstr(message, "name") != nullptr) {
+        switch (field) {
+        case APL_FIELD_NAME:
             return 0;
-        }
-        return 2;
-    case SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD:
-        if (strstr(message, "start") != nullptr) {
-            return 0;
-        }
-        if (strstr(message, "end") != nullptr || strstr(message, "date") != nullptr) {
+        case APL_FIELD_SHORT_NAME:
             return 1;
-        }
-        if (strstr(message, "role") != nullptr) {
+        case APL_FIELD_NOTES:
             return 2;
+        default:
+            return 0;
         }
-        return 3;
+    case SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD:
+        switch (field) {
+        case APL_FIELD_START_DATE:
+            return 0;
+        case APL_FIELD_END_DATE:
+            return 1;
+        case APL_FIELD_ROLE:
+            return 2;
+        case APL_FIELD_NOTES:
+            return 3;
+        default:
+            return 0;
+        }
     case SHELL_DIALOG_CONTEXT_MEMBERSHIP_END:
         return 1;
     default:

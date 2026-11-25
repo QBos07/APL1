@@ -13,15 +13,21 @@ static apl_status normalize_fields(const char *const name, const char *const sho
                                    char *const out_short, char *const out_notes,
                                    apl_error *const error)
 {
-    apl_status status = apl_reference_label_normalize(name, "driver name", out_name,
-                                                      APL_REFERENCE_LABEL_MAX, error);
+    apl_status status =
+        apl_use_case_with_field(apl_reference_label_normalize(name, "driver name", out_name,
+                                                              APL_REFERENCE_LABEL_MAX, error),
+                                APL_FIELD_NAME, error);
     if (status == APL_OK) {
-        status = apl_reference_optional_normalize(short_name, "driver short name", out_short,
-                                                  APL_REFERENCE_SHORT_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_optional_normalize(short_name, "driver short name", out_short,
+                                             APL_REFERENCE_SHORT_MAX, error),
+            APL_FIELD_SHORT_NAME, error);
     }
     if (status == APL_OK) {
-        status = apl_reference_optional_normalize(notes, "driver notes", out_notes,
-                                                  APL_REFERENCE_NOTES_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_optional_normalize(notes, "driver notes", out_notes,
+                                             APL_REFERENCE_NOTES_MAX, error),
+            APL_FIELD_NOTES, error);
     }
     return status;
 }

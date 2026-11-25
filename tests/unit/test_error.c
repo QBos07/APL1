@@ -10,6 +10,7 @@ Test(error, init_reports_success_with_empty_message)
     apl_error_init(&err);
 
     cr_assert_eq(apl_error_code(&err), APL_OK);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_NONE);
     cr_assert(apl_error_is_success(&err));
     cr_assert_str_empty(apl_error_message(&err));
 }
@@ -41,8 +42,34 @@ Test(error, clear_resets_a_failure_to_success)
     apl_error_clear(&err);
 
     cr_assert_eq(apl_error_code(&err), APL_OK);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_NONE);
     cr_assert(apl_error_is_success(&err));
     cr_assert_str_empty(apl_error_message(&err));
+}
+
+Test(error, field_annotation_survives_context_prefixing)
+{
+    apl_error err;
+    apl_error_init(&err);
+    apl_error_set(&err, APL_ERR_INVALID_ARGUMENT, "label is required");
+    apl_error_set_field(&err, APL_FIELD_LABEL);
+
+    apl_error_prefix(&err, APL_ERR_INVALID_ARGUMENT, "cannot create car");
+
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_LABEL);
+    cr_assert_str_eq(apl_error_message(&err), "cannot create car: label is required");
+}
+
+Test(error, setting_a_new_error_clears_the_field_annotation)
+{
+    apl_error err;
+    apl_error_init(&err);
+    apl_error_set(&err, APL_ERR_INVALID_ARGUMENT, "label is required");
+    apl_error_set_field(&err, APL_FIELD_LABEL);
+
+    apl_error_set(&err, APL_ERR_IO, "disk failure");
+
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_NONE);
 }
 
 Test(error, oversize_message_is_truncated_and_terminated)
@@ -64,6 +91,7 @@ Test(error, oversize_message_is_truncated_and_terminated)
 Test(error, getters_defend_against_null)
 {
     cr_assert_eq(apl_error_code(nullptr), APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_error_field_id(nullptr), APL_FIELD_NONE);
     cr_assert_not(apl_error_is_success(nullptr));
     cr_assert_str_eq(apl_error_message(nullptr), "no error value supplied");
 }

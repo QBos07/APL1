@@ -80,11 +80,13 @@ Test(season_service, validates_and_normalizes_without_seeding)
                                            "", &reversed, &err),
                  APL_ERR_INVALID_ARGUMENT);
     cr_assert_neq(strstr(apl_error_message(&err), "after"), nullptr);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_START_DATE);
 
     apl_season blank = {};
     apl_error_init(&err);
     cr_assert_eq(apl_season_service_create(&app, team.id, "   ", "", "", "", &blank, &err),
                  APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_LABEL);
 
     cr_assert_eq(apl_season_service_list(&app, team.id, true, &seasons, &count, &err), APL_OK);
     cr_assert_eq(count, 1);
@@ -114,6 +116,7 @@ Test(car_service, accepts_label_only_and_rejects_duplicates_without_merging)
     apl_car blank = {};
     cr_assert_eq(apl_car_service_create(&app, team.id, "  ", "", "", &blank, &err),
                  APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_LABEL);
 
     size_t count = 0;
     apl_car *cars = nullptr;
@@ -154,6 +157,7 @@ Test(membership_service, verifies_references_dates_and_archived_driver_eligibili
     cr_assert_eq(apl_membership_service_create(&app, team.id, driver.id, "2025-06-01", "2025-01-01",
                                                "", "", &reversed, &err),
                  APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_START_DATE);
 
     apl_membership missing_driver = {};
     cr_assert_eq(apl_membership_service_create(&app, team.id, 999999, "2025-01-01", "", "", "",
@@ -202,6 +206,7 @@ Test(membership_service, verifies_references_dates_and_archived_driver_eligibili
 
     cr_assert_eq(apl_membership_service_end(&app, team.id, membership.id, "", &ended, &err),
                  APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_END_DATE);
 
     close_test_app(&app, dir, &err);
 }

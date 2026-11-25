@@ -8,6 +8,7 @@ void apl_error_init(apl_error *const error)
         return;
     }
     error->code = APL_OK;
+    error->field = APL_FIELD_NONE;
     error->message[0] = '\0';
 }
 
@@ -25,7 +26,20 @@ void apl_error_setv(apl_error *const error, const apl_status code, const char *f
         fmt = "(no description)";
     }
     error->code = code;
+    error->field = APL_FIELD_NONE;
     (void)vsnprintf(error->message, sizeof(error->message), fmt, args);
+}
+
+void apl_error_set_field(apl_error *const error, const apl_field field)
+{
+    if (error != nullptr) {
+        error->field = field;
+    }
+}
+
+apl_field apl_error_field_id(const apl_error *const error)
+{
+    return (error != nullptr) ? error->field : APL_FIELD_NONE;
 }
 
 void apl_error_set(apl_error *const error, const apl_status code, const char *const fmt, ...)
@@ -48,7 +62,9 @@ void apl_error_prefix(apl_error *const error, const apl_status code, const char 
 
     /* Copy both inputs before rewriting the error: apl_error_set must never
      * read the same buffer it is formatting into, and the context may itself
-     * alias the current message. */
+     * alias the current message. The field annotation is preserved so adding
+     * use-case context does not lose the form field. */
+    const apl_field field = error->field;
     char detail[APL_ERROR_MESSAGE_MAX];
     (void)snprintf(detail, sizeof(detail), "%s", error->message);
     char context_copy[APL_ERROR_MESSAGE_MAX];
@@ -56,9 +72,11 @@ void apl_error_prefix(apl_error *const error, const apl_status code, const char 
 
     if (detail[0] == '\0') {
         apl_error_set(error, code, "%s", context_copy);
+        error->field = field;
         return;
     }
     apl_error_set(error, code, "%s: %s", context_copy, detail);
+    error->field = field;
 }
 
 apl_status apl_error_code(const apl_error *const error)

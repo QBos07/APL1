@@ -14,22 +14,32 @@ static apl_status normalize_fields(const char *const label, const char *const st
                                    char *const out_end, char *const out_notes,
                                    apl_error *const error)
 {
-    apl_status status = apl_reference_label_normalize(label, "season label", out_label,
-                                                      APL_REFERENCE_LABEL_MAX, error);
+    apl_status status =
+        apl_use_case_with_field(apl_reference_label_normalize(label, "season label", out_label,
+                                                              APL_REFERENCE_LABEL_MAX, error),
+                                APL_FIELD_LABEL, error);
     if (status == APL_OK) {
-        status = apl_reference_date_normalize(start_date, "season start date", out_start,
-                                              APL_REFERENCE_DATE_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_date_normalize(start_date, "season start date", out_start,
+                                         APL_REFERENCE_DATE_MAX, error),
+            APL_FIELD_START_DATE, error);
     }
     if (status == APL_OK) {
-        status = apl_reference_date_normalize(end_date, "season end date", out_end,
-                                              APL_REFERENCE_DATE_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_date_normalize(end_date, "season end date", out_end,
+                                         APL_REFERENCE_DATE_MAX, error),
+            APL_FIELD_END_DATE, error);
     }
     if (status == APL_OK) {
-        status = apl_reference_date_range_validate(out_start, out_end, "season", error);
+        status = apl_use_case_with_field(
+            apl_reference_date_range_validate(out_start, out_end, "season", error),
+            APL_FIELD_START_DATE, error);
     }
     if (status == APL_OK) {
-        status = apl_reference_optional_normalize(notes, "season notes", out_notes,
-                                                  APL_REFERENCE_NOTES_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_optional_normalize(notes, "season notes", out_notes,
+                                             APL_REFERENCE_NOTES_MAX, error),
+            APL_FIELD_NOTES, error);
     }
     return status;
 }

@@ -177,7 +177,11 @@ apl_status apl_membership_start_date_normalize(const char *const text, char *con
         apl_reference_date_normalize(text, "membership start date", out, out_size, error);
     if (status == APL_OK && out[0] == '\0') {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "membership start date is required");
+        apl_error_set_field(error, APL_FIELD_START_DATE);
         return APL_ERR_INVALID_ARGUMENT;
+    }
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_START_DATE);
     }
     return status;
 }
@@ -192,9 +196,15 @@ apl_status apl_membership_dates_normalize(const char *const start, const char *c
     if (status == APL_OK) {
         status =
             apl_reference_date_normalize(end, "membership end date", out_end, out_end_size, error);
+        if (status != APL_OK) {
+            apl_error_set_field(error, APL_FIELD_END_DATE);
+        }
     }
     if (status == APL_OK) {
         status = apl_reference_date_range_validate(out_start, out_end, "membership", error);
+        if (status != APL_OK) {
+            apl_error_set_field(error, APL_FIELD_START_DATE);
+        }
     }
     return status;
 }

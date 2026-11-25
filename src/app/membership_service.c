@@ -48,12 +48,16 @@ static apl_status normalize_fields(const char *const start_date, const char *con
         apl_membership_dates_normalize(start_date, end_date, out_start, APL_REFERENCE_DATE_MAX,
                                        out_end, APL_REFERENCE_DATE_MAX, error);
     if (status == APL_OK) {
-        status = apl_reference_optional_normalize(role, "membership role", out_role,
-                                                  APL_REFERENCE_SHORT_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_optional_normalize(role, "membership role", out_role,
+                                             APL_REFERENCE_SHORT_MAX, error),
+            APL_FIELD_ROLE, error);
     }
     if (status == APL_OK) {
-        status = apl_reference_optional_normalize(notes, "membership notes", out_notes,
-                                                  APL_REFERENCE_NOTES_MAX, error);
+        status = apl_use_case_with_field(
+            apl_reference_optional_normalize(notes, "membership notes", out_notes,
+                                             APL_REFERENCE_NOTES_MAX, error),
+            APL_FIELD_NOTES, error);
     }
     return status;
 }
@@ -217,10 +221,13 @@ apl_status apl_membership_service_end(const apl_app *const app, const int64_t te
         return APL_ERR_INVALID_ARGUMENT;
     }
     char normalized_end[APL_REFERENCE_DATE_MAX];
-    apl_status status = apl_reference_date_normalize(end_date, "membership end date",
-                                                     normalized_end, APL_REFERENCE_DATE_MAX, error);
+    apl_status status = apl_use_case_with_field(
+        apl_reference_date_normalize(end_date, "membership end date", normalized_end,
+                                     APL_REFERENCE_DATE_MAX, error),
+        APL_FIELD_END_DATE, error);
     if (status == APL_OK && normalized_end[0] == '\0') {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "membership end date is required");
+        apl_error_set_field(error, APL_FIELD_END_DATE);
         return APL_ERR_INVALID_ARGUMENT;
     }
     if (status != APL_OK) {
@@ -235,8 +242,10 @@ apl_status apl_membership_service_end(const apl_app *const app, const int64_t te
     apl_membership existing = {};
     status = apl_membership_repository_get(&app->db, team_id, id, &existing, error);
     if (status == APL_OK) {
-        status = apl_reference_date_range_validate(existing.start_date, normalized_end,
-                                                   "membership", error);
+        status =
+            apl_use_case_with_field(apl_reference_date_range_validate(
+                                        existing.start_date, normalized_end, "membership", error),
+                                    APL_FIELD_END_DATE, error);
     }
     if (status == APL_OK && existing.end_date[0] != '\0' &&
         strcmp(existing.end_date, normalized_end) == 0) {

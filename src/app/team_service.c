@@ -52,10 +52,13 @@ apl_status apl_team_service_create(const apl_app *const app, const char *const n
 
     char normalized_name[APL_TEAM_NAME_MAX];
     char normalized_notes[APL_TEAM_NOTES_MAX];
-    apl_status status =
-        apl_team_name_normalize(name, normalized_name, sizeof(normalized_name), error);
+    apl_status status = apl_use_case_with_field(
+        apl_team_name_normalize(name, normalized_name, sizeof(normalized_name), error),
+        APL_FIELD_NAME, error);
     if (status == APL_OK) {
-        status = apl_team_notes_normalize(notes, normalized_notes, sizeof(normalized_notes), error);
+        status = apl_use_case_with_field(
+            apl_team_notes_normalize(notes, normalized_notes, sizeof(normalized_notes), error),
+            APL_FIELD_NOTES, error);
     }
     if (status != APL_OK) {
         return apl_use_case_with_context(status, "cannot create team", error);
@@ -124,10 +127,13 @@ apl_status apl_team_service_update(const apl_app *const app, const int64_t id,
 
     char normalized_name[APL_TEAM_NAME_MAX];
     char normalized_notes[APL_TEAM_NOTES_MAX];
-    apl_status status =
-        apl_team_name_normalize(name, normalized_name, sizeof(normalized_name), error);
+    apl_status status = apl_use_case_with_field(
+        apl_team_name_normalize(name, normalized_name, sizeof(normalized_name), error),
+        APL_FIELD_NAME, error);
     if (status == APL_OK) {
-        status = apl_team_notes_normalize(notes, normalized_notes, sizeof(normalized_notes), error);
+        status = apl_use_case_with_field(
+            apl_team_notes_normalize(notes, normalized_notes, sizeof(normalized_notes), error),
+            APL_FIELD_NOTES, error);
     }
     if (status != APL_OK) {
         return apl_use_case_with_context(status, "cannot update team", error);

@@ -11,6 +11,15 @@ apl_status apl_use_case_with_context(const apl_status status, const char *const 
     return status;
 }
 
+apl_status apl_use_case_with_field(const apl_status status, const apl_field field,
+                                   apl_error *const error)
+{
+    if (status != APL_OK) {
+        apl_error_set_field(error, field);
+    }
+    return status;
+}
+
 apl_status apl_use_case_begin(apl_db_transaction *const transaction, const apl_app *const app,
                               const char *const context, apl_error *const error)
 {

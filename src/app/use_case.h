@@ -17,6 +17,9 @@
 /** Add context to a failed status; APL_OK is returned unchanged. */
 apl_status apl_use_case_with_context(apl_status status, const char *context, apl_error *error);
 
+/** Annotate a failed validation status with the field that caused it. */
+apl_status apl_use_case_with_field(apl_status status, apl_field field, apl_error *error);
+
 /** Begin a write transaction for `app`, prefixing failures with `context`. */
 apl_status apl_use_case_begin(apl_db_transaction *transaction, const apl_app *app,
                               const char *context, apl_error *error);
