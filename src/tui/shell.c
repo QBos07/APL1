@@ -1474,13 +1474,25 @@ static void store_money_entry_values(shell_state *const state)
 static void open_money_review_dialog(shell_state *const state)
 {
     const char *const kind = apl_ledger_kind_label(state->pending_ledger_kind);
+    char amount_display[80];
+    apl_error parse_error;
+    apl_error_init(&parse_error);
+    apl_money parsed = {};
+    if (apl_money_parse(state->pending_amount, state->active_team.currency, &parsed,
+                        &parse_error) == APL_OK) {
+        if (state->pending_ledger_kind == APL_LEDGER_KIND_EXPENSE && parsed.minor_units > 0) {
+            parsed.minor_units = -parsed.minor_units;
+        }
+        (void)apl_money_format(&parsed, amount_display, sizeof(amount_display));
+    } else {
+        (void)snprintf(amount_display, sizeof(amount_display), "%s", state->pending_amount);
+    }
     char message[1024];
     (void)snprintf(message, sizeof(message),
                    "Team: %s\nCurrency: %s\nKind: %s\nAmount: %s\nDate: %s\nCategory: %s\n"
                    "Description: %s\n\nConfirm to save. Nothing is written before confirmation.",
-                   state->active_team.name, state->active_team.currency, kind,
-                   state->pending_amount, state->pending_date, state->pending_category,
-                   state->pending_description);
+                   state->active_team.name, state->active_team.currency, kind, amount_display,
+                   state->pending_date, state->pending_category, state->pending_description);
     apl_tui_dialog_open_confirm(&state->dialog, "Review money entry", message);
     state->dialog.focus = 1;
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_REVIEW;

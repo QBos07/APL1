@@ -329,5 +329,5 @@ These are not implicit commitments for v1. When one becomes relevant, define its
   calculations, team isolation, and currency-change protection.
 - The TUI exposes the Money tab, Records-menu routes, currency selection,
   guided entry/correction forms with review, filters, transaction detail, and
-  the budget report. The interactive smoke flow was extended through currency,
+  the budget report. The interactive smoke flow passes through currency,
   opening balance, expense, budget comparison, and correction persistence.
