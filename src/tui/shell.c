@@ -44,6 +44,7 @@ static void handle_input(shell_state *state, const ncinput *input);
 
 void set_section(shell_state *const state, const apl_tui_section section)
 {
+    state->project_return_pending = false;
     const apl_tui_section previous = state->section;
     shell_save_view_state(state, previous);
     state->section = section;
