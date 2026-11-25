@@ -26,6 +26,10 @@ static const char *const MEMBERSHIP_ADD_OPTIONS[] = {"driver", "start", "end", "
 static const char *const MEMBERSHIP_END_OPTIONS[] = {"driver", "end"};
 static const char *const SEASON_NEW_OPTIONS[] = {"label", "start", "end", "notes"};
 static const char *const CAR_NEW_OPTIONS[] = {"label", "chassis", "notes"};
+static const char *const PROJECT_NEW_OPTIONS[] = {
+    "title", "category", "description", "status", "target", "actual", "season", "car", "notes",
+};
+static const char *const PROJECT_LOG_OPTIONS[] = {"date", "summary", "status", "notes"};
 
 static const apl_tui_command_spec COMMANDS[] = {
     {"view", "v", "view <overview|teams|people|events|money|development|parts|history|settings>",
@@ -76,6 +80,29 @@ static const apl_tui_command_spec COMMANDS[] = {
     {"car show", "cs", "car show <id-or-identifier>",
      "Open one car; duplicate identifiers open an explicit choice.", nullptr, nullptr,
      APL_TUI_COMMAND_CAR_SHOW, 1, 1, 0, 0},
+    {"project list", "pl", "project list", "Open Development and list active-team projects.",
+     nullptr, nullptr, APL_TUI_COMMAND_PROJECT_LIST, 0, 0, 0, 0},
+    {"project new", "pn",
+     "project new [--title T] [--category C] [--description D] [--status S] [--target D] "
+     "[--actual D] [--season S] [--car C] [--notes N]",
+     "Create a project; without a title the form opens prefilled.", nullptr, PROJECT_NEW_OPTIONS,
+     APL_TUI_COMMAND_PROJECT_NEW, 0, 0, 0, APL_COUNT_OF(PROJECT_NEW_OPTIONS)},
+    {"project show", "ps", "project show <title-or-id>",
+     "Open one project by unique title or stable ID.", nullptr, nullptr,
+     APL_TUI_COMMAND_PROJECT_SHOW, 1, 1, 0, 0},
+    {"project edit", "pe", "project edit <title-or-id>", "Open one project's edit form.", nullptr,
+     nullptr, APL_TUI_COMMAND_PROJECT_EDIT, 1, 1, 0, 0},
+    {"project archive", "pa", "project archive <title-or-id>",
+     "Archive one project after confirmation.", nullptr, nullptr, APL_TUI_COMMAND_PROJECT_ARCHIVE,
+     1, 1, 0, 0},
+    {"project log", "plog",
+     "project log <title-or-id> [--date D] [--summary S] [--status S] [--notes N]",
+     "Log a dated update; missing date/summary opens the update form.", nullptr,
+     PROJECT_LOG_OPTIONS, APL_TUI_COMMAND_PROJECT_LOG, 1, 1, 0, APL_COUNT_OF(PROJECT_LOG_OPTIONS)},
+    {"budget list", "bl", "budget list", "Open the active team's budget report.", nullptr, nullptr,
+     APL_TUI_COMMAND_BUDGET_LIST, 0, 0, 0, 0},
+    {"budget new", "bn", "budget new", "Open the budget plan form.", nullptr, nullptr,
+     APL_TUI_COMMAND_BUDGET_NEW, 0, 0, 0, 0},
     {"help", "h", "help [command ...]", "Show command help.", nullptr, nullptr,
      APL_TUI_COMMAND_HELP, 0, 8, 0, 0},
     {"about", "ab", "about", "Show application information.", nullptr, nullptr,
@@ -606,15 +633,39 @@ void apl_tui_command_registry_help(char *const out, const size_t out_size)
         "- driver show <id-or-name>  (ds)\n"
         "- membership add [--driver TARGET] [--start D] [--end D] [--role R]  (ma)\n"
         "- membership end [--driver TARGET] [--end D]  (me)\n"
-        "Seasons and cars\n"
-        "- season list  (sl)\n"
-        "- season new [--label L] [--start D] [--end D] [--notes N]  (sn)\n"
-        "- season select <label-or-id>  (ss)\n"
-        "- car list  (cl)\n"
-        "- car new [--label ID] [--chassis C] [--notes N]  (cn)\n"
-        "- car show <id-or-identifier>  (cs)\n"
+        "Seasons: season list (sl) - season new (sn) - season select (ss)\n"
+        "Cars: car list (cl) - car new (cn) - car show (cs)\n"
+        "Development: project list/new/show/edit/archive/log (pl/pn/ps/pe/pa/plog)\n"
+        "Budgets: budget list/new (bl/bn)\n"
         "Other: help [command ...] (h) - about (ab) - version (ver) - quit (q)\n"
         "Shortcuts: :teams :people :history :settings\n");
+}
+
+void apl_tui_command_match_help(const char *const prefix, char *const out, const size_t out_size)
+{
+    if (out == nullptr || out_size == 0) {
+        return;
+    }
+    if (prefix == nullptr || prefix[0] == '\0') {
+        apl_tui_command_registry_help(out, out_size);
+        return;
+    }
+    out[0] = '\0';
+    unsigned matches = 0;
+    for (size_t index = 0; index < COMMAND_COUNT; ++index) {
+        const apl_tui_command_spec *const spec = &COMMANDS[index];
+        if (!apl_tui_text_starts_with_ci(spec->name, prefix) &&
+            !apl_tui_text_starts_with_ci(spec->alias, prefix)) {
+            continue;
+        }
+        ++matches;
+        (void)append_output(out, out_size, "- %s  (%s)\n  %s\n", spec->usage, spec->alias,
+                            spec->summary);
+    }
+    if (matches == 0) {
+        (void)append_output(out, out_size, "No command matches '%s'.\n\n", prefix);
+        apl_tui_command_registry_help(out, out_size);
+    }
 }
 
 static void append_candidate(char *const out, const size_t out_size, const char *const candidate)

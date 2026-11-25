@@ -173,3 +173,64 @@ Test(tui_action, empty_or_unknown_requests_are_rejected)
     cr_assert_eq(apl_tui_action_from_request(nullptr, &action, &error), APL_ERR_INVALID_ARGUMENT);
     cr_assert_str_eq(apl_tui_action_name(APL_TUI_ACTION_TEAM_SWITCH_TARGET), "team-switch-target");
 }
+
+Test(tui_action, project_and_budget_commands_map_to_shared_intents)
+{
+    apl_error error;
+    apl_error_init(&error);
+    apl_tui_action action = {};
+
+    apl_tui_command_request request = parse_request("project list");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_PROJECT_LIST);
+
+    request = parse_request(
+        "project new --title Aero --category Body --status Open --target 2026-05-01 --season 2026 "
+        "--car SF-26 --notes N");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_CREATE_PROJECT_DIRECT);
+    cr_assert_str_eq(action.value, "Aero");
+    cr_assert_str_eq(action.category, "Body");
+    cr_assert_str_eq(action.status, "Open");
+    cr_assert_str_eq(action.start, "2026-05-01");
+    cr_assert_str_eq(action.season, "2026");
+    cr_assert_str_eq(action.car, "SF-26");
+    cr_assert_str_eq(action.notes, "N");
+
+    request = parse_request("project new --category Body");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_PROJECT_CREATE_FORM);
+    cr_assert_str_eq(action.category, "Body");
+
+    request = parse_request("project show Aero");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_PROJECT_SHOW);
+    cr_assert_str_eq(action.value, "Aero");
+
+    request = parse_request("project log Aero --date 2026-01-10 --summary \"First update\"");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_LOG_PROJECT_UPDATE_DIRECT);
+    cr_assert_str_eq(action.value, "Aero");
+    cr_assert_str_eq(action.start, "2026-01-10");
+    cr_assert_str_eq(action.summary, "First update");
+
+    request = parse_request("project edit Aero");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_PROJECT_EDIT_FORM);
+    cr_assert_str_eq(action.value, "Aero");
+
+    request = parse_request("project archive Aero");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_ARCHIVE_PROJECT_TARGET);
+
+    request = parse_request("project log Aero");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_PROJECT_LOG_FORM);
+
+    request = parse_request("budget list");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_BUDGET_LIST);
+    request = parse_request("budget new");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM);
+}

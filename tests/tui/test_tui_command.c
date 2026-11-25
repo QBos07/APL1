@@ -264,3 +264,36 @@ Test(tui_command, status_names_are_stable)
     cr_assert_str_eq(apl_tui_command_status_name(APL_TUI_COMMAND_INCOMPLETE), "incomplete");
     cr_assert_str_eq(apl_tui_command_status_name(APL_TUI_COMMAND_UNKNOWN), "unknown");
 }
+
+Test(tui_command, project_and_budget_commands_parse)
+{
+    const apl_tui_command_parse_result project_new = apl_tui_command_parse(
+        "project new --title Aero --category Body --status Open --season 2026 --car SF-26");
+    cr_assert_eq(project_new.status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(project_new.request.id, APL_TUI_COMMAND_PROJECT_NEW);
+    cr_assert_str_eq(apl_tui_command_option_value(&project_new.request, "title"), "Aero");
+    cr_assert_str_eq(apl_tui_command_option_value(&project_new.request, "season"), "2026");
+    cr_assert_str_eq(apl_tui_command_option_value(&project_new.request, "car"), "SF-26");
+
+    const apl_tui_command_parse_result project_log =
+        apl_tui_command_parse("project log Aero --date 2026-01-10 --summary \"First update\"");
+    cr_assert_eq(project_log.status, APL_TUI_COMMAND_OK);
+    cr_assert_eq(project_log.request.id, APL_TUI_COMMAND_PROJECT_LOG);
+    cr_assert_str_eq(project_log.request.positionals[0], "Aero");
+    cr_assert_str_eq(apl_tui_command_option_value(&project_log.request, "summary"), "First update");
+
+    cr_assert_eq(apl_tui_command_parse("project list").request.id, APL_TUI_COMMAND_PROJECT_LIST);
+    cr_assert_eq(apl_tui_command_parse("pl").request.id, APL_TUI_COMMAND_PROJECT_LIST);
+    cr_assert_eq(apl_tui_command_parse("budget list").request.id, APL_TUI_COMMAND_BUDGET_LIST);
+    cr_assert_eq(apl_tui_command_parse("bn").request.id, APL_TUI_COMMAND_BUDGET_NEW);
+}
+
+Test(tui_command, help_prefix_finds_project_commands)
+{
+    char help[APL_TUI_COMMAND_HELP_MAX];
+    apl_tui_command_match_help("project", help, sizeof(help));
+    cr_assert_neq(strstr(help, "project list"), nullptr);
+    cr_assert_neq(strstr(help, "project new"), nullptr);
+    cr_assert_neq(strstr(help, "project log"), nullptr);
+    cr_assert_eq(strstr(help, "team create"), nullptr);
+}

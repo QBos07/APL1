@@ -230,6 +230,94 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
         out_action->kind = APL_TUI_ACTION_OPEN_CAR_SHOW;
         (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
         return APL_OK;
+    case APL_TUI_COMMAND_PROJECT_LIST:
+        out_action->kind = APL_TUI_ACTION_OPEN_PROJECT_LIST;
+        return APL_OK;
+    case APL_TUI_COMMAND_PROJECT_NEW: {
+        const char *const title = apl_tui_command_option_value(request, "title");
+        const char *const category = apl_tui_command_option_value(request, "category");
+        const char *const description = apl_tui_command_option_value(request, "description");
+        const char *const status = apl_tui_command_option_value(request, "status");
+        const char *const target = apl_tui_command_option_value(request, "target");
+        const char *const actual = apl_tui_command_option_value(request, "actual");
+        const char *const season = apl_tui_command_option_value(request, "season");
+        const char *const car = apl_tui_command_option_value(request, "car");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
+        if (title == nullptr || title[0] == '\0') {
+            out_action->kind = APL_TUI_ACTION_OPEN_PROJECT_CREATE_FORM;
+        } else {
+            out_action->kind = APL_TUI_ACTION_CREATE_PROJECT_DIRECT;
+            (void)snprintf(out_action->value, sizeof(out_action->value), "%s", title);
+        }
+        if (category != nullptr) {
+            (void)snprintf(out_action->category, sizeof(out_action->category), "%s", category);
+        }
+        if (description != nullptr) {
+            (void)snprintf(out_action->description, sizeof(out_action->description), "%s",
+                           description);
+        }
+        if (status != nullptr) {
+            (void)snprintf(out_action->status, sizeof(out_action->status), "%s", status);
+        }
+        if (target != nullptr) {
+            (void)snprintf(out_action->start, sizeof(out_action->start), "%s", target);
+        }
+        if (actual != nullptr) {
+            (void)snprintf(out_action->end, sizeof(out_action->end), "%s", actual);
+        }
+        if (season != nullptr) {
+            (void)snprintf(out_action->season, sizeof(out_action->season), "%s", season);
+        }
+        if (car != nullptr) {
+            (void)snprintf(out_action->car, sizeof(out_action->car), "%s", car);
+        }
+        if (notes != nullptr) {
+            (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", notes);
+        }
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_PROJECT_SHOW:
+        out_action->kind = APL_TUI_ACTION_OPEN_PROJECT_SHOW;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        return APL_OK;
+    case APL_TUI_COMMAND_PROJECT_EDIT:
+        out_action->kind = APL_TUI_ACTION_OPEN_PROJECT_EDIT_FORM;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        return APL_OK;
+    case APL_TUI_COMMAND_PROJECT_ARCHIVE:
+        out_action->kind = APL_TUI_ACTION_ARCHIVE_PROJECT_TARGET;
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        return APL_OK;
+    case APL_TUI_COMMAND_PROJECT_LOG: {
+        const char *const date = apl_tui_command_option_value(request, "date");
+        const char *const summary = apl_tui_command_option_value(request, "summary");
+        const char *const status = apl_tui_command_option_value(request, "status");
+        const char *const notes = apl_tui_command_option_value(request, "notes");
+        (void)snprintf(out_action->value, sizeof(out_action->value), "%s", request->positionals[0]);
+        if (date != nullptr) {
+            (void)snprintf(out_action->start, sizeof(out_action->start), "%s", date);
+        }
+        if (summary != nullptr) {
+            (void)snprintf(out_action->summary, sizeof(out_action->summary), "%s", summary);
+        }
+        if (status != nullptr) {
+            (void)snprintf(out_action->status, sizeof(out_action->status), "%s", status);
+        }
+        if (notes != nullptr) {
+            (void)snprintf(out_action->notes, sizeof(out_action->notes), "%s", notes);
+        }
+        out_action->kind =
+            (date == nullptr || date[0] == '\0' || summary == nullptr || summary[0] == '\0')
+                ? APL_TUI_ACTION_OPEN_PROJECT_LOG_FORM
+                : APL_TUI_ACTION_LOG_PROJECT_UPDATE_DIRECT;
+        return APL_OK;
+    }
+    case APL_TUI_COMMAND_BUDGET_LIST:
+        out_action->kind = APL_TUI_ACTION_OPEN_BUDGET_LIST;
+        return APL_OK;
+    case APL_TUI_COMMAND_BUDGET_NEW:
+        out_action->kind = APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM;
+        return APL_OK;
     case APL_TUI_COMMAND_HELP:
         out_action->kind = APL_TUI_ACTION_OPEN_HELP;
         join_positionals(request, out_action->value, sizeof(out_action->value));
@@ -302,6 +390,26 @@ const char *apl_tui_action_name(const apl_tui_action_kind kind)
         return "create-car-direct";
     case APL_TUI_ACTION_OPEN_CAR_SHOW:
         return "open-car-show";
+    case APL_TUI_ACTION_OPEN_PROJECT_LIST:
+        return "open-project-list";
+    case APL_TUI_ACTION_OPEN_PROJECT_CREATE_FORM:
+        return "open-project-create-form";
+    case APL_TUI_ACTION_CREATE_PROJECT_DIRECT:
+        return "create-project-direct";
+    case APL_TUI_ACTION_OPEN_PROJECT_SHOW:
+        return "open-project-show";
+    case APL_TUI_ACTION_OPEN_PROJECT_EDIT_FORM:
+        return "open-project-edit-form";
+    case APL_TUI_ACTION_ARCHIVE_PROJECT_TARGET:
+        return "archive-project-target";
+    case APL_TUI_ACTION_OPEN_PROJECT_LOG_FORM:
+        return "open-project-log-form";
+    case APL_TUI_ACTION_LOG_PROJECT_UPDATE_DIRECT:
+        return "log-project-update-direct";
+    case APL_TUI_ACTION_OPEN_BUDGET_LIST:
+        return "open-budget-list";
+    case APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM:
+        return "open-budget-create-form";
     case APL_TUI_ACTION_OPEN_HELP:
         return "open-help";
     case APL_TUI_ACTION_OPEN_ABOUT:

@@ -369,7 +369,8 @@ static const char *context_key_hint(const shell_state *const state)
     }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
-            return "u update | e edit | x archive | b budgets | Enter cost | Esc projects";
+            return "u update | e edit | x archive | c cost | b budgets | Enter linked cost | "
+                   "Esc projects";
         }
         return "n new | Enter open | f filters | a archived | c clear";
     }
@@ -378,7 +379,8 @@ static const char *context_key_hint(const shell_state *const state)
             return "c correct | Esc ledger";
         }
         if (state->screen == SHELL_SCREEN_BUDGET_LIST) {
-            return "n plan | Enter edit | d dates | F category | c clear | Esc ledger";
+            return "n plan | Enter edit | x archive | a archived | d dates | F category | c clear | "
+                   "Esc ledger";
         }
         return "i income | x expense | o opening | u currency | b budgets | d dates | g kind | "
                "F category | c clear";
@@ -415,6 +417,12 @@ static const char *context_key_hint(const shell_state *const state)
     return ", . views | : commands | m menu | q quit";
 }
 
+static void format_key_hint_line(const shell_state *const state, char *const out,
+                                 const size_t out_size)
+{
+    (void)snprintf(out, out_size, "Keys: %s", context_key_hint(state));
+}
+
 static void draw_key_hints(shell_state *const state)
 {
     struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
@@ -423,10 +431,10 @@ static void draw_key_hints(shell_state *const state)
         return;
     }
     char line[320];
-    const bool focused = state->focus.region == APL_TUI_FOCUS_BODY;
-    (void)snprintf(line, sizeof(line), "%sKeys: %s", focused ? "Body | " : "",
-                   context_key_hint(state));
-    apl_tui_theme_apply(&state->theme, body, focused ? APL_TUI_ROLE_TAB_FOCUS : APL_TUI_ROLE_MUTED);
+    format_key_hint_line(state, line, sizeof(line));
+    apl_tui_theme_apply(&state->theme, body,
+                        state->focus.region == APL_TUI_FOCUS_BODY ? APL_TUI_ROLE_TAB_FOCUS
+                                                                  : APL_TUI_ROLE_MUTED);
     apl_tui_frame_draw_line(body, (int)(layout->body.rows - 1), line);
     apl_tui_theme_reset(body);
 }
@@ -1021,6 +1029,35 @@ static bool dispatch_car_show(shell_state *const state, const char *const target
     return true;
 }
 
+static bool dispatch_project_show(shell_state *const state, const char *const target,
+                                  apl_error *const error)
+{
+    apl_project_filter filter = {.team_id = active_team_id(state), .include_archived = true};
+    apl_project *projects = nullptr;
+    size_t count = 0;
+    if (apl_project_service_list(state->app, &filter, &projects, &count, error) != APL_OK) {
+        return false;
+    }
+    const bool numeric = text_is_numeric(target);
+    const int64_t target_id = numeric ? strtoll(target, nullptr, 10) : 0;
+    size_t matches = 0;
+    apl_project chosen = {};
+    for (size_t index = 0; index < count; ++index) {
+        if ((numeric && projects[index].id == target_id) ||
+            (!numeric && apl_tui_text_equal_ci(projects[index].title, target))) {
+            chosen = projects[index];
+            ++matches;
+        }
+    }
+    apl_project_service_free_list(projects);
+    if (matches != 1) {
+        apl_error_set(error, APL_ERR_NOT_FOUND, "no unique project matches '%s'", target);
+        return false;
+    }
+    open_project_detail(state, chosen);
+    return true;
+}
+
 static void execute_command_line(shell_state *const state)
 {
     if (apl_tui_command_line_empty(&state->command_line)) {
@@ -1353,13 +1390,151 @@ static void execute_command_line(shell_state *const state)
             show_error_dialog(state, &error);
         }
         return;
+    case APL_TUI_ACTION_OPEN_PROJECT_LIST:
+        state->section = APL_TUI_SECTION_DEVELOPMENT;
+        state->screen = SHELL_SCREEN_PROJECT_LIST;
+        if (load_projects(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Projects for the active team.");
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_PROJECT_CREATE_FORM:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before creating a project.");
+            return;
+        }
+        open_project_create_form_prefilled(state, action.value, action.category, action.description,
+                                           action.status, action.start, action.end, action.season,
+                                           action.car, action.notes);
+        return;
+    case APL_TUI_ACTION_CREATE_PROJECT_DIRECT:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before creating a project.");
+            return;
+        }
+        if (!perform_project_create(state, action.value, action.category, action.description,
+                                    action.status, action.start, action.end, action.season,
+                                    action.car, action.notes, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_PROJECT_SHOW:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before opening a project.");
+            return;
+        }
+        if (!dispatch_project_show(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_PROJECT_EDIT_FORM:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before editing a project.");
+            return;
+        }
+        if (!dispatch_project_show(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        if (state->project_detail.meta.archived) {
+            set_status_warning(state, "Archived projects are read-only in this view.");
+            return;
+        }
+        open_project_dialog(state, true);
+        return;
+    case APL_TUI_ACTION_ARCHIVE_PROJECT_TARGET:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before archiving a project.");
+            return;
+        }
+        if (!dispatch_project_show(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        if (state->project_detail.meta.archived) {
+            set_status_warning(state, "This project is already archived.");
+            return;
+        }
+        state->pending = SHELL_PENDING_ARCHIVE_PROJECT;
+        state->pending_record_id = state->project_detail.id;
+        apl_tui_dialog_open_confirm(&state->dialog, "Archive project?",
+                                    "The project and its timeline remain readable. No records "
+                                    "are deleted and no completion date is invented.");
+        apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+        return;
+    case APL_TUI_ACTION_OPEN_PROJECT_LOG_FORM:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before logging a project update.");
+            return;
+        }
+        if (!dispatch_project_show(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        open_project_update_dialog(state);
+        if (action.start[0] != '\0') {
+            (void)apl_tui_dialog_set_field_value(&state->dialog, 0, action.start);
+        }
+        if (action.summary[0] != '\0') {
+            (void)apl_tui_dialog_set_field_value(&state->dialog, 1, action.summary);
+        }
+        if (action.status[0] != '\0') {
+            (void)apl_tui_dialog_set_field_value(&state->dialog, 2, action.status);
+        }
+        if (action.notes[0] != '\0') {
+            (void)apl_tui_dialog_set_field_value(&state->dialog, 3, action.notes);
+        }
+        return;
+    case APL_TUI_ACTION_LOG_PROJECT_UPDATE_DIRECT:
+        if (active_team_id(state) == 0) {
+            show_info_dialog(state, "No active team",
+                             "Select an active team before logging a project update.");
+            return;
+        }
+        if (!dispatch_project_show(state, action.value, &error)) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        state->dialog_project_id = state->project_detail.id;
+        if (!perform_project_log_update(state, action.start, action.summary, action.status,
+                                        action.notes, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_BUDGET_LIST:
+        state->section = APL_TUI_SECTION_MONEY;
+        state->screen = SHELL_SCREEN_BUDGET_LIST;
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Budget report for the active team.");
+        }
+        return;
+    case APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM:
+        open_budget_form(state, false);
+        return;
     case APL_TUI_ACTION_OPEN_HELP: {
         char help[APL_TUI_COMMAND_HELP_MAX];
         const apl_tui_command_spec *spec = nullptr;
         if (action.value[0] != '\0') {
             spec = apl_tui_command_lookup(action.value);
         }
-        apl_tui_command_help(spec, help, sizeof(help));
+        if (spec != nullptr) {
+            apl_tui_command_help(spec, help, sizeof(help));
+        } else if (action.value[0] != '\0') {
+            apl_tui_command_match_help(action.value, help, sizeof(help));
+        } else {
+            apl_tui_command_registry_help(help, sizeof(help));
+        }
         show_info_dialog(state, "Command help", help);
         return;
     }
@@ -1628,13 +1803,16 @@ static bool handle_key_hint_mouse(shell_state *const state, const apl_tui_layout
     }
     const unsigned column = (unsigned)(input->x - (int)layout->body.x);
     char line[400];
-    (void)snprintf(line, sizeof(line), "Keys: %s", context_key_hint(state));
+    format_key_hint_line(state, line, sizeof(line));
     const size_t length = strlen(line);
     if (column >= length) {
         return true;
     }
-    const char *const prefix = "Keys: ";
-    size_t position = strlen(prefix);
+    const char *const prefix = strstr(line, "Keys: ");
+    if (prefix == nullptr) {
+        return true;
+    }
+    size_t position = (size_t)(prefix - line) + strlen("Keys: ");
     while (position <= length) {
         size_t end = position;
         while (end < length && strncmp(line + end, " | ", 3) != 0) {

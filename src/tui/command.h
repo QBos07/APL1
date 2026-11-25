@@ -13,7 +13,7 @@
  */
 
 static constexpr size_t APL_TUI_COMMAND_MAX_POSITIONALS = 4;
-static constexpr size_t APL_TUI_COMMAND_MAX_OPTIONS = 8;
+static constexpr size_t APL_TUI_COMMAND_MAX_OPTIONS = 12;
 static constexpr size_t APL_TUI_COMMAND_WORD_MAX = 256;
 static constexpr size_t APL_TUI_COMMAND_NAME_MAX = 64;
 static constexpr size_t APL_TUI_COMMAND_OPTION_MAX = 32;
@@ -39,6 +39,14 @@ typedef enum apl_tui_command_id {
     APL_TUI_COMMAND_CAR_LIST,
     APL_TUI_COMMAND_CAR_NEW,
     APL_TUI_COMMAND_CAR_SHOW,
+    APL_TUI_COMMAND_PROJECT_LIST,
+    APL_TUI_COMMAND_PROJECT_NEW,
+    APL_TUI_COMMAND_PROJECT_SHOW,
+    APL_TUI_COMMAND_PROJECT_EDIT,
+    APL_TUI_COMMAND_PROJECT_ARCHIVE,
+    APL_TUI_COMMAND_PROJECT_LOG,
+    APL_TUI_COMMAND_BUDGET_LIST,
+    APL_TUI_COMMAND_BUDGET_NEW,
     APL_TUI_COMMAND_HELP,
     APL_TUI_COMMAND_ABOUT,
     APL_TUI_COMMAND_VERSION,
@@ -115,6 +123,10 @@ const char *apl_tui_command_option_value(const apl_tui_command_request *request,
 /** Write command-specific help or registry-wide help into `out`. */
 void apl_tui_command_help(const apl_tui_command_spec *spec, char *out, size_t out_size);
 void apl_tui_command_registry_help(char *out, size_t out_size);
+
+/** Write help for every command whose name starts with `prefix`, or the full
+ *  registry when nothing matches or prefix is blank. */
+void apl_tui_command_match_help(const char *prefix, char *out, size_t out_size);
 
 /** Write a short usage/completion suggestion for `prefix`, or an empty string. */
 void apl_tui_command_complete(const char *prefix, char *out, size_t out_size);
