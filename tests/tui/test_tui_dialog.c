@@ -1,5 +1,4 @@
 #include <limits.h>
-#include <string.h>
 
 #include <criterion/criterion.h>
 

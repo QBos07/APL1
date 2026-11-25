@@ -88,14 +88,14 @@ bool apl_tui_status_set_message(apl_tui_status *const status, const apl_tui_stat
     }
 
     va_list args;
-    __builtin_va_start(args, format);
+    va_start(args);
     const bool blocked = status->message[0] != '\0' && status->level == APL_TUI_STATUS_ERROR &&
                          level != APL_TUI_STATUS_ERROR;
     if (!blocked) {
         (void)vsnprintf(status->message, sizeof(status->message), format, args);
         status->level = level;
     }
-    __builtin_va_end(args);
+    va_end(args);
     return !blocked;
 }
 

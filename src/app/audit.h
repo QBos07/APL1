@@ -12,7 +12,7 @@
  * boundary, so the business write and its audit event commit or roll back
  * together. */
 
-apl_status apl_audit_append(apl_app *app, int64_t team_id, const char *action,
+apl_status apl_audit_append(const apl_app *app, int64_t team_id, const char *action,
                             const char *entity_type, int64_t entity_id, const char *summary,
                             const apl_activity_change *changes, size_t change_count,
                             apl_error *error);

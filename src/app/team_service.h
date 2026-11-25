@@ -27,27 +27,29 @@ typedef enum apl_active_team_status {
  *
  * Blank names and duplicates are rejected. On success the new team is the
  * active team and `out_team` holds the stored row. */
-apl_status apl_team_service_create(apl_app *app, const char *name, const char *notes,
+apl_status apl_team_service_create(const apl_app *app, const char *name, const char *notes,
                                    apl_team *out_team, apl_error *error);
 
 /** List teams through the application boundary.
  *
  * Release the returned array with apl_team_service_free_list. */
-apl_status apl_team_service_list(apl_app *app, bool include_archived, apl_team **out_teams,
+apl_status apl_team_service_list(const apl_app *app, bool include_archived, apl_team **out_teams,
                                  size_t *out_count, apl_error *error);
 
 /** Fetch one team by ID. */
-apl_status apl_team_service_get(apl_app *app, int64_t id, apl_team *out_team, apl_error *error);
+apl_status apl_team_service_get(const apl_app *app, int64_t id, apl_team *out_team,
+                                apl_error *error);
 
 /** Validate and update a team's name/notes while preserving its ID and archive
  *  state. */
-apl_status apl_team_service_update(apl_app *app, int64_t id, const char *name, const char *notes,
-                                   apl_team *out_team, apl_error *error);
+apl_status apl_team_service_update(const apl_app *app, int64_t id, const char *name,
+                                   const char *notes, apl_team *out_team, apl_error *error);
 
 /** Archive a team. The last non-archived team cannot be archived. If the
  *  archived team was active, select the oldest remaining active team (stable
  *  ID tie-breaker) in the same transaction; archived rows/history remain. */
-apl_status apl_team_service_archive(apl_app *app, int64_t id, apl_team *out_team, apl_error *error);
+apl_status apl_team_service_archive(const apl_app *app, int64_t id, apl_team *out_team,
+                                    apl_error *error);
 
 /** Load the persisted active-team selection.
  *
@@ -55,11 +57,11 @@ apl_status apl_team_service_archive(apl_app *app, int64_t id, apl_team *out_team
  * non-archived team (stable ID as tie-breaker), persist that stable ID, and
  * return APL_ACTIVE_TEAM_FALLBACK. If no active team remains, clear the
  * selection and return APL_ACTIVE_TEAM_NONE. */
-apl_status apl_team_service_active(apl_app *app, apl_team *out_team,
+apl_status apl_team_service_active(const apl_app *app, apl_team *out_team,
                                    apl_active_team_status *out_status, apl_error *error);
 
 /** Select an existing, non-archived team as active. */
-apl_status apl_team_service_set_active(apl_app *app, int64_t id, apl_error *error);
+apl_status apl_team_service_set_active(const apl_app *app, int64_t id, apl_error *error);
 
 /** Release a list returned by apl_team_service_list. */
 void apl_team_service_free_list(apl_team *teams);

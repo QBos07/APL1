@@ -2,7 +2,7 @@
 
 #include <sqlite3.h>
 
-apl_status apl_settings_repository_get_active_team_id(apl_db_connection *const connection,
+apl_status apl_settings_repository_get_active_team_id(const apl_db_connection *const connection,
                                                       int64_t *const out_team_id,
                                                       apl_error *const error)
 {
@@ -41,7 +41,7 @@ apl_status apl_settings_repository_get_active_team_id(apl_db_connection *const c
     return APL_OK;
 }
 
-apl_status apl_settings_repository_set_active_team_id(apl_db_connection *const connection,
+apl_status apl_settings_repository_set_active_team_id(const apl_db_connection *const connection,
                                                       const int64_t team_id, apl_error *const error)
 {
     if (connection == nullptr) {
@@ -90,7 +90,7 @@ apl_status apl_settings_repository_set_active_team_id(apl_db_connection *const c
     return APL_OK;
 }
 
-apl_status apl_settings_repository_clear_active_team_id(apl_db_connection *const connection,
+apl_status apl_settings_repository_clear_active_team_id(const apl_db_connection *const connection,
                                                         apl_error *const error)
 {
     if (connection == nullptr) {

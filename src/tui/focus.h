@@ -1,8 +1,6 @@
 #ifndef APL_TUI_FOCUS_H
 #define APL_TUI_FOCUS_H
 
-#include <stdbool.h>
-
 /*
  * Semantic focus regions for the redesigned shell (work items 2.19/2.23).
  *

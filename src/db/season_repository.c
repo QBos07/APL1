@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define SEASON_COLUMNS                                                                             \
     "id, team_id, label, start_date, end_date, notes, archived, created_at, updated_at, archived_at"
@@ -119,10 +118,11 @@ static apl_status write_and_read(sqlite3 *const handle, const char *const sql,
     return APL_OK;
 }
 
-apl_status apl_season_repository_create(apl_db_connection *const connection, const int64_t team_id,
-                                        const char *const label, const char *const start_date,
-                                        const char *const end_date, const char *const notes,
-                                        apl_season *const out_season, apl_error *const error)
+apl_status apl_season_repository_create(const apl_db_connection *const connection,
+                                        const int64_t team_id, const char *const label,
+                                        const char *const start_date, const char *const end_date,
+                                        const char *const notes, apl_season *const out_season,
+                                        apl_error *const error)
 {
     if (connection == nullptr || label == nullptr || start_date == nullptr || end_date == nullptr ||
         notes == nullptr || out_season == nullptr || team_id <= 0) {
@@ -143,9 +143,9 @@ apl_status apl_season_repository_create(apl_db_connection *const connection, con
         team_id, 0, false, label, start_date, end_date, notes, out_season, error);
 }
 
-apl_status apl_season_repository_get(apl_db_connection *const connection, const int64_t team_id,
-                                     const int64_t id, apl_season *const out_season,
-                                     apl_error *const error)
+apl_status apl_season_repository_get(const apl_db_connection *const connection,
+                                     const int64_t team_id, const int64_t id,
+                                     apl_season *const out_season, apl_error *const error)
 {
     if (connection == nullptr || out_season == nullptr || team_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "season get arguments are invalid");
@@ -185,11 +185,11 @@ apl_status apl_season_repository_get(apl_db_connection *const connection, const 
     return APL_OK;
 }
 
-apl_status apl_season_repository_update(apl_db_connection *const connection, const int64_t team_id,
-                                        const int64_t id, const char *const label,
-                                        const char *const start_date, const char *const end_date,
-                                        const char *const notes, apl_season *const out_season,
-                                        apl_error *const error)
+apl_status apl_season_repository_update(const apl_db_connection *const connection,
+                                        const int64_t team_id, const int64_t id,
+                                        const char *const label, const char *const start_date,
+                                        const char *const end_date, const char *const notes,
+                                        apl_season *const out_season, apl_error *const error)
 {
     if (connection == nullptr || label == nullptr || start_date == nullptr || end_date == nullptr ||
         notes == nullptr || out_season == nullptr || team_id <= 0) {
@@ -210,9 +210,9 @@ apl_status apl_season_repository_update(apl_db_connection *const connection, con
         team_id, id, true, label, start_date, end_date, notes, out_season, error);
 }
 
-apl_status apl_season_repository_archive(apl_db_connection *const connection, const int64_t team_id,
-                                         const int64_t id, apl_season *const out_season,
-                                         apl_error *const error)
+apl_status apl_season_repository_archive(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t id,
+                                         apl_season *const out_season, apl_error *const error)
 {
     if (connection == nullptr || out_season == nullptr || team_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "season archive arguments are invalid");
@@ -256,9 +256,10 @@ apl_status apl_season_repository_archive(apl_db_connection *const connection, co
     return APL_OK;
 }
 
-apl_status apl_season_repository_list(apl_db_connection *const connection, const int64_t team_id,
-                                      const bool include_archived, apl_season **const out_seasons,
-                                      size_t *const out_count, apl_error *const error)
+apl_status apl_season_repository_list(const apl_db_connection *const connection,
+                                      const int64_t team_id, const bool include_archived,
+                                      apl_season **const out_seasons, size_t *const out_count,
+                                      apl_error *const error)
 {
     if (connection == nullptr || out_seasons == nullptr || out_count == nullptr || team_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "season list arguments are invalid");

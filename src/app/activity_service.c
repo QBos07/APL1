@@ -11,7 +11,8 @@ static apl_status with_context(const apl_status status, const char *const contex
     return status;
 }
 
-apl_status apl_activity_service_list(apl_app *const app, const apl_activity_filter *const filter,
+apl_status apl_activity_service_list(const apl_app *const app,
+                                     const apl_activity_filter *const filter,
                                      apl_activity_event **const out_events, size_t *const out_count,
                                      apl_error *const error)
 {
@@ -24,7 +25,7 @@ apl_status apl_activity_service_list(apl_app *const app, const apl_activity_filt
         "cannot list activity", error);
 }
 
-apl_status apl_activity_service_get(apl_app *const app, const int64_t event_id,
+apl_status apl_activity_service_get(const apl_app *const app, const int64_t event_id,
                                     apl_activity_event *const out_event,
                                     apl_activity_change **const out_changes,
                                     size_t *const out_change_count, apl_error *const error)

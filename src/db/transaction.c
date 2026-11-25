@@ -28,7 +28,8 @@ static void copy_error(apl_error *const destination, const apl_error *const sour
 }
 
 apl_status apl_db_transaction_begin(apl_db_transaction *const transaction,
-                                    apl_db_connection *const connection, apl_error *const error)
+                                    const apl_db_connection *const connection,
+                                    apl_error *const error)
 {
     if (transaction == nullptr || connection == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "transaction arguments are nullptr");
@@ -98,8 +99,8 @@ apl_status apl_db_transaction_commit(apl_db_transaction *const transaction, apl_
             transaction->active = false;
         } else {
             char context[160];
-            snprintf(context, sizeof(context), "rollback after commit failure failed: %s",
-                     apl_error_message(&rollback_error));
+            (void)snprintf(context, sizeof(context), "rollback after commit failure failed: %s",
+                           apl_error_message(&rollback_error));
             apl_error_prefix(&commit_error, APL_ERR_DB_QUERY, context);
         }
     } else {

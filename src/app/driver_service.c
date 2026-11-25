@@ -58,7 +58,7 @@ static apl_status normalize_fields(const char *const name, const char *const sho
     return status;
 }
 
-static apl_status append_event(apl_app *const app, const char *const action,
+static apl_status append_event(const apl_app *const app, const char *const action,
                                const int64_t driver_id, const char *const summary,
                                const apl_activity_change *const changes, const size_t count,
                                apl_error *const error)
@@ -69,7 +69,7 @@ static apl_status append_event(apl_app *const app, const char *const action,
     return apl_audit_append(app, 0, action, "driver", driver_id, summary, changes, count, error);
 }
 
-apl_status apl_driver_service_create(apl_app *const app, const char *const name,
+apl_status apl_driver_service_create(const apl_app *const app, const char *const name,
                                      const char *const short_name, const char *const notes,
                                      apl_driver *const out_driver, apl_error *const error)
 {
@@ -109,7 +109,7 @@ apl_status apl_driver_service_create(apl_app *const app, const char *const name,
     return commit(&transaction, "cannot create driver", error);
 }
 
-apl_status apl_driver_service_get(apl_app *const app, const int64_t id,
+apl_status apl_driver_service_get(const apl_app *const app, const int64_t id,
                                   apl_driver *const out_driver, apl_error *const error)
 {
     if (app == nullptr || out_driver == nullptr || id <= 0) {
@@ -120,9 +120,10 @@ apl_status apl_driver_service_get(apl_app *const app, const int64_t id,
                         "cannot load driver", error);
 }
 
-apl_status apl_driver_service_update(apl_app *const app, const int64_t id, const char *const name,
-                                     const char *const short_name, const char *const notes,
-                                     apl_driver *const out_driver, apl_error *const error)
+apl_status apl_driver_service_update(const apl_app *const app, const int64_t id,
+                                     const char *const name, const char *const short_name,
+                                     const char *const notes, apl_driver *const out_driver,
+                                     apl_error *const error)
 {
     if (app == nullptr || out_driver == nullptr || id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "driver update arguments are invalid");
@@ -181,7 +182,7 @@ apl_status apl_driver_service_update(apl_app *const app, const int64_t id, const
     return commit(&transaction, "cannot update driver", error);
 }
 
-apl_status apl_driver_service_archive(apl_app *const app, const int64_t id,
+apl_status apl_driver_service_archive(const apl_app *const app, const int64_t id,
                                       apl_driver *const out_driver, apl_error *const error)
 {
     if (app == nullptr || out_driver == nullptr || id <= 0) {
@@ -215,7 +216,7 @@ apl_status apl_driver_service_archive(apl_app *const app, const int64_t id,
     return commit(&transaction, "cannot archive driver", error);
 }
 
-apl_status apl_driver_service_list(apl_app *const app, const bool include_archived,
+apl_status apl_driver_service_list(const apl_app *const app, const bool include_archived,
                                    apl_driver **const out_drivers, size_t *const out_count,
                                    apl_error *const error)
 {
@@ -228,7 +229,7 @@ apl_status apl_driver_service_list(apl_app *const app, const bool include_archiv
         "cannot list drivers", error);
 }
 
-apl_status apl_driver_service_list_for_team(apl_app *const app, const int64_t team_id,
+apl_status apl_driver_service_list_for_team(const apl_app *const app, const int64_t team_id,
                                             const bool include_archived,
                                             apl_driver **const out_drivers, size_t *const out_count,
                                             apl_error *const error)

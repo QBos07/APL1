@@ -58,15 +58,15 @@ static apl_status normalize_fields(const char *const label, const char *const ch
     return status;
 }
 
-static apl_status append_event(apl_app *const app, const int64_t team_id, const char *const action,
-                               const int64_t car_id, const char *const summary,
-                               const apl_activity_change *const changes, const size_t count,
-                               apl_error *const error)
+static apl_status append_event(const apl_app *const app, const int64_t team_id,
+                               const char *const action, const int64_t car_id,
+                               const char *const summary, const apl_activity_change *const changes,
+                               const size_t count, apl_error *const error)
 {
     return apl_audit_append(app, team_id, action, "car", car_id, summary, changes, count, error);
 }
 
-apl_status apl_car_service_create(apl_app *const app, const int64_t team_id,
+apl_status apl_car_service_create(const apl_app *const app, const int64_t team_id,
                                   const char *const label, const char *const chassis,
                                   const char *const notes, apl_car *const out_car,
                                   apl_error *const error)
@@ -106,7 +106,7 @@ apl_status apl_car_service_create(apl_app *const app, const int64_t team_id,
     return commit(&transaction, "cannot create car", error);
 }
 
-apl_status apl_car_service_get(apl_app *const app, const int64_t team_id, const int64_t id,
+apl_status apl_car_service_get(const apl_app *const app, const int64_t team_id, const int64_t id,
                                apl_car *const out_car, apl_error *const error)
 {
     if (app == nullptr || out_car == nullptr || team_id <= 0) {
@@ -117,7 +117,7 @@ apl_status apl_car_service_get(apl_app *const app, const int64_t team_id, const 
                         "cannot load car", error);
 }
 
-apl_status apl_car_service_update(apl_app *const app, const int64_t team_id, const int64_t id,
+apl_status apl_car_service_update(const apl_app *const app, const int64_t team_id, const int64_t id,
                                   const char *const label, const char *const chassis,
                                   const char *const notes, apl_car *const out_car,
                                   apl_error *const error)
@@ -179,8 +179,8 @@ apl_status apl_car_service_update(apl_app *const app, const int64_t team_id, con
     return commit(&transaction, "cannot update car", error);
 }
 
-apl_status apl_car_service_archive(apl_app *const app, const int64_t team_id, const int64_t id,
-                                   apl_car *const out_car, apl_error *const error)
+apl_status apl_car_service_archive(const apl_app *const app, const int64_t team_id,
+                                   const int64_t id, apl_car *const out_car, apl_error *const error)
 {
     if (app == nullptr || out_car == nullptr || team_id <= 0 || id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "car archive arguments are invalid");
@@ -213,7 +213,7 @@ apl_status apl_car_service_archive(apl_app *const app, const int64_t team_id, co
     return commit(&transaction, "cannot archive car", error);
 }
 
-apl_status apl_car_service_list(apl_app *const app, const int64_t team_id,
+apl_status apl_car_service_list(const apl_app *const app, const int64_t team_id,
                                 const bool include_archived, apl_car **const out_cars,
                                 size_t *const out_count, apl_error *const error)
 {

@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define TEAM_COLUMNS "id, name, notes, archived, created_at, updated_at, archived_at"
 
@@ -103,9 +102,9 @@ static apl_status write_and_read(sqlite3 *const handle, const char *const sql,
     return APL_OK;
 }
 
-apl_status apl_team_repository_create(apl_db_connection *const connection, const char *const name,
-                                      const char *const notes, apl_team *const out_team,
-                                      apl_error *const error)
+apl_status apl_team_repository_create(const apl_db_connection *const connection,
+                                      const char *const name, const char *const notes,
+                                      apl_team *const out_team, apl_error *const error)
 {
     if (connection == nullptr || name == nullptr || notes == nullptr || out_team == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team create arguments are nullptr");
@@ -126,7 +125,7 @@ apl_status apl_team_repository_create(apl_db_connection *const connection, const
                           name, notes, 0, false, out_team, error);
 }
 
-apl_status apl_team_repository_get(apl_db_connection *const connection, const int64_t id,
+apl_status apl_team_repository_get(const apl_db_connection *const connection, const int64_t id,
                                    apl_team *const out_team, apl_error *const error)
 {
     if (connection == nullptr || out_team == nullptr) {
@@ -166,7 +165,7 @@ apl_status apl_team_repository_get(apl_db_connection *const connection, const in
     return APL_OK;
 }
 
-apl_status apl_team_repository_update(apl_db_connection *const connection, const int64_t id,
+apl_status apl_team_repository_update(const apl_db_connection *const connection, const int64_t id,
                                       const char *const name, const char *const notes,
                                       apl_team *const out_team, apl_error *const error)
 {
@@ -188,7 +187,7 @@ apl_status apl_team_repository_update(apl_db_connection *const connection, const
                           name, notes, id, true, out_team, error);
 }
 
-apl_status apl_team_repository_archive(apl_db_connection *const connection, const int64_t id,
+apl_status apl_team_repository_archive(const apl_db_connection *const connection, const int64_t id,
                                        apl_team *const out_team, apl_error *const error)
 {
     if (connection == nullptr || out_team == nullptr) {
@@ -233,7 +232,7 @@ apl_status apl_team_repository_archive(apl_db_connection *const connection, cons
     return APL_OK;
 }
 
-apl_status apl_team_repository_list(apl_db_connection *const connection,
+apl_status apl_team_repository_list(const apl_db_connection *const connection,
                                     const bool include_archived, apl_team **const out_teams,
                                     size_t *const out_count, apl_error *const error)
 {

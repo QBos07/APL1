@@ -1,9 +1,7 @@
 #ifndef APL_TUI_DIALOG_H
 #define APL_TUI_DIALOG_H
 
-#include <stdbool.h>
 #include <stddef.h>
-#include <limits.h>
 
 /*
  * Reusable modal dialog controller (work items 2.4 and 2.23).

@@ -1,7 +1,5 @@
 #include "db/connection.h"
 
-#include <stdio.h>
-
 /** Enable SQLite foreign-key enforcement and verify it is active.
  *
  * Every application connection enforces declared foreign keys, and setup

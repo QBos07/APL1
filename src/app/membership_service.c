@@ -44,7 +44,7 @@ static apl_status commit(apl_db_transaction *const transaction, const char *cons
 
 /** Verify both references and reject a new current membership for an archived
  *  driver. Historical memberships may still be edited after archiving. */
-static apl_status verify_references(apl_app *const app, const int64_t team_id,
+static apl_status verify_references(const apl_app *const app, const int64_t team_id,
                                     const int64_t driver_id, const bool require_current_eligible,
                                     apl_error *const error)
 {
@@ -90,16 +90,16 @@ static apl_status normalize_fields(const char *const start_date, const char *con
     return status;
 }
 
-static apl_status append_event(apl_app *const app, const int64_t team_id, const char *const action,
-                               const int64_t membership_id, const char *const summary,
-                               const apl_activity_change *const changes, const size_t count,
-                               apl_error *const error)
+static apl_status append_event(const apl_app *const app, const int64_t team_id,
+                               const char *const action, const int64_t membership_id,
+                               const char *const summary, const apl_activity_change *const changes,
+                               const size_t count, apl_error *const error)
 {
     return apl_audit_append(app, team_id, action, "membership", membership_id, summary, changes,
                             count, error);
 }
 
-apl_status apl_membership_service_create(apl_app *const app, const int64_t team_id,
+apl_status apl_membership_service_create(const apl_app *const app, const int64_t team_id,
                                          const int64_t driver_id, const char *const start_date,
                                          const char *const end_date, const char *const role,
                                          const char *const notes,
@@ -153,8 +153,9 @@ apl_status apl_membership_service_create(apl_app *const app, const int64_t team_
     return commit(&transaction, "cannot add membership", error);
 }
 
-apl_status apl_membership_service_get(apl_app *const app, const int64_t team_id, const int64_t id,
-                                      apl_membership *const out_membership, apl_error *const error)
+apl_status apl_membership_service_get(const apl_app *const app, const int64_t team_id,
+                                      const int64_t id, apl_membership *const out_membership,
+                                      apl_error *const error)
 {
     if (app == nullptr || out_membership == nullptr || team_id <= 0 || id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "membership get arguments are invalid");
@@ -164,7 +165,7 @@ apl_status apl_membership_service_get(apl_app *const app, const int64_t team_id,
                         "cannot load membership", error);
 }
 
-apl_status apl_membership_service_update(apl_app *const app, const int64_t team_id,
+apl_status apl_membership_service_update(const apl_app *const app, const int64_t team_id,
                                          const int64_t id, const char *const start_date,
                                          const char *const end_date, const char *const role,
                                          const char *const notes,
@@ -238,8 +239,8 @@ apl_status apl_membership_service_update(apl_app *const app, const int64_t team_
     return commit(&transaction, "cannot update membership", error);
 }
 
-apl_status apl_membership_service_end(apl_app *const app, const int64_t team_id, const int64_t id,
-                                      const char *const end_date,
+apl_status apl_membership_service_end(const apl_app *const app, const int64_t team_id,
+                                      const int64_t id, const char *const end_date,
                                       apl_membership *const out_membership, apl_error *const error)
 {
     if (app == nullptr || out_membership == nullptr || team_id <= 0 || id <= 0) {
@@ -292,7 +293,7 @@ apl_status apl_membership_service_end(apl_app *const app, const int64_t team_id,
     return commit(&transaction, "cannot end membership", error);
 }
 
-apl_status apl_membership_service_list_for_team(apl_app *const app, const int64_t team_id,
+apl_status apl_membership_service_list_for_team(const apl_app *const app, const int64_t team_id,
                                                 const bool include_ended,
                                                 apl_membership **const out_memberships,
                                                 size_t *const out_count, apl_error *const error)
@@ -306,7 +307,7 @@ apl_status apl_membership_service_list_for_team(apl_app *const app, const int64_
                         "cannot list memberships", error);
 }
 
-apl_status apl_membership_service_list_for_driver(apl_app *const app, const int64_t driver_id,
+apl_status apl_membership_service_list_for_driver(const apl_app *const app, const int64_t driver_id,
                                                   apl_membership **const out_memberships,
                                                   size_t *const out_count, apl_error *const error)
 {

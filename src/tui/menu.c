@@ -1,6 +1,5 @@
 #include "tui/menu.h"
 
-#include <stdint.h>
 #include <string.h>
 
 static const char *const GROUP_LABELS[APL_TUI_MENU_GROUP_COUNT] = {

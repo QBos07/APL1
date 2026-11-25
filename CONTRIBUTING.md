@@ -7,7 +7,10 @@ checks added during foundation hardening.
 ## Build, language, and warnings
 
 - C23 with extensions disabled (`CMAKE_C_STANDARD 23`, `CMAKE_C_EXTENSIONS NO`) and
-  strict warnings as errors: `-Wall -Wextra -pedantic -Werror -pedantic-errors`.
+  strict diagnostics as errors: `-Wall -Wextra -Wpedantic -Werror
+  -pedantic-errors` plus `-Wcast-qual -Wformat-security -Wmissing-declarations
+  -Wmissing-prototypes -Wold-style-definition -Wpointer-arith -Wshadow
+  -Wstrict-prototypes -Wundef -Wvla`.
 - Configure/build/test with the commands in the README
   (`cmake -S . -B build -DBUILD_TESTING=ON`, `cmake --build build`,
   `ctest --test-dir build --output-on-failure`).

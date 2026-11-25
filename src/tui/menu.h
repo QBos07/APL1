@@ -1,7 +1,6 @@
 #ifndef APL_TUI_MENU_H
 #define APL_TUI_MENU_H
 
-#include <stdbool.h>
 #include <stddef.h>
 
 #include "tui/layout.h"

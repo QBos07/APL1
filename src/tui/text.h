@@ -1,7 +1,6 @@
 #ifndef APL_TUI_TEXT_H
 #define APL_TUI_TEXT_H
 
-#include <stdbool.h>
 #include <stddef.h>
 
 /*

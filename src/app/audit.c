@@ -1,14 +1,14 @@
 #include "app/audit.h"
 
 #include <stdio.h>
-#include <string.h>
 
 #include "db/activity_repository.h"
 
-apl_status apl_audit_append(apl_app *const app, const int64_t team_id, const char *const action,
-                            const char *const entity_type, const int64_t entity_id,
-                            const char *const summary, const apl_activity_change *const changes,
-                            const size_t change_count, apl_error *const error)
+apl_status apl_audit_append(const apl_app *const app, const int64_t team_id,
+                            const char *const action, const char *const entity_type,
+                            const int64_t entity_id, const char *const summary,
+                            const apl_activity_change *const changes, const size_t change_count,
+                            apl_error *const error)
 {
     if (app == nullptr || action == nullptr || entity_type == nullptr || summary == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "audit append arguments are invalid");

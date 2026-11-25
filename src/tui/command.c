@@ -7,7 +7,7 @@
 #include "tui/navigation.h"
 #include "tui/text.h"
 
-#define TOKEN_COUNT_MAX 32
+constexpr size_t TOKEN_COUNT_MAX = 32;
 
 typedef struct token_list {
     char tokens[TOKEN_COUNT_MAX][APL_TUI_COMMAND_WORD_MAX];
@@ -118,21 +118,22 @@ static bool word_equal_ci(const char *const left, const char *const start, const
 }
 
 /** Append text to a bounded output buffer; returns false when it did not fit. */
+[[gnu::format(printf, 3, 4)]]
 static bool append_output(char *const out, const size_t out_size, const char *const format, ...)
 {
     if (out == nullptr || out_size == 0) {
         return false;
     }
     va_list args;
-    __builtin_va_start(args, format);
+    va_start(args);
     const size_t length = strlen(out);
     const bool fits = length < out_size - 1;
     const int written = fits ? vsnprintf(out + length, out_size - length, format, args) : -1;
-    __builtin_va_end(args);
+    va_end(args);
     return fits && written >= 0 && (size_t)written < out_size - length;
 }
 
-static bool tokenize(const char *line, token_list *const out, char *const error,
+static bool tokenize(const char *const line, token_list *const out, char *const error,
                      const size_t error_size)
 {
     out->count = 0;

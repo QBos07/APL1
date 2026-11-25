@@ -1,7 +1,6 @@
 #ifndef APL_TUI_COMMAND_LINE_H
 #define APL_TUI_COMMAND_LINE_H
 
-#include <stdbool.h>
 #include <stddef.h>
 
 /*
@@ -13,9 +12,9 @@
  * anything. No history is persisted, audited, or written to the database.
  */
 
-#define APL_TUI_COMMAND_LINE_TEXT_MAX 512
-#define APL_TUI_COMMAND_LINE_SUGGESTION_MAX 256
-#define APL_TUI_COMMAND_LINE_HISTORY_MAX 20
+constexpr size_t APL_TUI_COMMAND_LINE_TEXT_MAX = 512;
+constexpr size_t APL_TUI_COMMAND_LINE_SUGGESTION_MAX = 256;
+constexpr size_t APL_TUI_COMMAND_LINE_HISTORY_MAX = 20;
 
 typedef struct apl_tui_command_line {
     bool open;

@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define DRIVER_COLUMNS "id, name, short_name, notes, archived, created_at, updated_at, archived_at"
 
@@ -87,9 +86,10 @@ static apl_status write_and_read(sqlite3 *const handle, const char *const sql,
     return APL_OK;
 }
 
-apl_status apl_driver_repository_create(apl_db_connection *const connection, const char *const name,
-                                        const char *const short_name, const char *const notes,
-                                        apl_driver *const out_driver, apl_error *const error)
+apl_status apl_driver_repository_create(const apl_db_connection *const connection,
+                                        const char *const name, const char *const short_name,
+                                        const char *const notes, apl_driver *const out_driver,
+                                        apl_error *const error)
 {
     if (connection == nullptr || name == nullptr || short_name == nullptr || notes == nullptr ||
         out_driver == nullptr) {
@@ -110,7 +110,7 @@ apl_status apl_driver_repository_create(apl_db_connection *const connection, con
         name, short_name, notes, 0, false, out_driver, error);
 }
 
-apl_status apl_driver_repository_get(apl_db_connection *const connection, const int64_t id,
+apl_status apl_driver_repository_get(const apl_db_connection *const connection, const int64_t id,
                                      apl_driver *const out_driver, apl_error *const error)
 {
     if (connection == nullptr || out_driver == nullptr) {
@@ -148,7 +148,7 @@ apl_status apl_driver_repository_get(apl_db_connection *const connection, const 
     return APL_OK;
 }
 
-apl_status apl_driver_repository_update(apl_db_connection *const connection, const int64_t id,
+apl_status apl_driver_repository_update(const apl_db_connection *const connection, const int64_t id,
                                         const char *const name, const char *const short_name,
                                         const char *const notes, apl_driver *const out_driver,
                                         apl_error *const error)
@@ -171,8 +171,9 @@ apl_status apl_driver_repository_update(apl_db_connection *const connection, con
                           name, short_name, notes, id, true, out_driver, error);
 }
 
-apl_status apl_driver_repository_archive(apl_db_connection *const connection, const int64_t id,
-                                         apl_driver *const out_driver, apl_error *const error)
+apl_status apl_driver_repository_archive(const apl_db_connection *const connection,
+                                         const int64_t id, apl_driver *const out_driver,
+                                         apl_error *const error)
 {
     if (connection == nullptr || out_driver == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "driver archive arguments are nullptr");
@@ -256,7 +257,7 @@ static apl_status collect_drivers(sqlite3 *const handle, sqlite3_stmt *const sta
     return APL_OK;
 }
 
-apl_status apl_driver_repository_list(apl_db_connection *const connection,
+apl_status apl_driver_repository_list(const apl_db_connection *const connection,
                                       const bool include_archived, apl_driver **const out_drivers,
                                       size_t *const out_count, apl_error *const error)
 {
@@ -288,7 +289,7 @@ apl_status apl_driver_repository_list(apl_db_connection *const connection,
     return status;
 }
 
-apl_status apl_driver_repository_list_for_team(apl_db_connection *const connection,
+apl_status apl_driver_repository_list_for_team(const apl_db_connection *const connection,
                                                const int64_t team_id, const bool include_archived,
                                                apl_driver **const out_drivers,
                                                size_t *const out_count, apl_error *const error)

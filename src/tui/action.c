@@ -1,7 +1,6 @@
 #include "tui/action.h"
 
 #include <stdio.h>
-#include <string.h>
 
 #include "tui/text.h"
 

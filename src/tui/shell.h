@@ -20,6 +20,6 @@
  * be drawn; APL_ERR_TUI_INPUT means the terminal input stream became
  * unavailable. A database/use-case failure is reported with its own status.
  * The caller stops the TUI and app afterwards. */
-apl_status apl_tui_shell_run(const apl_tui *tui, apl_app *app, apl_error *error);
+apl_status apl_tui_shell_run(const apl_tui *tui, const apl_app *app, apl_error *error);
 
 #endif /* APL_TUI_SHELL_H */

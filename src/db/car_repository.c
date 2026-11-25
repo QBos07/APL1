@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define CAR_COLUMNS                                                                                \
     "id, team_id, label, chassis, notes, archived, created_at, updated_at, archived_at"
@@ -101,10 +100,10 @@ static apl_status write_and_read(sqlite3 *const handle, const char *const sql,
     return APL_OK;
 }
 
-apl_status apl_car_repository_create(apl_db_connection *const connection, const int64_t team_id,
-                                     const char *const label, const char *const chassis,
-                                     const char *const notes, apl_car *const out_car,
-                                     apl_error *const error)
+apl_status apl_car_repository_create(const apl_db_connection *const connection,
+                                     const int64_t team_id, const char *const label,
+                                     const char *const chassis, const char *const notes,
+                                     apl_car *const out_car, apl_error *const error)
 {
     if (connection == nullptr || label == nullptr || chassis == nullptr || notes == nullptr ||
         out_car == nullptr || team_id <= 0) {
@@ -125,7 +124,7 @@ apl_status apl_car_repository_create(apl_db_connection *const connection, const 
         team_id, 0, false, label, chassis, notes, out_car, error);
 }
 
-apl_status apl_car_repository_get(apl_db_connection *const connection, const int64_t team_id,
+apl_status apl_car_repository_get(const apl_db_connection *const connection, const int64_t team_id,
                                   const int64_t id, apl_car *const out_car, apl_error *const error)
 {
     if (connection == nullptr || out_car == nullptr || team_id <= 0) {
@@ -165,10 +164,11 @@ apl_status apl_car_repository_get(apl_db_connection *const connection, const int
     return APL_OK;
 }
 
-apl_status apl_car_repository_update(apl_db_connection *const connection, const int64_t team_id,
-                                     const int64_t id, const char *const label,
-                                     const char *const chassis, const char *const notes,
-                                     apl_car *const out_car, apl_error *const error)
+apl_status apl_car_repository_update(const apl_db_connection *const connection,
+                                     const int64_t team_id, const int64_t id,
+                                     const char *const label, const char *const chassis,
+                                     const char *const notes, apl_car *const out_car,
+                                     apl_error *const error)
 {
     if (connection == nullptr || label == nullptr || chassis == nullptr || notes == nullptr ||
         out_car == nullptr || team_id <= 0) {
@@ -188,9 +188,9 @@ apl_status apl_car_repository_update(apl_db_connection *const connection, const 
                           team_id, id, true, label, chassis, notes, out_car, error);
 }
 
-apl_status apl_car_repository_archive(apl_db_connection *const connection, const int64_t team_id,
-                                      const int64_t id, apl_car *const out_car,
-                                      apl_error *const error)
+apl_status apl_car_repository_archive(const apl_db_connection *const connection,
+                                      const int64_t team_id, const int64_t id,
+                                      apl_car *const out_car, apl_error *const error)
 {
     if (connection == nullptr || out_car == nullptr || team_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "car archive arguments are invalid");
@@ -233,7 +233,7 @@ apl_status apl_car_repository_archive(apl_db_connection *const connection, const
     return APL_OK;
 }
 
-apl_status apl_car_repository_list(apl_db_connection *const connection, const int64_t team_id,
+apl_status apl_car_repository_list(const apl_db_connection *const connection, const int64_t team_id,
                                    const bool include_archived, apl_car **const out_cars,
                                    size_t *const out_count, apl_error *const error)
 {

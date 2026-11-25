@@ -66,16 +66,16 @@ static apl_status normalize_fields(const char *const label, const char *const st
     return status;
 }
 
-static apl_status append_event(apl_app *const app, const int64_t team_id, const char *const action,
-                               const int64_t season_id, const char *const summary,
-                               const apl_activity_change *const changes, const size_t count,
-                               apl_error *const error)
+static apl_status append_event(const apl_app *const app, const int64_t team_id,
+                               const char *const action, const int64_t season_id,
+                               const char *const summary, const apl_activity_change *const changes,
+                               const size_t count, apl_error *const error)
 {
     return apl_audit_append(app, team_id, action, "season", season_id, summary, changes, count,
                             error);
 }
 
-apl_status apl_season_service_create(apl_app *const app, const int64_t team_id,
+apl_status apl_season_service_create(const apl_app *const app, const int64_t team_id,
                                      const char *const label, const char *const start_date,
                                      const char *const end_date, const char *const notes,
                                      apl_season *const out_season, apl_error *const error)
@@ -120,7 +120,7 @@ apl_status apl_season_service_create(apl_app *const app, const int64_t team_id,
     return commit(&transaction, "cannot create season", error);
 }
 
-apl_status apl_season_service_get(apl_app *const app, const int64_t team_id, const int64_t id,
+apl_status apl_season_service_get(const apl_app *const app, const int64_t team_id, const int64_t id,
                                   apl_season *const out_season, apl_error *const error)
 {
     if (app == nullptr || out_season == nullptr || team_id <= 0) {
@@ -131,10 +131,11 @@ apl_status apl_season_service_get(apl_app *const app, const int64_t team_id, con
                         "cannot load season", error);
 }
 
-apl_status apl_season_service_update(apl_app *const app, const int64_t team_id, const int64_t id,
-                                     const char *const label, const char *const start_date,
-                                     const char *const end_date, const char *const notes,
-                                     apl_season *const out_season, apl_error *const error)
+apl_status apl_season_service_update(const apl_app *const app, const int64_t team_id,
+                                     const int64_t id, const char *const label,
+                                     const char *const start_date, const char *const end_date,
+                                     const char *const notes, apl_season *const out_season,
+                                     apl_error *const error)
 {
     if (app == nullptr || out_season == nullptr || team_id <= 0 || id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "season update arguments are invalid");
@@ -199,8 +200,9 @@ apl_status apl_season_service_update(apl_app *const app, const int64_t team_id, 
     return commit(&transaction, "cannot update season", error);
 }
 
-apl_status apl_season_service_archive(apl_app *const app, const int64_t team_id, const int64_t id,
-                                      apl_season *const out_season, apl_error *const error)
+apl_status apl_season_service_archive(const apl_app *const app, const int64_t team_id,
+                                      const int64_t id, apl_season *const out_season,
+                                      apl_error *const error)
 {
     if (app == nullptr || out_season == nullptr || team_id <= 0 || id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "season archive arguments are invalid");
@@ -233,7 +235,7 @@ apl_status apl_season_service_archive(apl_app *const app, const int64_t team_id,
     return commit(&transaction, "cannot archive season", error);
 }
 
-apl_status apl_season_service_list(apl_app *const app, const int64_t team_id,
+apl_status apl_season_service_list(const apl_app *const app, const int64_t team_id,
                                    const bool include_archived, apl_season **const out_seasons,
                                    size_t *const out_count, apl_error *const error)
 {

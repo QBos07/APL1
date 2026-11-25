@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "app/audit.h"
 #include "db/activity_repository.h"
 #include "db/settings_repository.h"
 #include "db/team_repository.h"
@@ -46,7 +45,7 @@ static apl_status commit_transaction(apl_db_transaction *const transaction,
 
 /** Append one team activity event through the repository. The caller owns the
  *  transaction, so team, settings, and audit rows commit together. */
-static apl_status append_team_event(apl_app *const app, const int64_t team_id,
+static apl_status append_team_event(const apl_app *const app, const int64_t team_id,
                                     const char *const action, const char *const summary,
                                     const apl_activity_change *const changes,
                                     const size_t change_count, apl_error *const error)
@@ -76,7 +75,7 @@ static void set_change_text(apl_activity_change *const change, const char *const
     }
 }
 
-apl_status apl_team_service_create(apl_app *const app, const char *const name,
+apl_status apl_team_service_create(const apl_app *const app, const char *const name,
                                    const char *const notes, apl_team *const out_team,
                                    apl_error *const error)
 {
@@ -125,7 +124,7 @@ apl_status apl_team_service_create(apl_app *const app, const char *const name,
     return commit_transaction(&transaction, "cannot create team", error);
 }
 
-apl_status apl_team_service_list(apl_app *const app, const bool include_archived,
+apl_status apl_team_service_list(const apl_app *const app, const bool include_archived,
                                  apl_team **const out_teams, size_t *const out_count,
                                  apl_error *const error)
 {
@@ -138,8 +137,8 @@ apl_status apl_team_service_list(apl_app *const app, const bool include_archived
         "cannot list teams", error);
 }
 
-apl_status apl_team_service_get(apl_app *const app, const int64_t id, apl_team *const out_team,
-                                apl_error *const error)
+apl_status apl_team_service_get(const apl_app *const app, const int64_t id,
+                                apl_team *const out_team, apl_error *const error)
 {
     if (app == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "application is nullptr");
@@ -149,9 +148,9 @@ apl_status apl_team_service_get(apl_app *const app, const int64_t id, apl_team *
                         error);
 }
 
-apl_status apl_team_service_update(apl_app *const app, const int64_t id, const char *const name,
-                                   const char *const notes, apl_team *const out_team,
-                                   apl_error *const error)
+apl_status apl_team_service_update(const apl_app *const app, const int64_t id,
+                                   const char *const name, const char *const notes,
+                                   apl_team *const out_team, apl_error *const error)
 {
     if (app == nullptr || out_team == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team update arguments are nullptr");
@@ -223,7 +222,7 @@ apl_status apl_team_service_update(apl_app *const app, const int64_t id, const c
 }
 
 /** Choose the oldest-created non-archived team, with stable ID as tie-breaker. */
-static apl_status find_oldest_active_team(apl_db_connection *const connection,
+static apl_status find_oldest_active_team(const apl_db_connection *const connection,
                                           apl_team *const out_team, bool *const out_found,
                                           apl_error *const error)
 {
@@ -251,8 +250,8 @@ static apl_status find_oldest_active_team(apl_db_connection *const connection,
     return APL_OK;
 }
 
-apl_status apl_team_service_archive(apl_app *const app, const int64_t id, apl_team *const out_team,
-                                    apl_error *const error)
+apl_status apl_team_service_archive(const apl_app *const app, const int64_t id,
+                                    apl_team *const out_team, apl_error *const error)
 {
     if (app == nullptr || out_team == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team archive arguments are nullptr");
@@ -328,7 +327,7 @@ apl_status apl_team_service_archive(apl_app *const app, const int64_t id, apl_te
     return commit_transaction(&transaction, "cannot archive team", error);
 }
 
-apl_status apl_team_service_active(apl_app *const app, apl_team *const out_team,
+apl_status apl_team_service_active(const apl_app *const app, apl_team *const out_team,
                                    apl_active_team_status *const out_status, apl_error *const error)
 {
     if (app == nullptr || out_team == nullptr || out_status == nullptr) {
@@ -383,7 +382,8 @@ apl_status apl_team_service_active(apl_app *const app, apl_team *const out_team,
     return APL_OK;
 }
 
-apl_status apl_team_service_set_active(apl_app *const app, const int64_t id, apl_error *const error)
+apl_status apl_team_service_set_active(const apl_app *const app, const int64_t id,
+                                       apl_error *const error)
 {
     if (app == nullptr || id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team switch arguments are invalid");

@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     apl_app_args args = {};
     apl_status status = apl_app_args_parse(argc, argv, &args, &error);
     if (status != APL_OK) {
-        fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
+        (void)fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
         apl_app_args_print_usage(stderr, "apl1");
         return (int)apl_exit_code_for_status(status);
     }
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     apl_tui tui = {};
     status = apl_tui_start(&tui, &error);
     if (status != APL_OK) {
-        fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
+        (void)fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
         return (int)apl_exit_code_for_status(status);
     }
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     status = apl_app_start(&app, &config, &error);
     if (status != APL_OK) {
         apl_tui_stop(&tui);
-        fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
+        (void)fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
         return (int)apl_exit_code_for_status(status);
     }
 
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     apl_tui_stop(&tui);
 
     if (status != APL_OK) {
-        fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
+        (void)fprintf(stderr, "apl1: %s\n", apl_error_message(&error));
         return (int)apl_exit_code_for_status(status);
     }
     return (int)apl_exit_code_for_status(status);

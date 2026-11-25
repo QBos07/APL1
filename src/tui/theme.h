@@ -1,7 +1,6 @@
 #ifndef APL_TUI_THEME_H
 #define APL_TUI_THEME_H
 
-#include <stdbool.h>
 #include <stdint.h>
 
 struct ncplane;

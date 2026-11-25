@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define MEMBERSHIP_COLUMNS                                                                         \
     "id, team_id, driver_id, start_date, end_date, role, notes, created_at, updated_at"
@@ -163,7 +162,7 @@ static apl_status update_and_read(sqlite3 *const handle, const char *const sql,
 }
 
 apl_status apl_membership_repository_create(
-    apl_db_connection *const connection, const int64_t team_id, const int64_t driver_id,
+    const apl_db_connection *const connection, const int64_t team_id, const int64_t driver_id,
     const char *const start_date, const char *const end_date, const char *const role,
     const char *const notes, apl_membership *const out_membership, apl_error *const error)
 {
@@ -182,8 +181,9 @@ apl_status apl_membership_repository_create(
                            out_membership, error);
 }
 
-apl_status apl_membership_repository_get(apl_db_connection *const connection, const int64_t team_id,
-                                         const int64_t id, apl_membership *const out_membership,
+apl_status apl_membership_repository_get(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t id,
+                                         apl_membership *const out_membership,
                                          apl_error *const error)
 {
     if (connection == nullptr || out_membership == nullptr || team_id <= 0) {
@@ -227,7 +227,7 @@ apl_status apl_membership_repository_get(apl_db_connection *const connection, co
 }
 
 apl_status apl_membership_repository_update(
-    apl_db_connection *const connection, const int64_t team_id, const int64_t id,
+    const apl_db_connection *const connection, const int64_t team_id, const int64_t id,
     const char *const start_date, const char *const end_date, const char *const role,
     const char *const notes, apl_membership *const out_membership, apl_error *const error)
 {
@@ -250,8 +250,9 @@ apl_status apl_membership_repository_update(
         team_id, id, start_date, end_date, role, notes, out_membership, error);
 }
 
-apl_status apl_membership_repository_end(apl_db_connection *const connection, const int64_t team_id,
-                                         const int64_t id, const char *const end_date,
+apl_status apl_membership_repository_end(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t id,
+                                         const char *const end_date,
                                          apl_membership *const out_membership,
                                          apl_error *const error)
 {
@@ -340,7 +341,7 @@ static apl_status collect_memberships(sqlite3 *const handle, sqlite3_stmt *const
     return APL_OK;
 }
 
-apl_status apl_membership_repository_list_for_team(apl_db_connection *const connection,
+apl_status apl_membership_repository_list_for_team(const apl_db_connection *const connection,
                                                    const int64_t team_id, const bool include_ended,
                                                    apl_membership **const out_memberships,
                                                    size_t *const out_count, apl_error *const error)
@@ -376,7 +377,7 @@ apl_status apl_membership_repository_list_for_team(apl_db_connection *const conn
     return status;
 }
 
-apl_status apl_membership_repository_list_for_driver(apl_db_connection *const connection,
+apl_status apl_membership_repository_list_for_driver(const apl_db_connection *const connection,
                                                      const int64_t driver_id,
                                                      apl_membership **const out_memberships,
                                                      size_t *const out_count,

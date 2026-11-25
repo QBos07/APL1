@@ -2,7 +2,6 @@
 
 #include <sqlite3.h>
 #include <stdio.h>
-#include <string.h>
 
 #define SCHEMA_VERSION_TABLE "apl_schema_migrations"
 
@@ -56,7 +55,7 @@ static apl_status ensure_version_table(sqlite3 *const handle, apl_error *const e
                     error);
 }
 
-apl_status apl_db_current_version(apl_db_connection *const connection, int *const out_version,
+apl_status apl_db_current_version(const apl_db_connection *const connection, int *const out_version,
                                   apl_error *const error)
 {
     if (out_version != nullptr) {
@@ -128,7 +127,7 @@ static apl_status validate_list(const apl_db_migration *const migrations, const 
 }
 
 /** Apply one migration and its version record inside a single transaction. */
-static apl_status apply_migration(apl_db_connection *const connection,
+static apl_status apply_migration(const apl_db_connection *const connection,
                                   const apl_db_migration *const migration, apl_error *const error)
 {
     sqlite3 *const handle = apl_db_handle(connection);
@@ -172,15 +171,15 @@ static apl_status apply_migration(apl_db_connection *const connection,
     if (status != APL_OK) {
         (void)exec_sql(handle, "ROLLBACK;", error);
         char context[128];
-        snprintf(context, sizeof(context), "migration %d could not be committed",
-                 migration->version);
+        (void)snprintf(context, sizeof(context), "migration %d could not be committed",
+                       migration->version);
         apl_error_prefix(error, APL_ERR_DB_MIGRATION, context);
         return APL_ERR_DB_MIGRATION;
     }
     return APL_OK;
 }
 
-apl_status apl_db_migrations_run_list(apl_db_connection *const connection,
+apl_status apl_db_migrations_run_list(const apl_db_connection *const connection,
                                       const apl_db_migration *const migrations, const size_t count,
                                       apl_error *const error)
 {
@@ -234,8 +233,8 @@ apl_status apl_db_migrations_run_list(apl_db_connection *const connection,
         status = apply_migration(connection, &migrations[index], error);
         if (status != APL_OK) {
             char context[128];
-            snprintf(context, sizeof(context), "migration to version %d failed",
-                     migrations[index].version);
+            (void)snprintf(context, sizeof(context), "migration to version %d failed",
+                           migrations[index].version);
             apl_error_prefix(error, status, context);
             return status;
         }
@@ -243,7 +242,7 @@ apl_status apl_db_migrations_run_list(apl_db_connection *const connection,
     return APL_OK;
 }
 
-apl_status apl_db_migrate(apl_db_connection *const connection, apl_error *const error)
+apl_status apl_db_migrate(const apl_db_connection *const connection, apl_error *const error)
 {
     size_t count = 0;
     const apl_db_migration *const migrations = apl_db_migrations_list(&count);

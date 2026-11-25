@@ -10,21 +10,21 @@
 
 /* Team-scoped car/chassis reference persistence (work item 3.4). */
 
-apl_status apl_car_repository_create(apl_db_connection *connection, int64_t team_id,
+apl_status apl_car_repository_create(const apl_db_connection *connection, int64_t team_id,
                                      const char *label, const char *chassis, const char *notes,
                                      apl_car *out_car, apl_error *error);
 
-apl_status apl_car_repository_get(apl_db_connection *connection, int64_t team_id, int64_t id,
+apl_status apl_car_repository_get(const apl_db_connection *connection, int64_t team_id, int64_t id,
                                   apl_car *out_car, apl_error *error);
 
-apl_status apl_car_repository_update(apl_db_connection *connection, int64_t team_id, int64_t id,
-                                     const char *label, const char *chassis, const char *notes,
-                                     apl_car *out_car, apl_error *error);
+apl_status apl_car_repository_update(const apl_db_connection *connection, int64_t team_id,
+                                     int64_t id, const char *label, const char *chassis,
+                                     const char *notes, apl_car *out_car, apl_error *error);
 
-apl_status apl_car_repository_archive(apl_db_connection *connection, int64_t team_id, int64_t id,
-                                      apl_car *out_car, apl_error *error);
+apl_status apl_car_repository_archive(const apl_db_connection *connection, int64_t team_id,
+                                      int64_t id, apl_car *out_car, apl_error *error);
 
-apl_status apl_car_repository_list(apl_db_connection *connection, int64_t team_id,
+apl_status apl_car_repository_list(const apl_db_connection *connection, int64_t team_id,
                                    bool include_archived, apl_car **out_cars, size_t *out_count,
                                    apl_error *error);
 

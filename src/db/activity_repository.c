@@ -3,7 +3,6 @@
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define EVENT_COLUMNS "id, team_id, occurred_at, action, entity_type, entity_id, summary"
 
@@ -38,7 +37,7 @@ static apl_status prepare(sqlite3 *const handle, const char *const sql, sqlite3_
     return APL_OK;
 }
 
-apl_status apl_activity_repository_append(apl_db_connection *const connection,
+apl_status apl_activity_repository_append(const apl_db_connection *const connection,
                                           const apl_activity_event *const event,
                                           const apl_activity_change *const changes,
                                           const size_t change_count,
@@ -160,7 +159,7 @@ apl_status apl_activity_repository_append(apl_db_connection *const connection,
     return APL_OK;
 }
 
-apl_status apl_activity_repository_get(apl_db_connection *const connection, const int64_t id,
+apl_status apl_activity_repository_get(const apl_db_connection *const connection, const int64_t id,
                                        apl_activity_event *const out_event, apl_error *const error)
 {
     if (connection == nullptr || out_event == nullptr) {
@@ -198,7 +197,7 @@ apl_status apl_activity_repository_get(apl_db_connection *const connection, cons
     return APL_OK;
 }
 
-apl_status apl_activity_repository_list(apl_db_connection *const connection,
+apl_status apl_activity_repository_list(const apl_db_connection *const connection,
                                         const apl_activity_filter *const filter,
                                         apl_activity_event **const out_events,
                                         size_t *const out_count, apl_error *const error)
@@ -294,7 +293,7 @@ apl_status apl_activity_repository_list(apl_db_connection *const connection,
     return APL_OK;
 }
 
-apl_status apl_activity_repository_list_changes(apl_db_connection *const connection,
+apl_status apl_activity_repository_list_changes(const apl_db_connection *const connection,
                                                 const int64_t event_id,
                                                 apl_activity_change **const out_changes,
                                                 size_t *const out_count, apl_error *const error)

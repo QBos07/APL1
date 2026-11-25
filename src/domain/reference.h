@@ -1,7 +1,6 @@
 #ifndef APL_DOMAIN_REFERENCE_H
 #define APL_DOMAIN_REFERENCE_H
 
-#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 

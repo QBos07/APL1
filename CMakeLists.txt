@@ -5,9 +5,23 @@ list(APPEND CMAKE_MODULE_PATH
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
 )
 
-add_compile_options(-Wall -Wextra -pedantic -Werror -pedantic-errors)
-
-#add_compile_definitions(_POSIX_C_SOURCE=200809L _XOPEN_SOURCE _GNU_SOURCE)
+add_compile_options(
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Werror
+    -pedantic-errors
+    -Wcast-qual
+    -Wformat-security
+    -Wmissing-declarations
+    -Wmissing-prototypes
+    -Wold-style-definition
+    -Wpointer-arith
+    -Wshadow
+    -Wstrict-prototypes
+    -Wundef
+    -Wvla
+)
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED YES)
@@ -263,4 +277,6 @@ target_link_libraries(apl1 PRIVATE
     Notcurses::Notcurses
 )
 
-install(TARGETS apl1)
+install(TARGETS apl1
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

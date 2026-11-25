@@ -41,7 +41,7 @@ size_t apl_tui_text_backspace(char *const value)
     return length;
 }
 
-size_t apl_tui_text_truncate_utf8(char *const value, size_t max_bytes)
+size_t apl_tui_text_truncate_utf8(char *const value, const size_t max_bytes)
 {
     if (value == nullptr) {
         return 0;

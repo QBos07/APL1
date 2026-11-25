@@ -1,9 +1,6 @@
 #ifndef APL_TUI_ACTION_H
 #define APL_TUI_ACTION_H
 
-#include <stdbool.h>
-#include <stddef.h>
-
 #include "core/error.h"
 #include "tui/command.h"
 #include "tui/navigation.h"

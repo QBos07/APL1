@@ -1,7 +1,6 @@
 #ifndef APL_TUI_STATUS_H
 #define APL_TUI_STATUS_H
 
-#include <stdbool.h>
 #include <stddef.h>
 
 /*
@@ -13,10 +12,10 @@
  * required. Rendering is terminal-free and UTF-8 safe.
  */
 
-#define APL_TUI_STATUS_MESSAGE_MAX 320
-#define APL_TUI_STATUS_CONTEXT_MAX 64
-#define APL_TUI_STATUS_TEAM_MAX 128
-#define APL_TUI_STATUS_SEASON_MAX 96
+constexpr size_t APL_TUI_STATUS_MESSAGE_MAX = 320;
+constexpr size_t APL_TUI_STATUS_CONTEXT_MAX = 64;
+constexpr size_t APL_TUI_STATUS_TEAM_MAX = 128;
+constexpr size_t APL_TUI_STATUS_SEASON_MAX = 96;
 
 typedef enum apl_tui_status_level {
     APL_TUI_STATUS_INFO = 0,

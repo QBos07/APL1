@@ -73,7 +73,7 @@ constexpr int64_t APL_TUI_DOUBLE_CLICK_MS = 500;
 constexpr size_t APL_TUI_HISTORY_FILTERS = 5;
 
 typedef struct shell_state {
-    apl_app *app;
+    const apl_app *app;
     apl_team *teams;
     size_t team_count;
     apl_season *seasons;
@@ -143,16 +143,16 @@ typedef struct shell_state {
     char pending_notes[APL_TUI_COMMAND_WORD_MAX];
 } shell_state;
 
-static void handle_dialog_input(shell_state *state, const ncinput *input);
-static void open_selected_detail(shell_state *state);
-static void open_selected_season(shell_state *state);
-static void open_selected_car(shell_state *state);
-static void open_selected_person(shell_state *state);
-static void open_current_list_record(shell_state *state);
-static void handle_people_list_input(shell_state *state, uint32_t id);
-static void handle_person_detail_input(shell_state *state, uint32_t id);
-static void handle_history_input(shell_state *state, uint32_t id);
-static void handle_input(shell_state *state, const ncinput *input);
+static void handle_dialog_input(shell_state *const state, const ncinput *const input);
+static void open_selected_detail(shell_state *const state);
+static void open_selected_season(shell_state *const state);
+static void open_selected_car(shell_state *const state);
+static void open_selected_person(shell_state *const state);
+static void open_current_list_record(shell_state *const state);
+static void handle_people_list_input(shell_state *const state, const uint32_t id);
+static void handle_person_detail_input(shell_state *const state, const uint32_t id);
+static void handle_history_input(shell_state *const state, const uint32_t id);
+static void handle_input(shell_state *const state, const ncinput *const input);
 
 static void set_status_level(shell_state *const state, const apl_tui_status_level level,
                              const char *const format, va_list args)
@@ -162,34 +162,38 @@ static void set_status_level(shell_state *const state, const apl_tui_status_leve
     (void)apl_tui_status_set_message(&state->status, level, "%s", message);
 }
 
+[[gnu::format(printf, 2, 3)]]
 static void set_status(shell_state *const state, const char *const format, ...)
 {
     va_list args;
-    va_start(args, format);
+    va_start(args);
     set_status_level(state, APL_TUI_STATUS_INFO, format, args);
     va_end(args);
 }
 
+[[gnu::format(printf, 2, 3)]]
 static void set_status_success(shell_state *const state, const char *const format, ...)
 {
     va_list args;
-    va_start(args, format);
+    va_start(args);
     set_status_level(state, APL_TUI_STATUS_SUCCESS, format, args);
     va_end(args);
 }
 
+[[gnu::format(printf, 2, 3)]]
 static void set_status_warning(shell_state *const state, const char *const format, ...)
 {
     va_list args;
-    va_start(args, format);
+    va_start(args);
     set_status_level(state, APL_TUI_STATUS_WARNING, format, args);
     va_end(args);
 }
 
+[[gnu::format(printf, 2, 3)]]
 static void set_status_error(shell_state *const state, const char *const format, ...)
 {
     va_list args;
-    va_start(args, format);
+    va_start(args);
     set_status_level(state, APL_TUI_STATUS_ERROR, format, args);
     va_end(args);
 }
@@ -4635,7 +4639,8 @@ static apl_status initialize_state(shell_state *const state, apl_error *const er
     return APL_OK;
 }
 
-apl_status apl_tui_shell_run(const apl_tui *const tui, apl_app *const app, apl_error *const error)
+apl_status apl_tui_shell_run(const apl_tui *const tui, const apl_app *const app,
+                             apl_error *const error)
 {
     if (tui == nullptr || tui->notcurses == nullptr || app == nullptr) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "TUI shell requires a started TUI and app");

@@ -17,13 +17,13 @@
  */
 
 typedef struct apl_db_transaction {
-    apl_db_connection *connection; /* borrowed, never owned */
+    const apl_db_connection *connection; /* borrowed, never owned */
     bool active;
 } apl_db_transaction;
 
 /** Start a write transaction. Fails if a transaction is already active. */
-apl_status apl_db_transaction_begin(apl_db_transaction *transaction, apl_db_connection *connection,
-                                    apl_error *error);
+apl_status apl_db_transaction_begin(apl_db_transaction *transaction,
+                                    const apl_db_connection *connection, apl_error *error);
 
 /** Commit the active transaction.
  *
