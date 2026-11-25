@@ -15,9 +15,9 @@ static constexpr size_t APL_RECORD_TIMESTAMP_MAX = 32;
 
 /** Common lifecycle metadata for persisted records.
  *
- * Used by team, season, driver, car, and membership values. Membership rows do
- * not currently expose an archive action, but keep the same shape so record
- * metadata stays uniform.
+ * Used by team, season, driver, car, membership, and project values.
+ * Membership rows do not currently expose an archive action, but keep the
+ * same shape so record metadata stays uniform.
  */
 typedef struct apl_record_meta {
     bool archived;
@@ -36,6 +36,7 @@ typedef enum apl_record_kind {
     APL_RECORD_ACTIVITY,
     APL_RECORD_LEDGER_ENTRY,
     APL_RECORD_BUDGET_PLAN,
+    APL_RECORD_PROJECT,
 } apl_record_kind;
 
 /** Stable storage code (for example "team"), or "" for an invalid kind. */

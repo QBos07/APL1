@@ -23,9 +23,10 @@ without losing referential integrity.
 - [ ] Decide and implement the explicit replacement-to-transaction relationship
       before Phase 6.7; do not introduce a generic polymorphic link table for
       these known relationships.
-- [ ] Register each new auditable record kind before its first activity event:
-      project in [5.1](../phase-5/5.1-project-schema-repository.md), update in
-      [5.3](../phase-5/5.3-development-update-schema-repository.md), and parts
+- [x] Register the project record kind in
+      [5.1](../phase-5/5.1-project-schema-repository.md).
+- [ ] Register the update record kind in
+      [5.3](../phase-5/5.3-development-update-schema-repository.md) and parts
       records in their Phase 6 schema items.
 
 ## Acceptance checks

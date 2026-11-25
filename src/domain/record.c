@@ -21,6 +21,8 @@ const char *apl_record_kind_code(const apl_record_kind kind)
         return "ledger_entry";
     case APL_RECORD_BUDGET_PLAN:
         return "budget_plan";
+    case APL_RECORD_PROJECT:
+        return "project";
     case APL_RECORD_NONE:
         return "";
     }
@@ -46,6 +48,8 @@ const char *apl_record_kind_label(const apl_record_kind kind)
         return "Ledger entry";
     case APL_RECORD_BUDGET_PLAN:
         return "Budget plan";
+    case APL_RECORD_PROJECT:
+        return "Project";
     case APL_RECORD_NONE:
         return "Unknown";
     }
@@ -57,7 +61,7 @@ apl_record_kind apl_record_kind_from_code(const char *const code)
     if (code == nullptr) {
         return APL_RECORD_NONE;
     }
-    for (int kind = APL_RECORD_TEAM; kind <= APL_RECORD_BUDGET_PLAN; ++kind) {
+    for (int kind = APL_RECORD_TEAM; kind <= APL_RECORD_PROJECT; ++kind) {
         if (strcmp(code, apl_record_kind_code((apl_record_kind)kind)) == 0) {
             return (apl_record_kind)kind;
         }

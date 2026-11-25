@@ -90,6 +90,7 @@ if(BUILD_TESTING)
         tests/integration/test_ledger_repository.c
         tests/integration/test_ledger_service.c
         tests/integration/test_membership_repository.c
+        tests/integration/test_project_repository.c
         tests/integration/test_reference_services.c
         tests/integration/test_scenario.c
         tests/integration/test_season_repository.c
@@ -186,6 +187,7 @@ target_include_directories(apl_core PUBLIC src)
 add_library(apl_domain STATIC
     src/domain/ledger.c
     src/domain/money.c
+    src/domain/project.c
     src/domain/record.c
     src/domain/reference.c
     src/domain/team.c
@@ -207,6 +209,7 @@ add_library(apl_db STATIC
     src/db/migrations.c
     src/db/migrations_list.c
     src/db/path.c
+    src/db/project_repository.c
     src/db/season_repository.c
     src/db/settings_repository.c
     src/db/sqlite_util.c

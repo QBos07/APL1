@@ -60,6 +60,14 @@ typedef enum apl_field {
     APL_FIELD_ENTRY_KIND,
     APL_FIELD_PERIOD,
     APL_FIELD_SEASON,
+    APL_FIELD_TITLE,
+    APL_FIELD_PROJECT_STATUS,
+    APL_FIELD_SUMMARY,
+    APL_FIELD_CAR,
+    APL_FIELD_TARGET_DATE,
+    APL_FIELD_ACTUAL_DATE,
+    APL_FIELD_UPDATE_DATE,
+    APL_FIELD_PROJECT,
 } apl_field;
 
 /** A caller-owned error value. On success paths code is APL_OK and message is

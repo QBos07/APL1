@@ -9,12 +9,14 @@ Test(record, kinds_have_stable_codes_and_labels)
     cr_assert_str_eq(apl_record_kind_code(APL_RECORD_DRIVER), "driver");
     cr_assert_str_eq(apl_record_kind_code(APL_RECORD_MEMBERSHIP), "membership");
     cr_assert_str_eq(apl_record_kind_code(APL_RECORD_CAR), "car");
+    cr_assert_str_eq(apl_record_kind_code(APL_RECORD_PROJECT), "project");
     cr_assert_str_eq(apl_record_kind_label(APL_RECORD_TEAM), "Team");
+    cr_assert_str_eq(apl_record_kind_label(APL_RECORD_PROJECT), "Project");
 }
 
 Test(record, codes_round_trip)
 {
-    for (int kind = APL_RECORD_TEAM; kind <= APL_RECORD_ACTIVITY; ++kind) {
+    for (int kind = APL_RECORD_TEAM; kind <= APL_RECORD_PROJECT; ++kind) {
         const apl_record_kind expected = (apl_record_kind)kind;
         cr_assert_eq(apl_record_kind_from_code(apl_record_kind_code(expected)), expected);
     }

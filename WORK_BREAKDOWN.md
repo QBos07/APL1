@@ -231,7 +231,7 @@ Goal: deliver a trustworthy, testable money-management loop before adding depend
 
 Goal: record work and relate it to money and cars/parts without fabricating progress or performance.
 
-- [ ] **5.1 Add development-project schema and repository.** Support user-entered title, optional category/description/dates, status, notes, team, and optional season/car links. [Work item](work-items/phase-5/5.1-project-schema-repository.md)
+- [x] **5.1 Add development-project schema and repository.** Support user-entered title, optional category/description/dates, status, notes, team, and optional season/car links. [Work item](work-items/phase-5/5.1-project-schema-repository.md)
 - [ ] **5.2 Add project create/edit/archive use cases.** Validate references and preserve audit history. [Work item](work-items/phase-5/5.2-project-use-cases.md)
 - [ ] **5.3 Add dated development-update schema and repository.** Each update has a date, summary, optional status change, and notes. [Work item](work-items/phase-5/5.3-development-update-schema-repository.md)
 - [ ] **5.4 Add project update use case.** Save update and audit history atomically; do not calculate a progress percentage. [Work item](work-items/phase-5/5.4-project-update-use-case.md)
