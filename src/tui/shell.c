@@ -16,6 +16,7 @@
 #include "app/driver_service.h"
 #include "app/ledger_service.h"
 #include "app/membership_service.h"
+#include "app/project_service.h"
 #include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
@@ -75,6 +76,12 @@ void set_section(shell_state *const state, const apl_tui_section section)
     case APL_TUI_SECTION_MONEY:
         state->screen = SHELL_SCREEN_MONEY_LIST;
         if (load_ledger(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
+        break;
+    case APL_TUI_SECTION_DEVELOPMENT:
+        state->screen = SHELL_SCREEN_PROJECT_LIST;
+        if (load_projects(state, 0, &error) != APL_OK) {
             show_error_dialog(state, &error);
         }
         break;
@@ -359,6 +366,12 @@ static const char *context_key_hint(const shell_state *const state)
     if (state->section == APL_TUI_SECTION_HISTORY) {
         return "a scope | f entity | g action | d dates | c clear | Enter detail";
     }
+    if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
+            return "u update | e edit | x archive | Enter cost | Esc projects";
+        }
+        return "n new | Enter open | f filters | a archived | C clear";
+    }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
             return "c correct | Esc ledger";
@@ -394,6 +407,8 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_MONEY_LIST:
     case SHELL_SCREEN_MONEY_DETAIL:
     case SHELL_SCREEN_BUDGET_LIST:
+    case SHELL_SCREEN_PROJECT_LIST:
+    case SHELL_SCREEN_PROJECT_DETAIL:
         break;
     }
     return ", . views | : commands | m menu | q quit";
@@ -616,6 +631,12 @@ static void draw_screen(shell_state *const state)
         }
     } else if (state->section == APL_TUI_SECTION_HISTORY) {
         draw_history_list(state);
+    } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
+            draw_project_detail(state);
+        } else {
+            draw_project_list(state);
+        }
     } else if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
             draw_money_detail(state);
@@ -656,6 +677,8 @@ static void draw_screen(shell_state *const state)
         case SHELL_SCREEN_MONEY_LIST:
         case SHELL_SCREEN_MONEY_DETAIL:
         case SHELL_SCREEN_BUDGET_LIST:
+        case SHELL_SCREEN_PROJECT_LIST:
+        case SHELL_SCREEN_PROJECT_DETAIL:
             draw_placeholder(state);
             break;
         }
@@ -1454,6 +1477,11 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
     } else if (state->section == APL_TUI_SECTION_MONEY) {
         count = (state->screen == SHELL_SCREEN_BUDGET_LIST) ? state->budget_row_count
                                                             : state->entry_count;
+    } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
+            return;
+        }
+        count = state->project_count;
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         count = state->season_count;
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -1521,6 +1549,27 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         }
         row_offset = 3;
     }
+    if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        if (row == 1) {
+            unsigned starts[5] = {};
+            unsigned ends[5] = {};
+            char filters[512];
+            build_project_filter_bar(state, filters, sizeof(filters), starts, ends);
+            const unsigned column = (unsigned)(input->x - (int)layout->body.x);
+            const uint32_t project_keys[] = {'f', 'f', 'f', 'a', 'C'};
+            for (unsigned button = 0; button < 5; ++button) {
+                if (column >= starts[button] && column < ends[button] + 2) {
+                    handle_project_list_input(state, project_keys[button]);
+                    return;
+                }
+            }
+            return;
+        }
+        if (row < 3) {
+            return;
+        }
+        row_offset = 3;
+    }
     const size_t index = state->list.offset + row - row_offset;
     if (index >= count) {
         return;
@@ -1541,6 +1590,8 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
     } else if (state->section == APL_TUI_SECTION_MONEY) {
         record_id = (state->screen == SHELL_SCREEN_BUDGET_LIST) ? (int64_t)index + 1
                                                                 : state->entries[index].id;
+    } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        record_id = state->projects[index].id;
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         record_id = state->seasons[index].id;
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -1739,6 +1790,12 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
         }
         return;
     }
+    if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        if (state->screen == SHELL_SCREEN_PROJECT_LIST) {
+            handle_list_mouse(state, input);
+        }
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return;
     }
@@ -1768,6 +1825,8 @@ static void open_current_list_record(shell_state *const state)
         } else {
             open_selected_money_entry(state);
         }
+    } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        open_selected_project(state);
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         open_selected_season(state);
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -1999,6 +2058,14 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         handle_history_input(state, id);
         return;
     }
+    if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
+        if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
+            handle_project_detail_input(state, id);
+        } else {
+            handle_project_list_input(state, id);
+        }
+        return;
+    }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
             handle_money_detail_input(state, id);
@@ -2049,6 +2116,8 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     case SHELL_SCREEN_MONEY_LIST:
     case SHELL_SCREEN_MONEY_DETAIL:
     case SHELL_SCREEN_BUDGET_LIST:
+    case SHELL_SCREEN_PROJECT_LIST:
+    case SHELL_SCREEN_PROJECT_DETAIL:
         if (id == 'q' || id == 'Q') {
             state->quit = true;
         }

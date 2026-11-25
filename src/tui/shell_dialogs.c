@@ -1,5 +1,40 @@
 #include "tui/shell_internal.h"
 
+#include <errno.h>
+#include <stdlib.h>
+
+static const char *dialog_value(const shell_state *const state, const unsigned index)
+{
+    const apl_tui_dialog_field *const field = apl_tui_dialog_field_at(&state->dialog, index);
+    return field != nullptr ? field->value : "";
+}
+
+static apl_status parse_filter_id(const char *const text, int64_t *const out,
+                                  apl_error *const error)
+{
+    *out = 0;
+    if (text == nullptr || text[0] == '\0') {
+        return APL_OK;
+    }
+    if (!text_is_numeric(text)) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "season ID must be a positive whole number or blank");
+        apl_error_set_field(error, APL_FIELD_SEASON);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    errno = 0;
+    char *end = nullptr;
+    const long long value = strtoll(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0' || value <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "season ID must be a positive whole number or blank");
+        apl_error_set_field(error, APL_FIELD_SEASON);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    *out = (int64_t)value;
+    return APL_OK;
+}
+
 void handle_dialog_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
@@ -116,6 +151,97 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                                            reference_form_error_field(context, &error),
                                            apl_error_message(&error));
         }
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_CREATE ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_EDIT) {
+        const shell_dialog_context context = state->dialog_context;
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Project cancelled without writing.");
+            return;
+        }
+        const bool saved =
+            (context == SHELL_DIALOG_CONTEXT_PROJECT_CREATE)
+                ? perform_project_create(state, dialog_value(state, 0), dialog_value(state, 1),
+                                         dialog_value(state, 2), dialog_value(state, 3),
+                                         dialog_value(state, 4), dialog_value(state, 5),
+                                         dialog_value(state, 6), dialog_value(state, 7),
+                                         dialog_value(state, 8), &error)
+                : perform_project_update(state, dialog_value(state, 0), dialog_value(state, 1),
+                                         dialog_value(state, 2), dialog_value(state, 3),
+                                         dialog_value(state, 4), dialog_value(state, 5),
+                                         dialog_value(state, 6), dialog_value(state, 7),
+                                         dialog_value(state, 8), &error);
+        if (saved) {
+            close_shell_dialog(state);
+        } else if (state->dialog_context == context) {
+            apl_tui_dialog_set_field_error(&state->dialog, project_form_error_field(&error),
+                                           apl_error_message(&error));
+        }
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_UPDATE) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Project update cancelled without writing.");
+            return;
+        }
+        const bool saved =
+            perform_project_log_update(state, dialog_value(state, 0), dialog_value(state, 1),
+                                       dialog_value(state, 2), dialog_value(state, 3), &error);
+        if (saved) {
+            close_shell_dialog(state);
+        } else if (state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_UPDATE) {
+            apl_tui_dialog_set_field_error(&state->dialog, project_update_form_error_field(&error),
+                                           apl_error_message(&error));
+        }
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_FILTER) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Project filters unchanged.");
+            return;
+        }
+        char status_display[APL_PROJECT_STATUS_MAX];
+        char status_key[APL_PROJECT_STATUS_MAX];
+        apl_status filter_status = apl_project_label_normalize(
+            dialog_value(state, 0), "status filter", status_display, sizeof(status_display),
+            status_key, sizeof(status_key), &error);
+        if (filter_status != APL_OK) {
+            apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
+            return;
+        }
+        int64_t season = 0;
+        filter_status = parse_filter_id(dialog_value(state, 1), &season, &error);
+        if (filter_status != APL_OK) {
+            apl_tui_dialog_set_field_error(&state->dialog, 1, apl_error_message(&error));
+            return;
+        }
+        char category_display[APL_PROJECT_CATEGORY_MAX];
+        char category_key[APL_PROJECT_CATEGORY_MAX];
+        filter_status = apl_project_label_normalize(dialog_value(state, 2), "category filter",
+                                                    category_display, sizeof(category_display),
+                                                    category_key, sizeof(category_key), &error);
+        if (filter_status != APL_OK) {
+            apl_tui_dialog_set_field_error(&state->dialog, 2, apl_error_message(&error));
+            return;
+        }
+        (void)snprintf(state->project_status_filter, sizeof(state->project_status_filter), "%s",
+                       status_key);
+        state->project_season_filter = season;
+        (void)snprintf(state->project_category_filter, sizeof(state->project_category_filter), "%s",
+                       category_key);
+        close_shell_dialog(state);
+        if (load_projects(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        set_status(state, "Project filters applied.");
         return;
     }
 
@@ -357,6 +483,12 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
     } else if (pending == SHELL_PENDING_ARCHIVE_DRIVER) {
         if (result == APL_TUI_DIALOG_ACCEPTED) {
             perform_driver_archive(state, pending_record, &error);
+        } else {
+            set_status(state, "Archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_PROJECT) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_project_archive(state, pending_record, &error);
         } else {
             set_status(state, "Archive cancelled.");
         }

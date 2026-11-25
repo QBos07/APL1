@@ -919,6 +919,9 @@ void handle_money_detail_input(shell_state *const state, const uint32_t id)
     switch (id) {
     case NCKEY_UP:
     case NCKEY_DOWN: {
+        if (state->project_return_pending) {
+            return;
+        }
         apl_tui_list_move(&state->list, id == NCKEY_UP ? -1 : 1);
         open_selected_money_entry(state);
         return;
@@ -929,6 +932,20 @@ void handle_money_detail_input(shell_state *const state, const uint32_t id)
                                   state->entry_detail.category, "");
         return;
     case NCKEY_ESC:
+        if (state->project_return_pending) {
+            apl_error error;
+            apl_error_init(&error);
+            state->project_return_pending = false;
+            state->section = state->project_return_section;
+            state->screen = state->project_return_screen;
+            if (load_project_detail(state, state->project_return_id, &error) != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+            sync_status_context(state);
+            set_status(state, "Back to the project; linked costs reloaded.");
+            return;
+        }
         state->screen = SHELL_SCREEN_MONEY_LIST;
         set_status(state, "Ledger entries for the active team.");
         return;

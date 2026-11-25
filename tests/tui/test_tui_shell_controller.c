@@ -7,11 +7,13 @@
 
 Test(shell_controller, history_filter_counts_include_all)
 {
-    cr_assert_eq(history_entity_filter_count(), 8);
+    cr_assert_eq(history_entity_filter_count(), 10);
     cr_assert_gt(history_action_filter_count(), history_entity_filter_count());
     cr_assert_str_eq(history_entity_filter_name(0), "");
     cr_assert_str_eq(history_entity_filter_name(1), "team");
     cr_assert_str_eq(history_entity_filter_name(7), "budget_plan");
+    cr_assert_str_eq(history_entity_filter_name(8), "project");
+    cr_assert_str_eq(history_entity_filter_name(9), "project_update");
     cr_assert_str_eq(history_action_filter_name(0), "");
     cr_assert_str_eq(history_action_filter_name(1), "team_created");
 }
@@ -117,4 +119,36 @@ Test(shell_controller, each_tab_keeps_its_own_list_position)
     shell_restore_view_state(&state, APL_TUI_SECTION_PEOPLE);
     cr_assert_eq(state.list.selected, 0);
     cr_assert_eq(state.list.count, 0);
+}
+
+Test(shell_controller, project_filter_bar_and_form_error_fields_are_stable)
+{
+    shell_state state = {};
+    (void)snprintf(state.project_status_filter, sizeof(state.project_status_filter), "in progress");
+    (void)snprintf(state.project_category_filter, sizeof(state.project_category_filter), "aero");
+    state.include_archived_projects = true;
+
+    char out[512];
+    unsigned starts[5] = {};
+    unsigned ends[5] = {};
+    build_project_filter_bar(&state, out, sizeof(out), starts, ends);
+    cr_assert_str_eq(out, "Status:in progress  Season:any  Category:aero  Archived:yes  Clear  ");
+    for (unsigned index = 0; index + 1 < 5; ++index) {
+        cr_assert_lt(ends[index], starts[index + 1]);
+    }
+
+    apl_error error;
+    apl_error_init(&error);
+    apl_error_set_field(&error, APL_FIELD_TITLE);
+    cr_assert_eq(project_form_error_field(&error), 0);
+    apl_error_set_field(&error, APL_FIELD_DESCRIPTION);
+    cr_assert_eq(project_form_error_field(&error), 2);
+    apl_error_set_field(&error, APL_FIELD_TARGET_DATE);
+    cr_assert_eq(project_form_error_field(&error), 4);
+    apl_error_set_field(&error, APL_FIELD_CAR);
+    cr_assert_eq(project_form_error_field(&error), 7);
+    apl_error_set_field(&error, APL_FIELD_SUMMARY);
+    cr_assert_eq(project_update_form_error_field(&error), 1);
+    apl_error_set_field(&error, APL_FIELD_UPDATE_DATE);
+    cr_assert_eq(project_update_form_error_field(&error), 0);
 }

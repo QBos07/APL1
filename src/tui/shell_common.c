@@ -268,6 +268,15 @@ void free_reference_lists(shell_state *const state)
     apl_activity_service_free_events(state->entry_events);
     state->entry_events = nullptr;
     state->entry_event_count = 0;
+    apl_project_service_free_list(state->projects);
+    state->projects = nullptr;
+    state->project_count = 0;
+    apl_project_service_free_updates(state->project_updates);
+    state->project_updates = nullptr;
+    state->project_update_count = 0;
+    apl_ledger_service_free_list(state->project_entries);
+    state->project_entries = nullptr;
+    state->project_entry_count = 0;
 }
 
 apl_status refresh_teams(shell_state *const state, const int64_t preferred_id,

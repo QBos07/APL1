@@ -17,6 +17,7 @@
 #include "app/driver_service.h"
 #include "app/ledger_service.h"
 #include "app/membership_service.h"
+#include "app/project_service.h"
 #include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
@@ -51,6 +52,8 @@ typedef enum shell_screen {
     SHELL_SCREEN_MONEY_LIST,
     SHELL_SCREEN_MONEY_DETAIL,
     SHELL_SCREEN_BUDGET_LIST,
+    SHELL_SCREEN_PROJECT_LIST,
+    SHELL_SCREEN_PROJECT_DETAIL,
     SHELL_SCREEN_PLACEHOLDER,
 } shell_screen;
 
@@ -60,6 +63,7 @@ typedef enum shell_pending_action {
     SHELL_PENDING_ARCHIVE_SEASON,
     SHELL_PENDING_ARCHIVE_CAR,
     SHELL_PENDING_ARCHIVE_DRIVER,
+    SHELL_PENDING_ARCHIVE_PROJECT,
 } shell_pending_action;
 
 typedef enum shell_dialog_context {
@@ -85,6 +89,10 @@ typedef enum shell_dialog_context {
     SHELL_DIALOG_CONTEXT_MONEY_FILTER,
     SHELL_DIALOG_CONTEXT_BUDGET_FORM,
     SHELL_DIALOG_CONTEXT_BUDGET_REVIEW,
+    SHELL_DIALOG_CONTEXT_PROJECT_CREATE,
+    SHELL_DIALOG_CONTEXT_PROJECT_EDIT,
+    SHELL_DIALOG_CONTEXT_PROJECT_UPDATE,
+    SHELL_DIALOG_CONTEXT_PROJECT_FILTER,
 } shell_dialog_context;
 
 static constexpr int APL_TUI_SCROLL_STEP = 3;
@@ -179,6 +187,23 @@ typedef struct shell_state {
     char pending_role[APL_TUI_COMMAND_WORD_MAX];
     char pending_notes[APL_TUI_COMMAND_WORD_MAX];
     char pending_currency[APL_MONEY_CURRENCY_MAX];
+    apl_project *projects;
+    size_t project_count;
+    apl_project project_detail;
+    apl_project_update *project_updates;
+    size_t project_update_count;
+    apl_ledger_entry *project_entries;
+    size_t project_entry_count;
+    apl_project_cost project_cost;
+    bool include_archived_projects;
+    char project_status_filter[APL_PROJECT_STATUS_MAX];
+    char project_category_filter[APL_PROJECT_CATEGORY_MAX];
+    int64_t project_season_filter;
+    int64_t dialog_project_id;
+    bool project_return_pending;
+    apl_tui_section project_return_section;
+    shell_screen project_return_screen;
+    int64_t project_return_id;
 } shell_state;
 
 void handle_dialog_input(shell_state *state, const ncinput *input);
@@ -347,5 +372,34 @@ void open_selected_budget(shell_state *state);
 void handle_money_list_input(shell_state *state, uint32_t id);
 void handle_money_detail_input(shell_state *state, uint32_t id);
 void handle_budget_list_input(shell_state *state, uint32_t id);
+
+size_t find_project_index(const shell_state *state, int64_t id);
+apl_status load_projects(shell_state *state, int64_t preferred_id, apl_error *error);
+apl_status load_project_detail(shell_state *state, int64_t project_id, apl_error *error);
+void open_project_detail(shell_state *state, const apl_project project);
+void open_selected_project(shell_state *state);
+void draw_project_list(shell_state *state);
+void draw_project_detail(shell_state *state);
+void handle_project_list_input(shell_state *state, uint32_t id);
+void handle_project_detail_input(shell_state *state, uint32_t id);
+void build_project_filter_bar(const shell_state *state, char *out, size_t out_size,
+                              unsigned starts[5], unsigned ends[5]);
+
+void open_project_dialog(shell_state *state, bool edit);
+void open_project_update_dialog(shell_state *state);
+void open_project_filter_dialog(shell_state *state);
+unsigned project_form_error_field(const apl_error *error);
+unsigned project_update_form_error_field(const apl_error *error);
+bool perform_project_create(shell_state *state, const char *title, const char *category,
+                            const char *description, const char *status, const char *target_date,
+                            const char *actual_date, const char *season_id, const char *car_id,
+                            const char *notes, apl_error *error);
+bool perform_project_update(shell_state *state, const char *title, const char *category,
+                            const char *description, const char *status, const char *target_date,
+                            const char *actual_date, const char *season_id, const char *car_id,
+                            const char *notes, apl_error *error);
+bool perform_project_log_update(shell_state *state, const char *update_date, const char *summary,
+                                const char *status_change, const char *notes, apl_error *error);
+void perform_project_archive(shell_state *state, int64_t id, apl_error *error);
 
 #endif /*APL_TUI_SHELL_INTERNAL_H */

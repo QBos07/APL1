@@ -3,8 +3,10 @@
 const char *history_entity_filter_name(const unsigned index)
 {
     static const apl_record_kind KINDS[] = {
-        APL_RECORD_NONE,       APL_RECORD_TEAM, APL_RECORD_SEASON,       APL_RECORD_DRIVER,
-        APL_RECORD_MEMBERSHIP, APL_RECORD_CAR,  APL_RECORD_LEDGER_ENTRY, APL_RECORD_BUDGET_PLAN,
+        APL_RECORD_NONE,           APL_RECORD_TEAM,        APL_RECORD_SEASON,
+        APL_RECORD_DRIVER,         APL_RECORD_MEMBERSHIP,  APL_RECORD_CAR,
+        APL_RECORD_LEDGER_ENTRY,   APL_RECORD_BUDGET_PLAN, APL_RECORD_PROJECT,
+        APL_RECORD_PROJECT_UPDATE,
     };
     return (index < APL_COUNT_OF(KINDS)) ? apl_record_kind_code(KINDS[index]) : "";
 }
@@ -34,6 +36,11 @@ const char *history_action_filter_name(const unsigned index)
         "ledger_corrected",
         "budget_created",
         "budget_updated",
+        "project_created",
+        "project_updated",
+        "project_archived",
+        "project_update_logged",
+        "project_status_changed",
     };
     return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "";
 }
@@ -103,8 +110,8 @@ apl_status load_history(shell_state *const state, apl_error *const error)
 
 const char *history_entity_filter_short_name(const unsigned index)
 {
-    static const char *const NAMES[] = {"all",    "team", "season", "driver",
-                                        "member", "car",  "money",  "budget"};
+    static const char *const NAMES[] = {"all", "team",  "season", "driver",  "member",
+                                        "car", "money", "budget", "project", "update"};
     return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "all";
 }
 
@@ -115,7 +122,6 @@ const char *history_action_filter_short_name(const unsigned index)
         "team:created",
         "team:renamed",
         "team:archived",
-        "team:selected",
         "season:created",
         "season:updated",
         "season:archived",
@@ -134,6 +140,11 @@ const char *history_action_filter_short_name(const unsigned index)
         "money:corrected",
         "budget:created",
         "budget:updated",
+        "project:created",
+        "project:updated",
+        "project:archived",
+        "project:update",
+        "project:status",
     };
     return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "all";
 }
