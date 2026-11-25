@@ -1,0 +1,143 @@
+#include <stdio.h>
+#include <string.h>
+
+#include <criterion/criterion.h>
+
+#include "app/app.h"
+#include "app/ledger_service.h"
+#include "app/project_service.h"
+#include "app/team_service.h"
+#include "tui/shell_internal.h"
+#include "test_support.h"
+
+static void open_test_app(apl_app *const app, char *const dir, const size_t dir_size,
+                          char *const path, const size_t path_size, apl_error *const error)
+{
+    cr_assert_eq(apl_test_temp_dir(dir, dir_size, error), APL_OK);
+    const int written = snprintf(path, path_size, "%s/data.sqlite3", dir);
+    cr_assert(written > 0 && (size_t)written < path_size);
+    const apl_app_config config = {.database_path = path};
+    cr_assert_eq(apl_app_start(app, &config, error), APL_OK);
+}
+
+static void close_test_app(apl_app *const app, char *const dir, apl_error *const error)
+{
+    apl_app_stop(app);
+    cr_assert_eq(apl_test_remove_temp_dir(dir, error), APL_OK);
+}
+
+static apl_team make_team(apl_app *const app, apl_error *const error)
+{
+    apl_team team = {};
+    cr_assert_eq(apl_team_service_create(app, "Ferrari", "", &team, error), APL_OK);
+    cr_assert_eq(apl_team_service_set_currency(app, team.id, "EUR", &team, error), APL_OK);
+    return team;
+}
+
+Test(tui_development, detail_loads_timeline_and_linked_costs_and_returns_from_money)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+
+    apl_project project = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "Body", "Floor", "Open",
+                                            "2026-05-01", "", 0, 0, "notes", &project, &err),
+                 APL_OK);
+
+    apl_project_update update = {};
+    apl_project after = {};
+    cr_assert_eq(apl_project_service_log_update(&app, team.id, project.id, "2026-04-01",
+                                                "First mock-up", "", "wind tunnel", &update, &after,
+                                                &err),
+                 APL_OK);
+
+    apl_ledger_entry entry = {};
+    cr_assert_eq(apl_ledger_service_post_expense_linked(&app, team.id, "250.00", "2026-04-01",
+                                                        "Parts", "Floor", project.id, &entry, &err),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    apl_tui_list_init(&state.list, 8);
+
+    cr_assert_eq(load_projects(&state, 0, &err), APL_OK);
+    cr_assert_eq(state.project_count, 1);
+    cr_assert_eq(state.list.count, 1);
+
+    open_project_detail(&state, project);
+    cr_assert_eq(state.section, APL_TUI_SECTION_DEVELOPMENT);
+    cr_assert_eq(state.screen, SHELL_SCREEN_PROJECT_DETAIL);
+    cr_assert_eq(state.project_update_count, 1);
+    cr_assert_str_eq(state.project_updates[0].summary, "First mock-up");
+    cr_assert_eq(state.project_entry_count, 1);
+    cr_assert_eq(state.project_entries[0].id, entry.id);
+    cr_assert_eq(state.project_cost.actual_cost.minor_units, 25000);
+    cr_assert_eq(state.project_cost.entry_count, 1);
+
+    handle_project_detail_input(&state, NCKEY_ENTER);
+    cr_assert_eq(state.section, APL_TUI_SECTION_MONEY);
+    cr_assert_eq(state.screen, SHELL_SCREEN_MONEY_DETAIL);
+    cr_assert(state.project_return_pending);
+    cr_assert_eq(state.entry_detail.id, entry.id);
+
+    handle_money_detail_input(&state, NCKEY_ESC);
+    cr_assert_eq(state.section, APL_TUI_SECTION_DEVELOPMENT);
+    cr_assert_eq(state.screen, SHELL_SCREEN_PROJECT_DETAIL);
+    cr_assert_not(state.project_return_pending);
+    cr_assert_eq(state.project_update_count, 1);
+    cr_assert_eq(state.project_entry_count, 1);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(tui_development, filters_and_empty_detail_states_stay_explicit)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+
+    apl_project open = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "Body", "Floor", "Open", "", "",
+                                            0, 0, "", &open, &err),
+                 APL_OK);
+    apl_project paused = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Brakes", "Mech", "", "Paused", "", "",
+                                            0, 0, "", &paused, &err),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    apl_tui_list_init(&state.list, 8);
+
+    (void)snprintf(state.project_status_filter, sizeof(state.project_status_filter), "open");
+    cr_assert_eq(load_projects(&state, 0, &err), APL_OK);
+    cr_assert_eq(state.project_count, 1);
+    cr_assert_str_eq(state.projects[0].title, "Aero");
+
+    state.project_status_filter[0] = '\0';
+    cr_assert_eq(load_projects(&state, 0, &err), APL_OK);
+    cr_assert_eq(state.project_count, 2);
+    cr_assert_str_eq(state.projects[0].title, "Aero");
+    cr_assert_str_eq(state.projects[1].title, "Brakes");
+
+    open_project_detail(&state, paused);
+    cr_assert_eq(state.project_update_count, 0);
+    cr_assert_eq(state.project_entry_count, 0);
+    cr_assert_eq(state.project_cost.actual_cost.minor_units, 0);
+    cr_assert_eq(state.project_cost.entry_count, 0);
+
+    close_test_app(&app, dir, &err);
+}

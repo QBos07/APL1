@@ -129,6 +129,7 @@ if(BUILD_TESTING)
         tests/tui/test_tui_action.c
         tests/tui/test_tui_command.c
         tests/tui/test_tui_command_line.c
+        tests/tui/test_tui_development.c
         tests/tui/test_tui_dialog.c
         tests/tui/test_tui_focus.c
         tests/tui/test_tui_frame.c
@@ -149,6 +150,7 @@ if(BUILD_TESTING)
 
     target_link_libraries(apl1_tui_tests PRIVATE
         apl_tui
+        apl_test_support
         Criterion::Criterion
         Notcurses::Notcurses
     )

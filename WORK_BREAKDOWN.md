@@ -237,7 +237,7 @@ Goal: record work and relate it to money and cars/parts without fabricating prog
 - [x] **5.4 Add project update use case.** Save update and audit history atomically; do not calculate a progress percentage. [Work item](work-items/phase-5/5.4-project-update-use-case.md)
 - [x] **5.5 Link actual money transactions to a project.** Ensure reports count a linked expense once, not once in each feature. [Work item](work-items/phase-5/5.5-project-transaction-links.md)
 - [x] **5.6 Add project list and filters.** Filter by status, season, and category where available. [Work item](work-items/phase-5/5.6-project-list-filters.md)
-- [ ] **5.7 Add project detail/timeline view.** Show entered project details, dated updates, and linked ledger transactions. [Work item](work-items/phase-5/5.7-project-detail-timeline.md)
+- [x] **5.7 Add project detail/timeline view.** Show entered project details, dated updates, and linked ledger transactions. [Work item](work-items/phase-5/5.7-project-detail-timeline.md)
 - [ ] **5.8 Add project create/update forms and command handoff.** Both entry points use the same use cases. [Work item](work-items/phase-5/5.8-project-forms-handoff.md)
 
 **Gate:** users can create a project, log successive updates, link recorded costs, and review the timeline without simulated progress.
