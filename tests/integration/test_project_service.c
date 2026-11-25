@@ -183,6 +183,7 @@ Test(project_service, update_records_only_changed_fields_and_noop_edits_are_sile
     open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
     const apl_team team = make_team(&app, "Ferrari", &err);
     const apl_season season = make_season(&app, team.id, "2026", &err);
+    const apl_season season_two = make_season(&app, team.id, "2027", &err);
 
     apl_project project = {};
     cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "Body", "Floor", "Open", "", "",
@@ -198,12 +199,13 @@ Test(project_service, update_records_only_changed_fields_and_noop_edits_are_sile
 
     apl_project updated = {};
     cr_assert_eq(apl_project_service_update(&app, team.id, project.id, "Aero v2", "Body", "Floor",
-                                            "Paused", "2026-05-01", "", 0, 0, "", &updated, &err),
+                                            "Paused", "2026-05-01", "", season_two.id, 0, "",
+                                            &updated, &err),
                  APL_OK);
     cr_assert_str_eq(updated.title, "Aero v2");
     cr_assert_str_eq(updated.status, "Paused");
     cr_assert_str_eq(updated.target_date, "2026-05-01");
-    cr_assert_eq(updated.season_id, 0);
+    cr_assert_eq(updated.season_id, season_two.id);
 
     apl_activity_filter filter = {.team_id = team.id};
     (void)snprintf(filter.action, sizeof(filter.action), "project_updated");
@@ -224,12 +226,21 @@ Test(project_service, update_records_only_changed_fields_and_noop_edits_are_sile
     bool saw_target = false;
     bool saw_season = false;
     bool saw_notes = false;
+    char expected_old_season[32];
+    char expected_new_season[32];
+    (void)snprintf(expected_old_season, sizeof(expected_old_season), "%lld", (long long)season.id);
+    (void)snprintf(expected_new_season, sizeof(expected_new_season), "%lld",
+                   (long long)season_two.id);
     for (size_t index = 0; index < change_count; ++index) {
         saw_title = saw_title || strcmp(changes[index].field, "title") == 0;
         saw_status = saw_status || strcmp(changes[index].field, "status") == 0;
         saw_target = saw_target || strcmp(changes[index].field, "target_date") == 0;
-        saw_season = saw_season || strcmp(changes[index].field, "season_id") == 0;
         saw_notes = saw_notes || strcmp(changes[index].field, "notes") == 0;
+        if (strcmp(changes[index].field, "season_id") == 0) {
+            saw_season = true;
+            cr_assert_str_eq(changes[index].old_value, expected_old_season);
+            cr_assert_str_eq(changes[index].new_value, expected_new_season);
+        }
     }
     cr_assert(saw_title);
     cr_assert(saw_status);

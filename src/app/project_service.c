@@ -97,16 +97,27 @@ static apl_status validate_links(const apl_app *const app, const int64_t team_id
     return APL_OK;
 }
 
+static void change_optional_id(apl_activity_change *const change, const char *const field,
+                               const int64_t old_id, const int64_t new_id)
+{
+    char old_text[32];
+    char new_text[32];
+    const bool old_missing = old_id <= 0;
+    const bool new_missing = new_id <= 0;
+    if (!old_missing) {
+        (void)snprintf(old_text, sizeof(old_text), "%lld", (long long)old_id);
+    }
+    if (!new_missing) {
+        (void)snprintf(new_text, sizeof(new_text), "%lld", (long long)new_id);
+    }
+    apl_audit_change_text(change, field, old_missing ? nullptr : old_text, old_missing,
+                          new_missing ? nullptr : new_text, new_missing);
+}
+
 static void change_id(apl_activity_change *const change, const char *const field,
                       const int64_t value)
 {
-    if (value <= 0) {
-        apl_audit_change_text(change, field, nullptr, true, "", true);
-        return;
-    }
-    char text[32];
-    (void)snprintf(text, sizeof(text), "%lld", (long long)value);
-    apl_audit_change_text(change, field, nullptr, true, text, false);
+    change_optional_id(change, field, 0, value);
 }
 
 static apl_status append_event(const apl_app *const app, const int64_t team_id,
@@ -268,25 +279,11 @@ apl_status apl_project_service_update(const apl_app *const app, const int64_t te
                                   out_project->actual_date, out_project->actual_date[0] == '\0');
         }
         if (season_changed) {
-            char old_id[32];
-            (void)snprintf(old_id, sizeof(old_id), "%lld", (long long)existing.season_id);
-            change_id(&changes[count++], "season_id", out_project->season_id);
-            if (existing.season_id > 0) {
-                apl_audit_change_text(&changes[count - 1], "season_id", old_id, false,
-                                      out_project->season_id > 0 ? changes[count - 1].new_value
-                                                                 : "",
-                                      out_project->season_id <= 0);
-            }
+            change_optional_id(&changes[count++], "season_id", existing.season_id,
+                               out_project->season_id);
         }
         if (car_changed) {
-            char old_id[32];
-            (void)snprintf(old_id, sizeof(old_id), "%lld", (long long)existing.car_id);
-            change_id(&changes[count++], "car_id", out_project->car_id);
-            if (existing.car_id > 0) {
-                apl_audit_change_text(&changes[count - 1], "car_id", old_id, false,
-                                      out_project->car_id > 0 ? changes[count - 1].new_value : "",
-                                      out_project->car_id <= 0);
-            }
+            change_optional_id(&changes[count++], "car_id", existing.car_id, out_project->car_id);
         }
         if (notes_changed) {
             apl_audit_change_text(&changes[count++], "notes", existing.notes, false,
