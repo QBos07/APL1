@@ -25,9 +25,9 @@ without losing referential integrity.
       these known relationships.
 - [x] Register the project record kind in
       [5.1](../phase-5/5.1-project-schema-repository.md).
-- [ ] Register the update record kind in
-      [5.3](../phase-5/5.3-development-update-schema-repository.md) and parts
-      records in their Phase 6 schema items.
+- [x] Register the update record kind in
+      [5.3](../phase-5/5.3-development-update-schema-repository.md).
+- [ ] Register parts records in their Phase 6 schema items.
 
 ## Acceptance checks
 

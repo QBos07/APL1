@@ -92,6 +92,7 @@ if(BUILD_TESTING)
         tests/integration/test_membership_repository.c
         tests/integration/test_project_repository.c
         tests/integration/test_project_service.c
+        tests/integration/test_project_update_repository.c
         tests/integration/test_reference_services.c
         tests/integration/test_scenario.c
         tests/integration/test_season_repository.c
@@ -211,6 +212,7 @@ add_library(apl_db STATIC
     src/db/migrations_list.c
     src/db/path.c
     src/db/project_repository.c
+    src/db/project_update_repository.c
     src/db/season_repository.c
     src/db/settings_repository.c
     src/db/sqlite_util.c

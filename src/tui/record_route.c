@@ -15,6 +15,7 @@ apl_tui_section apl_tui_record_section(const apl_record_kind kind)
     case APL_RECORD_BUDGET_PLAN:
         return APL_TUI_SECTION_MONEY;
     case APL_RECORD_PROJECT:
+    case APL_RECORD_PROJECT_UPDATE:
         return APL_TUI_SECTION_DEVELOPMENT;
     case APL_RECORD_ACTIVITY:
     case APL_RECORD_NONE:

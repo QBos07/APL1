@@ -22,6 +22,7 @@ static constexpr size_t APL_PROJECT_TITLE_MAX = 128;
 static constexpr size_t APL_PROJECT_CATEGORY_MAX = 128;
 static constexpr size_t APL_PROJECT_STATUS_MAX = 64;
 static constexpr size_t APL_PROJECT_DESCRIPTION_MAX = 1024;
+static constexpr size_t APL_PROJECT_UPDATE_SUMMARY_MAX = 512;
 
 /** One persisted development project. */
 typedef struct apl_project {
@@ -40,6 +41,25 @@ typedef struct apl_project {
     char notes[APL_REFERENCE_NOTES_MAX];
     apl_record_meta meta;
 } apl_project;
+
+/** One append-only dated work update on a project.
+ *
+ * `update_date` is entered by the user and may differ from `created_at`, the
+ * system timestamp. `status_change`/`status_change_key` are empty when the
+ * update does not change the project's current status. There is intentionally
+ * no update/delete operation for a stored update; corrections are new dated
+ * entries.
+ */
+typedef struct apl_project_update {
+    int64_t id;
+    int64_t project_id;
+    char update_date[APL_REFERENCE_DATE_MAX];
+    char summary[APL_PROJECT_UPDATE_SUMMARY_MAX];
+    char status_change[APL_PROJECT_STATUS_MAX];
+    char status_change_key[APL_PROJECT_STATUS_MAX];
+    char notes[APL_REFERENCE_NOTES_MAX];
+    char created_at[APL_RECORD_TIMESTAMP_MAX];
+} apl_project_update;
 
 /** Read filters for project lists. Empty text/zero fields are unfiltered. */
 typedef struct apl_project_filter {

@@ -258,6 +258,23 @@ static const apl_db_migration apl_migrations[] = {
          "WHEN NEW.car_id IS NOT NULL AND NOT EXISTS ("
          "SELECT 1 FROM cars WHERE cars.id = NEW.car_id AND cars.team_id = NEW.team_id) "
          "BEGIN SELECT RAISE(ABORT, 'project car must belong to the same team'); END;\n"},
+    /* Version 13: append-only dated project updates (5.3). The entered update
+     * date is separate from the system creation timestamp; no update rows,
+     * status values, or progress data are seeded. */
+    {13, "CREATE TABLE project_updates ("
+         "id INTEGER PRIMARY KEY,"
+         "project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
+         "update_date TEXT NOT NULL "
+         "CHECK (update_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),"
+         "summary TEXT NOT NULL,"
+         "status_change TEXT NOT NULL DEFAULT '',"
+         "status_change_key TEXT NOT NULL DEFAULT '',"
+         "notes TEXT NOT NULL DEFAULT '',"
+         "created_at TEXT NOT NULL,"
+         "CHECK (length(trim(summary)) > 0)"
+         ");\n"
+         "CREATE INDEX idx_project_updates_project_date "
+         "ON project_updates(project_id, update_date, id);\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

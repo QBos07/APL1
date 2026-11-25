@@ -10,8 +10,10 @@ Test(record, kinds_have_stable_codes_and_labels)
     cr_assert_str_eq(apl_record_kind_code(APL_RECORD_MEMBERSHIP), "membership");
     cr_assert_str_eq(apl_record_kind_code(APL_RECORD_CAR), "car");
     cr_assert_str_eq(apl_record_kind_code(APL_RECORD_PROJECT), "project");
+    cr_assert_str_eq(apl_record_kind_code(APL_RECORD_PROJECT_UPDATE), "project_update");
     cr_assert_str_eq(apl_record_kind_label(APL_RECORD_TEAM), "Team");
     cr_assert_str_eq(apl_record_kind_label(APL_RECORD_PROJECT), "Project");
+    cr_assert_str_eq(apl_record_kind_label(APL_RECORD_PROJECT_UPDATE), "Project update");
 }
 
 Test(record, codes_round_trip)
