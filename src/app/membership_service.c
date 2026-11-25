@@ -4,43 +4,11 @@
 #include <string.h>
 
 #include "app/audit.h"
+#include "app/use_case.h"
 #include "db/driver_repository.h"
 #include "db/membership_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
-
-static apl_status with_context(const apl_status status, const char *const context,
-                               apl_error *const error)
-{
-    if (status != APL_OK) {
-        apl_error_prefix(error, status, context);
-    }
-    return status;
-}
-
-static apl_status rollback(apl_db_transaction *const transaction, const apl_status status,
-                           const char *const context, apl_error *const error)
-{
-    apl_error rollback_error;
-    apl_error_init(&rollback_error);
-    if (apl_db_transaction_rollback(transaction, &rollback_error) != APL_OK) {
-        char detail[160];
-        (void)snprintf(detail, sizeof(detail), "rollback failed: %s",
-                       apl_error_message(&rollback_error));
-        apl_error_prefix(error, status, detail);
-    }
-    return with_context(status, context, error);
-}
-
-static apl_status commit(apl_db_transaction *const transaction, const char *const context,
-                         apl_error *const error)
-{
-    const apl_status status = apl_db_transaction_commit(transaction, error);
-    if (status != APL_OK && transaction->active) {
-        (void)rollback(transaction, status, context, error);
-    }
-    return with_context(status, context, error);
-}
 
 /** Verify both references and reject a new current membership for an archived
  *  driver. Historical memberships may still be edited after archiving. */
@@ -117,18 +85,18 @@ apl_status apl_membership_service_create(const apl_app *const app, const int64_t
     apl_status status = normalize_fields(start_date, end_date, role, notes, normalized_start,
                                          normalized_end, normalized_role, normalized_notes, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot add membership", error);
+        return apl_use_case_with_context(status, "cannot add membership", error);
     }
     const bool current = normalized_end[0] == '\0';
     status = verify_references(app, team_id, driver_id, current, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot add membership", error);
+        return apl_use_case_with_context(status, "cannot add membership", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot add membership", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot add membership", error);
+        return status;
     }
     status = apl_membership_repository_create(&app->db, team_id, driver_id, normalized_start,
                                               normalized_end, normalized_role, normalized_notes,
@@ -148,9 +116,9 @@ apl_status apl_membership_service_create(const apl_app *const app, const int64_t
                               changes, 4, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot add membership", error);
+        return apl_use_case_rollback(&transaction, status, "cannot add membership", error);
     }
-    return commit(&transaction, "cannot add membership", error);
+    return apl_use_case_commit(&transaction, "cannot add membership", error);
 }
 
 apl_status apl_membership_service_get(const apl_app *const app, const int64_t team_id,
@@ -161,8 +129,9 @@ apl_status apl_membership_service_get(const apl_app *const app, const int64_t te
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "membership get arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_membership_repository_get(&app->db, team_id, id, out_membership, error),
-                        "cannot load membership", error);
+    return apl_use_case_with_context(
+        apl_membership_repository_get(&app->db, team_id, id, out_membership, error),
+        "cannot load membership", error);
 }
 
 apl_status apl_membership_service_update(const apl_app *const app, const int64_t team_id,
@@ -183,18 +152,18 @@ apl_status apl_membership_service_update(const apl_app *const app, const int64_t
     apl_status status = normalize_fields(start_date, end_date, role, notes, normalized_start,
                                          normalized_end, normalized_role, normalized_notes, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update membership", error);
+        return apl_use_case_with_context(status, "cannot update membership", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot update membership", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update membership", error);
+        return status;
     }
     apl_membership existing = {};
     status = apl_membership_repository_get(&app->db, team_id, id, &existing, error);
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot update membership", error);
+        return apl_use_case_rollback(&transaction, status, "cannot update membership", error);
     }
     const bool start_changed = strcmp(existing.start_date, normalized_start) != 0;
     const bool end_changed = strcmp(existing.end_date, normalized_end) != 0;
@@ -202,7 +171,7 @@ apl_status apl_membership_service_update(const apl_app *const app, const int64_t
     const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
     if (!start_changed && !end_changed && !role_changed && !notes_changed) {
         *out_membership = existing;
-        return commit(&transaction, "cannot update membership", error);
+        return apl_use_case_commit(&transaction, "cannot update membership", error);
     }
     status =
         apl_membership_repository_update(&app->db, team_id, id, normalized_start, normalized_end,
@@ -234,9 +203,9 @@ apl_status apl_membership_service_update(const apl_app *const app, const int64_t
             append_event(app, team_id, "membership_updated", id, summary, changes, count, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot update membership", error);
+        return apl_use_case_rollback(&transaction, status, "cannot update membership", error);
     }
-    return commit(&transaction, "cannot update membership", error);
+    return apl_use_case_commit(&transaction, "cannot update membership", error);
 }
 
 apl_status apl_membership_service_end(const apl_app *const app, const int64_t team_id,
@@ -255,13 +224,13 @@ apl_status apl_membership_service_end(const apl_app *const app, const int64_t te
         return APL_ERR_INVALID_ARGUMENT;
     }
     if (status != APL_OK) {
-        return with_context(status, "cannot end membership", error);
+        return apl_use_case_with_context(status, "cannot end membership", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot end membership", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot end membership", error);
+        return status;
     }
     apl_membership existing = {};
     status = apl_membership_repository_get(&app->db, team_id, id, &existing, error);
@@ -272,7 +241,7 @@ apl_status apl_membership_service_end(const apl_app *const app, const int64_t te
     if (status == APL_OK && existing.end_date[0] != '\0' &&
         strcmp(existing.end_date, normalized_end) == 0) {
         *out_membership = existing;
-        return commit(&transaction, "cannot end membership", error);
+        return apl_use_case_commit(&transaction, "cannot end membership", error);
     }
     if (status == APL_OK) {
         status = apl_membership_repository_end(&app->db, team_id, id, normalized_end,
@@ -288,9 +257,9 @@ apl_status apl_membership_service_end(const apl_app *const app, const int64_t te
         status = append_event(app, team_id, "membership_ended", id, summary, &change, 1, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot end membership", error);
+        return apl_use_case_rollback(&transaction, status, "cannot end membership", error);
     }
-    return commit(&transaction, "cannot end membership", error);
+    return apl_use_case_commit(&transaction, "cannot end membership", error);
 }
 
 apl_status apl_membership_service_list_for_team(const apl_app *const app, const int64_t team_id,
@@ -302,9 +271,10 @@ apl_status apl_membership_service_list_for_team(const apl_app *const app, const 
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "membership list arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_membership_repository_list_for_team(&app->db, team_id, include_ended,
-                                                                out_memberships, out_count, error),
-                        "cannot list memberships", error);
+    return apl_use_case_with_context(
+        apl_membership_repository_list_for_team(&app->db, team_id, include_ended, out_memberships,
+                                                out_count, error),
+        "cannot list memberships", error);
 }
 
 apl_status apl_membership_service_list_for_driver(const apl_app *const app, const int64_t driver_id,
@@ -316,9 +286,9 @@ apl_status apl_membership_service_list_for_driver(const apl_app *const app, cons
                       "driver membership list arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_membership_repository_list_for_driver(
-                            &app->db, driver_id, out_memberships, out_count, error),
-                        "cannot list driver memberships", error);
+    return apl_use_case_with_context(apl_membership_repository_list_for_driver(
+                                         &app->db, driver_id, out_memberships, out_count, error),
+                                     "cannot list driver memberships", error);
 }
 
 void apl_membership_service_free_list(apl_membership *const memberships)

@@ -4,41 +4,9 @@
 #include <string.h>
 
 #include "app/audit.h"
+#include "app/use_case.h"
 #include "db/driver_repository.h"
 #include "db/transaction.h"
-
-static apl_status with_context(const apl_status status, const char *const context,
-                               apl_error *const error)
-{
-    if (status != APL_OK) {
-        apl_error_prefix(error, status, context);
-    }
-    return status;
-}
-
-static apl_status rollback(apl_db_transaction *const transaction, const apl_status status,
-                           const char *const context, apl_error *const error)
-{
-    apl_error rollback_error;
-    apl_error_init(&rollback_error);
-    if (apl_db_transaction_rollback(transaction, &rollback_error) != APL_OK) {
-        char detail[160];
-        (void)snprintf(detail, sizeof(detail), "rollback failed: %s",
-                       apl_error_message(&rollback_error));
-        apl_error_prefix(error, status, detail);
-    }
-    return with_context(status, context, error);
-}
-
-static apl_status commit(apl_db_transaction *const transaction, const char *const context,
-                         apl_error *const error)
-{
-    const apl_status status = apl_db_transaction_commit(transaction, error);
-    if (status != APL_OK && transaction->active) {
-        (void)rollback(transaction, status, context, error);
-    }
-    return with_context(status, context, error);
-}
 
 static apl_status normalize_fields(const char *const name, const char *const short_name,
                                    const char *const notes, char *const out_name,
@@ -83,13 +51,13 @@ apl_status apl_driver_service_create(const apl_app *const app, const char *const
     apl_status status = normalize_fields(name, short_name, notes, normalized_name, normalized_short,
                                          normalized_notes, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot create driver", error);
+        return apl_use_case_with_context(status, "cannot create driver", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot create driver", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot create driver", error);
+        return status;
     }
     status = apl_driver_repository_create(&app->db, normalized_name, normalized_short,
                                           normalized_notes, out_driver, error);
@@ -104,9 +72,9 @@ apl_status apl_driver_service_create(const apl_app *const app, const char *const
         status = append_event(app, "driver_created", out_driver->id, summary, changes, 3, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot create driver", error);
+        return apl_use_case_rollback(&transaction, status, "cannot create driver", error);
     }
-    return commit(&transaction, "cannot create driver", error);
+    return apl_use_case_commit(&transaction, "cannot create driver", error);
 }
 
 apl_status apl_driver_service_get(const apl_app *const app, const int64_t id,
@@ -116,8 +84,8 @@ apl_status apl_driver_service_get(const apl_app *const app, const int64_t id,
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "driver get arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_driver_repository_get(&app->db, id, out_driver, error),
-                        "cannot load driver", error);
+    return apl_use_case_with_context(apl_driver_repository_get(&app->db, id, out_driver, error),
+                                     "cannot load driver", error);
 }
 
 apl_status apl_driver_service_update(const apl_app *const app, const int64_t id,
@@ -135,25 +103,25 @@ apl_status apl_driver_service_update(const apl_app *const app, const int64_t id,
     apl_status status = normalize_fields(name, short_name, notes, normalized_name, normalized_short,
                                          normalized_notes, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update driver", error);
+        return apl_use_case_with_context(status, "cannot update driver", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot update driver", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update driver", error);
+        return status;
     }
     apl_driver existing = {};
     status = apl_driver_repository_get(&app->db, id, &existing, error);
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot update driver", error);
+        return apl_use_case_rollback(&transaction, status, "cannot update driver", error);
     }
     const bool name_changed = strcmp(existing.name, normalized_name) != 0;
     const bool short_changed = strcmp(existing.short_name, normalized_short) != 0;
     const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
     if (!name_changed && !short_changed && !notes_changed) {
         *out_driver = existing;
-        return commit(&transaction, "cannot update driver", error);
+        return apl_use_case_commit(&transaction, "cannot update driver", error);
     }
     status = apl_driver_repository_update(&app->db, id, normalized_name, normalized_short,
                                           normalized_notes, out_driver, error);
@@ -177,9 +145,9 @@ apl_status apl_driver_service_update(const apl_app *const app, const int64_t id,
         status = append_event(app, "driver_updated", id, summary, changes, count, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot update driver", error);
+        return apl_use_case_rollback(&transaction, status, "cannot update driver", error);
     }
-    return commit(&transaction, "cannot update driver", error);
+    return apl_use_case_commit(&transaction, "cannot update driver", error);
 }
 
 apl_status apl_driver_service_archive(const apl_app *const app, const int64_t id,
@@ -190,15 +158,15 @@ apl_status apl_driver_service_archive(const apl_app *const app, const int64_t id
         return APL_ERR_INVALID_ARGUMENT;
     }
     apl_db_transaction transaction = {};
-    apl_status status = apl_db_transaction_begin(&transaction, &app->db, error);
+    apl_status status = apl_use_case_begin(&transaction, app, "cannot archive driver", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot archive driver", error);
+        return status;
     }
     apl_driver existing = {};
     status = apl_driver_repository_get(&app->db, id, &existing, error);
     if (status == APL_OK && existing.archived) {
         *out_driver = existing;
-        return commit(&transaction, "cannot archive driver", error);
+        return apl_use_case_commit(&transaction, "cannot archive driver", error);
     }
     if (status == APL_OK) {
         status = apl_driver_repository_archive(&app->db, id, out_driver, error);
@@ -211,9 +179,9 @@ apl_status apl_driver_service_archive(const apl_app *const app, const int64_t id
         status = append_event(app, "driver_archived", id, summary, &change, 1, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot archive driver", error);
+        return apl_use_case_rollback(&transaction, status, "cannot archive driver", error);
     }
-    return commit(&transaction, "cannot archive driver", error);
+    return apl_use_case_commit(&transaction, "cannot archive driver", error);
 }
 
 apl_status apl_driver_service_list(const apl_app *const app, const bool include_archived,
@@ -224,7 +192,7 @@ apl_status apl_driver_service_list(const apl_app *const app, const bool include_
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "application is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(
+    return apl_use_case_with_context(
         apl_driver_repository_list(&app->db, include_archived, out_drivers, out_count, error),
         "cannot list drivers", error);
 }
@@ -238,9 +206,10 @@ apl_status apl_driver_service_list_for_team(const apl_app *const app, const int6
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team driver list arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_driver_repository_list_for_team(&app->db, team_id, include_archived,
-                                                            out_drivers, out_count, error),
-                        "cannot list team drivers", error);
+    return apl_use_case_with_context(
+        apl_driver_repository_list_for_team(&app->db, team_id, include_archived, out_drivers,
+                                            out_count, error),
+        "cannot list team drivers", error);
 }
 
 void apl_driver_service_free_list(apl_driver *const drivers)

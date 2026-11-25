@@ -4,41 +4,9 @@
 #include <string.h>
 
 #include "app/audit.h"
+#include "app/use_case.h"
 #include "db/car_repository.h"
 #include "db/transaction.h"
-
-static apl_status with_context(const apl_status status, const char *const context,
-                               apl_error *const error)
-{
-    if (status != APL_OK) {
-        apl_error_prefix(error, status, context);
-    }
-    return status;
-}
-
-static apl_status rollback(apl_db_transaction *const transaction, const apl_status status,
-                           const char *const context, apl_error *const error)
-{
-    apl_error rollback_error;
-    apl_error_init(&rollback_error);
-    if (apl_db_transaction_rollback(transaction, &rollback_error) != APL_OK) {
-        char detail[160];
-        (void)snprintf(detail, sizeof(detail), "rollback failed: %s",
-                       apl_error_message(&rollback_error));
-        apl_error_prefix(error, status, detail);
-    }
-    return with_context(status, context, error);
-}
-
-static apl_status commit(apl_db_transaction *const transaction, const char *const context,
-                         apl_error *const error)
-{
-    const apl_status status = apl_db_transaction_commit(transaction, error);
-    if (status != APL_OK && transaction->active) {
-        (void)rollback(transaction, status, context, error);
-    }
-    return with_context(status, context, error);
-}
 
 static apl_status normalize_fields(const char *const label, const char *const chassis,
                                    const char *const notes, char *const out_label,
@@ -81,13 +49,13 @@ apl_status apl_car_service_create(const apl_app *const app, const int64_t team_i
     apl_status status = normalize_fields(label, chassis, notes, normalized_label,
                                          normalized_chassis, normalized_notes, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot create car", error);
+        return apl_use_case_with_context(status, "cannot create car", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot create car", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot create car", error);
+        return status;
     }
     status = apl_car_repository_create(&app->db, team_id, normalized_label, normalized_chassis,
                                        normalized_notes, out_car, error);
@@ -101,9 +69,9 @@ apl_status apl_car_service_create(const apl_app *const app, const int64_t team_i
         status = append_event(app, team_id, "car_created", out_car->id, summary, changes, 3, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot create car", error);
+        return apl_use_case_rollback(&transaction, status, "cannot create car", error);
     }
-    return commit(&transaction, "cannot create car", error);
+    return apl_use_case_commit(&transaction, "cannot create car", error);
 }
 
 apl_status apl_car_service_get(const apl_app *const app, const int64_t team_id, const int64_t id,
@@ -113,8 +81,8 @@ apl_status apl_car_service_get(const apl_app *const app, const int64_t team_id, 
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "car get arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_car_repository_get(&app->db, team_id, id, out_car, error),
-                        "cannot load car", error);
+    return apl_use_case_with_context(apl_car_repository_get(&app->db, team_id, id, out_car, error),
+                                     "cannot load car", error);
 }
 
 apl_status apl_car_service_update(const apl_app *const app, const int64_t team_id, const int64_t id,
@@ -132,25 +100,25 @@ apl_status apl_car_service_update(const apl_app *const app, const int64_t team_i
     apl_status status = normalize_fields(label, chassis, notes, normalized_label,
                                          normalized_chassis, normalized_notes, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update car", error);
+        return apl_use_case_with_context(status, "cannot update car", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot update car", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update car", error);
+        return status;
     }
     apl_car existing = {};
     status = apl_car_repository_get(&app->db, team_id, id, &existing, error);
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot update car", error);
+        return apl_use_case_rollback(&transaction, status, "cannot update car", error);
     }
     const bool label_changed = strcmp(existing.label, normalized_label) != 0;
     const bool chassis_changed = strcmp(existing.chassis, normalized_chassis) != 0;
     const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
     if (!label_changed && !chassis_changed && !notes_changed) {
         *out_car = existing;
-        return commit(&transaction, "cannot update car", error);
+        return apl_use_case_commit(&transaction, "cannot update car", error);
     }
     status = apl_car_repository_update(&app->db, team_id, id, normalized_label, normalized_chassis,
                                        normalized_notes, out_car, error);
@@ -174,9 +142,9 @@ apl_status apl_car_service_update(const apl_app *const app, const int64_t team_i
         status = append_event(app, team_id, "car_updated", id, summary, changes, count, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot update car", error);
+        return apl_use_case_rollback(&transaction, status, "cannot update car", error);
     }
-    return commit(&transaction, "cannot update car", error);
+    return apl_use_case_commit(&transaction, "cannot update car", error);
 }
 
 apl_status apl_car_service_archive(const apl_app *const app, const int64_t team_id,
@@ -187,15 +155,15 @@ apl_status apl_car_service_archive(const apl_app *const app, const int64_t team_
         return APL_ERR_INVALID_ARGUMENT;
     }
     apl_db_transaction transaction = {};
-    apl_status status = apl_db_transaction_begin(&transaction, &app->db, error);
+    apl_status status = apl_use_case_begin(&transaction, app, "cannot archive car", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot archive car", error);
+        return status;
     }
     apl_car existing = {};
     status = apl_car_repository_get(&app->db, team_id, id, &existing, error);
     if (status == APL_OK && existing.archived) {
         *out_car = existing;
-        return commit(&transaction, "cannot archive car", error);
+        return apl_use_case_commit(&transaction, "cannot archive car", error);
     }
     if (status == APL_OK) {
         status = apl_car_repository_archive(&app->db, team_id, id, out_car, error);
@@ -208,9 +176,9 @@ apl_status apl_car_service_archive(const apl_app *const app, const int64_t team_
         status = append_event(app, team_id, "car_archived", id, summary, &change, 1, error);
     }
     if (status != APL_OK) {
-        return rollback(&transaction, status, "cannot archive car", error);
+        return apl_use_case_rollback(&transaction, status, "cannot archive car", error);
     }
-    return commit(&transaction, "cannot archive car", error);
+    return apl_use_case_commit(&transaction, "cannot archive car", error);
 }
 
 apl_status apl_car_service_list(const apl_app *const app, const int64_t team_id,
@@ -221,7 +189,7 @@ apl_status apl_car_service_list(const apl_app *const app, const int64_t team_id,
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "car list arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(
+    return apl_use_case_with_context(
         apl_car_repository_list(&app->db, team_id, include_archived, out_cars, out_count, error),
         "cannot list cars", error);
 }

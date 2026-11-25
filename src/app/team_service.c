@@ -3,45 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "app/use_case.h"
 #include "db/activity_repository.h"
 #include "db/settings_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
-
-/** Add use-case context without replacing the underlying failure detail. */
-static apl_status with_context(apl_status status, const char *const context, apl_error *const error)
-{
-    if (status != APL_OK) {
-        apl_error_prefix(error, status, context);
-    }
-    return status;
-}
-
-/** Roll back a failed use-case transaction, preserving the original error. */
-static void rollback_preserving_error(apl_db_transaction *const transaction,
-                                      const apl_status original_status, apl_error *const error)
-{
-    apl_error rollback_error;
-    apl_error_init(&rollback_error);
-    if (apl_db_transaction_rollback(transaction, &rollback_error) != APL_OK) {
-        char context[160];
-        (void)snprintf(context, sizeof(context), "rollback failed: %s",
-                       apl_error_message(&rollback_error));
-        apl_error_prefix(error, original_status, context);
-    }
-}
-
-/** Commit a use-case transaction, retrying cleanup if the helper reports an
- *  active transaction after a commit failure. */
-static apl_status commit_transaction(apl_db_transaction *const transaction,
-                                     const char *const context, apl_error *const error)
-{
-    const apl_status status = apl_db_transaction_commit(transaction, error);
-    if (status != APL_OK && transaction->active) {
-        rollback_preserving_error(transaction, status, error);
-    }
-    return with_context(status, context, error);
-}
 
 /** Append one team activity event through the repository. The caller owns the
  *  transaction, so team, settings, and audit rows commit together. */
@@ -92,13 +58,13 @@ apl_status apl_team_service_create(const apl_app *const app, const char *const n
         status = apl_team_notes_normalize(notes, normalized_notes, sizeof(normalized_notes), error);
     }
     if (status != APL_OK) {
-        return with_context(status, "cannot create team", error);
+        return apl_use_case_with_context(status, "cannot create team", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot create team", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot create team", error);
+        return status;
     }
 
     status =
@@ -117,11 +83,10 @@ apl_status apl_team_service_create(const apl_app *const app, const char *const n
 
     if (status != APL_OK) {
         const apl_status original = status;
-        rollback_preserving_error(&transaction, original, error);
-        return with_context(original, "cannot create team", error);
+        return apl_use_case_rollback(&transaction, original, "cannot create team", error);
     }
 
-    return commit_transaction(&transaction, "cannot create team", error);
+    return apl_use_case_commit(&transaction, "cannot create team", error);
 }
 
 apl_status apl_team_service_list(const apl_app *const app, const bool include_archived,
@@ -132,7 +97,7 @@ apl_status apl_team_service_list(const apl_app *const app, const bool include_ar
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "application is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(
+    return apl_use_case_with_context(
         apl_team_repository_list(&app->db, include_archived, out_teams, out_count, error),
         "cannot list teams", error);
 }
@@ -144,8 +109,8 @@ apl_status apl_team_service_get(const apl_app *const app, const int64_t id,
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "application is nullptr");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_team_repository_get(&app->db, id, out_team, error), "cannot load team",
-                        error);
+    return apl_use_case_with_context(apl_team_repository_get(&app->db, id, out_team, error),
+                                     "cannot load team", error);
 }
 
 apl_status apl_team_service_update(const apl_app *const app, const int64_t id,
@@ -165,28 +130,27 @@ apl_status apl_team_service_update(const apl_app *const app, const int64_t id,
         status = apl_team_notes_normalize(notes, normalized_notes, sizeof(normalized_notes), error);
     }
     if (status != APL_OK) {
-        return with_context(status, "cannot update team", error);
+        return apl_use_case_with_context(status, "cannot update team", error);
     }
 
     apl_db_transaction transaction = {};
-    status = apl_db_transaction_begin(&transaction, &app->db, error);
+    status = apl_use_case_begin(&transaction, app, "cannot update team", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot update team", error);
+        return status;
     }
 
     apl_team existing = {};
     status = apl_team_repository_get(&app->db, id, &existing, error);
     if (status != APL_OK) {
         const apl_status original = status;
-        rollback_preserving_error(&transaction, original, error);
-        return with_context(original, "cannot update team", error);
+        return apl_use_case_rollback(&transaction, original, "cannot update team", error);
     }
 
     const bool name_changed = strcmp(existing.name, normalized_name) != 0;
     const bool notes_changed = strcmp(existing.notes, normalized_notes) != 0;
     if (!name_changed && !notes_changed) {
         *out_team = existing;
-        return commit_transaction(&transaction, "cannot update team", error);
+        return apl_use_case_commit(&transaction, "cannot update team", error);
     }
 
     status = apl_team_repository_update(&app->db, id, normalized_name, normalized_notes, out_team,
@@ -215,10 +179,9 @@ apl_status apl_team_service_update(const apl_app *const app, const int64_t id,
 
     if (status != APL_OK) {
         const apl_status original = status;
-        rollback_preserving_error(&transaction, original, error);
-        return with_context(original, "cannot update team", error);
+        return apl_use_case_rollback(&transaction, original, "cannot update team", error);
     }
-    return commit_transaction(&transaction, "cannot update team", error);
+    return apl_use_case_commit(&transaction, "cannot update team", error);
 }
 
 /** Choose the oldest-created non-archived team, with stable ID as tie-breaker. */
@@ -259,9 +222,9 @@ apl_status apl_team_service_archive(const apl_app *const app, const int64_t id,
     }
 
     apl_db_transaction transaction = {};
-    apl_status status = apl_db_transaction_begin(&transaction, &app->db, error);
+    apl_status status = apl_use_case_begin(&transaction, app, "cannot archive team", error);
     if (status != APL_OK) {
-        return with_context(status, "cannot archive team", error);
+        return status;
     }
 
     apl_team existing = {};
@@ -270,7 +233,7 @@ apl_status apl_team_service_archive(const apl_app *const app, const int64_t id,
         /* Archive is idempotent: do not write a second misleading activity
          * event or change the original archived_at timestamp. */
         *out_team = existing;
-        return commit_transaction(&transaction, "cannot archive team", error);
+        return apl_use_case_commit(&transaction, "cannot archive team", error);
     }
     if (status == APL_OK) {
         apl_team *active_teams = nullptr;
@@ -320,11 +283,10 @@ apl_status apl_team_service_archive(const apl_app *const app, const int64_t id,
 
     if (status != APL_OK) {
         const apl_status original = status;
-        rollback_preserving_error(&transaction, original, error);
-        return with_context(original, "cannot archive team", error);
+        return apl_use_case_rollback(&transaction, original, "cannot archive team", error);
     }
 
-    return commit_transaction(&transaction, "cannot archive team", error);
+    return apl_use_case_commit(&transaction, "cannot archive team", error);
 }
 
 apl_status apl_team_service_active(const apl_app *const app, apl_team *const out_team,
@@ -341,7 +303,7 @@ apl_status apl_team_service_active(const apl_app *const app, apl_team *const out
     int64_t team_id = 0;
     apl_status status = apl_settings_repository_get_active_team_id(&app->db, &team_id, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot load active team", error);
+        return apl_use_case_with_context(status, "cannot load active team", error);
     }
     if (team_id == 0) {
         return APL_OK;
@@ -353,7 +315,7 @@ apl_status apl_team_service_active(const apl_app *const app, apl_team *const out
         return APL_OK;
     }
     if (status != APL_OK && status != APL_ERR_NOT_FOUND) {
-        return with_context(status, "cannot load active team", error);
+        return apl_use_case_with_context(status, "cannot load active team", error);
     }
     apl_error_clear(error);
 
@@ -361,12 +323,12 @@ apl_status apl_team_service_active(const apl_app *const app, apl_team *const out
     bool found = false;
     status = find_oldest_active_team(&app->db, &fallback, &found, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot load active team", error);
+        return apl_use_case_with_context(status, "cannot load active team", error);
     }
     if (!found) {
         status = apl_settings_repository_clear_active_team_id(&app->db, error);
         if (status != APL_OK) {
-            return with_context(status, "cannot load active team", error);
+            return apl_use_case_with_context(status, "cannot load active team", error);
         }
         *out_team = (apl_team){};
         *out_status = APL_ACTIVE_TEAM_NONE;
@@ -375,7 +337,7 @@ apl_status apl_team_service_active(const apl_app *const app, apl_team *const out
 
     status = apl_settings_repository_set_active_team_id(&app->db, fallback.id, error);
     if (status != APL_OK) {
-        return with_context(status, "cannot load active team", error);
+        return apl_use_case_with_context(status, "cannot load active team", error);
     }
     *out_team = fallback;
     *out_status = APL_ACTIVE_TEAM_FALLBACK;
@@ -389,8 +351,9 @@ apl_status apl_team_service_set_active(const apl_app *const app, const int64_t i
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team switch arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return with_context(apl_settings_repository_set_active_team_id(&app->db, id, error),
-                        "cannot switch team", error);
+    return apl_use_case_with_context(
+        apl_settings_repository_set_active_team_id(&app->db, id, error), "cannot switch team",
+        error);
 }
 
 void apl_team_service_free_list(apl_team *const teams)

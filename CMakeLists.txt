@@ -240,6 +240,7 @@ add_library(apl_app STATIC
     src/app/membership_service.c
     src/app/season_service.c
     src/app/team_service.c
+    src/app/use_case.c
     src/app/version.c
 )
 
