@@ -6,7 +6,7 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define TEAM_COLUMNS "id, name, notes, archived, created_at, updated_at, archived_at"
+#define TEAM_COLUMNS "id, name, notes, currency, archived, created_at, updated_at, archived_at"
 
 /** Read the current row into a team value. */
 static void read_team(sqlite3_stmt *const statement, apl_team *const team)
@@ -14,10 +14,11 @@ static void read_team(sqlite3_stmt *const statement, apl_team *const team)
     team->id = sqlite3_column_int64(statement, 0);
     apl_db_copy_column_text(statement, 1, team->name, sizeof(team->name));
     apl_db_copy_column_text(statement, 2, team->notes, sizeof(team->notes));
-    team->meta.archived = sqlite3_column_int(statement, 3) != 0;
-    apl_db_copy_column_text(statement, 4, team->meta.created_at, sizeof(team->meta.created_at));
-    apl_db_copy_column_text(statement, 5, team->meta.updated_at, sizeof(team->meta.updated_at));
-    apl_db_copy_column_text(statement, 6, team->meta.archived_at, sizeof(team->meta.archived_at));
+    apl_db_copy_column_text(statement, 3, team->currency, sizeof(team->currency));
+    team->meta.archived = sqlite3_column_int(statement, 4) != 0;
+    apl_db_copy_column_text(statement, 5, team->meta.created_at, sizeof(team->meta.created_at));
+    apl_db_copy_column_text(statement, 6, team->meta.updated_at, sizeof(team->meta.updated_at));
+    apl_db_copy_column_text(statement, 7, team->meta.archived_at, sizeof(team->meta.archived_at));
 }
 
 /** Translate a failed team write, including unique-name conflicts. */
@@ -221,6 +222,51 @@ apl_status apl_team_repository_archive(const apl_db_connection *const connection
         return APL_ERR_DB_QUERY;
     }
 
+    read_team(statement, out_team);
+    sqlite3_finalize(statement);
+    return APL_OK;
+}
+
+apl_status apl_team_repository_set_currency(const apl_db_connection *const connection,
+                                            const int64_t id, const char *const currency,
+                                            apl_team *const out_team, apl_error *const error)
+{
+    if (connection == nullptr || currency == nullptr || out_team == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team currency arguments are nullptr");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    sqlite3 *const handle = apl_db_handle(connection);
+    if (handle == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is closed");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+
+    *out_team = (apl_team){};
+    sqlite3_stmt *statement = nullptr;
+    if (sqlite3_prepare_v2(handle,
+                           "UPDATE teams SET currency = ?2, "
+                           "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+                           "WHERE id = ?1 RETURNING " TEAM_COLUMNS ";",
+                           -1, &statement, nullptr) != SQLITE_OK) {
+        apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare team currency update: %s",
+                      sqlite3_errmsg(handle));
+        return APL_ERR_DB_QUERY;
+    }
+    sqlite3_bind_int64(statement, 1, id);
+    sqlite3_bind_text(statement, 2, currency, -1, SQLITE_TRANSIENT);
+
+    const int step_status = sqlite3_step(statement);
+    if (step_status == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        apl_error_set(error, APL_ERR_NOT_FOUND, "team %lld was not found", (long long)id);
+        return APL_ERR_NOT_FOUND;
+    }
+    if (step_status != SQLITE_ROW) {
+        apl_error_set(error, APL_ERR_DB_QUERY, "cannot update team currency: %s",
+                      sqlite3_errmsg(handle));
+        sqlite3_finalize(statement);
+        return APL_ERR_DB_QUERY;
+    }
     read_team(statement, out_team);
     sqlite3_finalize(statement);
     return APL_OK;

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "core/error.h"
+#include "domain/money.h"
 #include "domain/record.h"
 
 /*
@@ -31,6 +32,8 @@ typedef struct apl_team {
     int64_t id;
     char name[APL_TEAM_NAME_MAX];
     char notes[APL_TEAM_NOTES_MAX];
+    /** Reporting currency code, or empty when the user has not chosen one. */
+    char currency[APL_MONEY_CURRENCY_MAX];
     apl_record_meta meta;
 } apl_team;
 

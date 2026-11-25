@@ -44,6 +44,12 @@ apl_status apl_team_repository_update(const apl_db_connection *connection, int64
 apl_status apl_team_repository_archive(const apl_db_connection *connection, int64_t id,
                                        apl_team *out_team, apl_error *error);
 
+/** Store the team's reporting currency code (already normalized) and return
+ *  the updated row. Missing IDs return APL_ERR_NOT_FOUND. */
+apl_status apl_team_repository_set_currency(const apl_db_connection *connection, int64_t id,
+                                            const char *currency, apl_team *out_team,
+                                            apl_error *error);
+
 /** List teams ordered by name, with active teams before archived teams.
  *
  * When `include_archived` is false only non-archived teams are returned. On

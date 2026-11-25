@@ -63,6 +63,14 @@ apl_status apl_team_service_active(const apl_app *app, apl_team *out_team,
 /** Select an existing, non-archived team as active. */
 apl_status apl_team_service_set_active(const apl_app *app, int64_t id, apl_error *error);
 
+/** Choose or change a team's reporting currency.
+ *
+ * The code is normalized to three upper-case letters. A team that already has
+ * ledger entries or budget plans cannot change currency, because v1 does not
+ * convert money; posting requires a configured currency. */
+apl_status apl_team_service_set_currency(const apl_app *app, int64_t id, const char *currency,
+                                         apl_team *out_team, apl_error *error);
+
 /** Release a list returned by apl_team_service_list. */
 void apl_team_service_free_list(apl_team *teams);
 

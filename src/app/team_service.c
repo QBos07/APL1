@@ -4,10 +4,14 @@
 #include <string.h>
 
 #include "app/use_case.h"
+#include "app/audit.h"
 #include "db/activity_repository.h"
+#include "db/budget_repository.h"
+#include "db/ledger_repository.h"
 #include "db/settings_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
+#include "domain/ledger.h"
 #include "domain/record.h"
 
 /** Append one team activity event through the repository. The caller owns the
@@ -362,6 +366,80 @@ apl_status apl_team_service_set_active(const apl_app *const app, const int64_t i
     return apl_use_case_with_context(
         apl_settings_repository_set_active_team_id(&app->db, id, error), "cannot switch team",
         error);
+}
+
+apl_status apl_team_service_set_currency(const apl_app *const app, const int64_t id,
+                                         const char *const currency, apl_team *const out_team,
+                                         apl_error *const error)
+{
+    if (app == nullptr || out_team == nullptr || id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "team currency arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    char normalized[APL_MONEY_CURRENCY_MAX];
+    apl_status status = apl_use_case_with_field(
+        apl_money_currency_normalize(currency, normalized, sizeof(normalized), error),
+        APL_FIELD_CURRENCY, error);
+    if (status != APL_OK) {
+        return apl_use_case_with_context(status, "cannot set reporting currency", error);
+    }
+
+    apl_db_transaction transaction = {};
+    status = apl_use_case_begin(&transaction, app, "cannot set reporting currency", error);
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_team existing = {};
+    status = apl_team_repository_get(&app->db, id, &existing, error);
+    if (status == APL_OK && existing.meta.archived) {
+        apl_error_set(error, APL_ERR_CONFLICT,
+                      "an archived team's reporting currency cannot be changed");
+        status = APL_ERR_CONFLICT;
+    }
+    if (status == APL_OK && strcmp(existing.currency, normalized) == 0) {
+        *out_team = existing;
+        return apl_use_case_commit(&transaction, "cannot set reporting currency", error);
+    }
+    if (status == APL_OK && existing.currency[0] != '\0') {
+        apl_ledger_entry *entries = nullptr;
+        size_t entry_count = 0;
+        const apl_ledger_filter ledger_filter = {.team_id = id};
+        status =
+            apl_ledger_repository_list(&app->db, &ledger_filter, &entries, &entry_count, error);
+        apl_ledger_repository_free_list(entries);
+        apl_budget_plan *plans = nullptr;
+        size_t plan_count = 0;
+        if (status == APL_OK) {
+            const apl_budget_filter budget_filter = {.team_id = id};
+            status =
+                apl_budget_repository_list(&app->db, &budget_filter, &plans, &plan_count, error);
+            apl_budget_repository_free_list(plans);
+        }
+        if (status == APL_OK && (entry_count > 0 || plan_count > 0)) {
+            apl_error_set(error, APL_ERR_CONFLICT,
+                          "the reporting currency cannot change after money records exist; "
+                          "v1 does not convert posted amounts");
+            status = APL_ERR_CONFLICT;
+        }
+    }
+    if (status == APL_OK) {
+        status = apl_team_repository_set_currency(&app->db, id, normalized, out_team, error);
+    }
+    if (status == APL_OK) {
+        apl_activity_change change = {};
+        apl_audit_change_text(&change, "currency", existing.currency, existing.currency[0] == '\0',
+                              out_team->currency, false);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Set reporting currency of team '%s' to %s",
+                       out_team->name, out_team->currency);
+        status = append_team_event(app, id, "team_currency_updated", summary, &change, 1, error);
+    }
+    if (status != APL_OK) {
+        const apl_status original = status;
+        return apl_use_case_rollback(&transaction, original, "cannot set reporting currency",
+                                     error);
+    }
+    return apl_use_case_commit(&transaction, "cannot set reporting currency", error);
 }
 
 void apl_team_service_free_list(apl_team *const teams)

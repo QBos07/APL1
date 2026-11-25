@@ -67,6 +67,7 @@ if(BUILD_TESTING)
     add_executable(apl1_tests
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
+        tests/unit/test_ledger.c
         tests/unit/test_money.c
         tests/unit/test_args.c
         tests/unit/test_reference.c
@@ -76,6 +77,7 @@ if(BUILD_TESTING)
         tests/unit/test_util.c
         tests/integration/test_test_support.c
         tests/integration/test_activity_repository.c
+        tests/integration/test_budget_service.c
         tests/integration/test_car_repository.c
         tests/integration/test_db_connection.c
         tests/integration/test_db_path.c
@@ -84,6 +86,8 @@ if(BUILD_TESTING)
         tests/integration/test_db_initial_migration.c
         tests/integration/test_db_migration_rollback.c
         tests/integration/test_driver_repository.c
+        tests/integration/test_ledger_repository.c
+        tests/integration/test_ledger_service.c
         tests/integration/test_membership_repository.c
         tests/integration/test_reference_services.c
         tests/integration/test_season_repository.c
@@ -175,6 +179,7 @@ add_library(apl_core STATIC
 target_include_directories(apl_core PUBLIC src)
 
 add_library(apl_domain STATIC
+    src/domain/ledger.c
     src/domain/money.c
     src/domain/record.c
     src/domain/reference.c
@@ -188,9 +193,11 @@ target_link_libraries(apl_domain PUBLIC
 
 add_library(apl_db STATIC
     src/db/activity_repository.c
+    src/db/budget_repository.c
     src/db/car_repository.c
     src/db/connection.c
     src/db/driver_repository.c
+    src/db/ledger_repository.c
     src/db/membership_repository.c
     src/db/migrations.c
     src/db/migrations_list.c
@@ -239,9 +246,11 @@ add_library(apl_app STATIC
     src/app/app.c
     src/app/audit.c
     src/app/args.c
+    src/app/budget_service.c
     src/app/car_service.c
     src/app/driver_service.c
     src/app/exit_code.c
+    src/app/ledger_service.c
     src/app/membership_service.c
     src/app/season_service.c
     src/app/team_service.c

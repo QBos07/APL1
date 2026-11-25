@@ -133,6 +133,78 @@ static const apl_db_migration apl_migrations[] = {
         "CHECK (length(trim(field_key)) > 0)"
         ");\n"
         "CREATE INDEX idx_activity_changes_event ON activity_changes(event_id);\n"},
+    /* Version 9: one optional reporting currency per team (4.1). Existing
+     * teams start unset; the application requires a currency before posting
+     * any money. No currency is guessed or seeded. */
+    {9, "ALTER TABLE teams ADD COLUMN currency TEXT "
+        "CHECK (currency IS NULL OR "
+        "(length(currency) = 3 AND currency GLOB '[A-Z][A-Z][A-Z]'));\n"},
+    /* Version 10: immutable team-scoped ledger entries (4.2). Corrections are
+     * separate rows linked to their original; there is no balance column and
+     * no seeded entry/category. One opening balance per team is enforced, and
+     * a correction can only point at an entry in the same team. */
+    {10,
+     "CREATE TABLE ledger_entries ("
+     "id INTEGER PRIMARY KEY,"
+     "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+     "amount_minor INTEGER NOT NULL,"
+     "currency TEXT NOT NULL CHECK (length(currency) = 3 AND currency GLOB '[A-Z][A-Z][A-Z]'),"
+     "entry_date TEXT NOT NULL "
+     "CHECK (entry_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),"
+     "kind TEXT NOT NULL CHECK (kind IN "
+     "('opening_balance', 'income', 'expense', 'reversal', 'adjustment')),"
+     "category TEXT NOT NULL,"
+     "category_key TEXT NOT NULL,"
+     "description TEXT NOT NULL DEFAULT '',"
+     "corrects_entry_id INTEGER REFERENCES ledger_entries(id) ON DELETE RESTRICT,"
+     "created_at TEXT NOT NULL,"
+     "CHECK (length(trim(category)) > 0),"
+     "CHECK (length(trim(category_key)) > 0),"
+     "CHECK (corrects_entry_id IS NULL OR corrects_entry_id <> id),"
+     "CHECK ((kind IN ('reversal', 'adjustment')) = (corrects_entry_id IS NOT NULL))"
+     ");\n"
+     "CREATE INDEX idx_ledger_team_date ON ledger_entries(team_id, entry_date, id);\n"
+     "CREATE INDEX idx_ledger_team_category ON ledger_entries(team_id, category_key);\n"
+     "CREATE INDEX idx_ledger_corrects ON ledger_entries(corrects_entry_id);\n"
+     "CREATE UNIQUE INDEX idx_ledger_one_opening ON ledger_entries(team_id) "
+     "WHERE kind = 'opening_balance';\n"
+     "CREATE UNIQUE INDEX idx_ledger_one_reversal ON ledger_entries(corrects_entry_id) "
+     "WHERE kind = 'reversal';\n"
+     "CREATE TRIGGER ledger_correction_same_team BEFORE INSERT ON ledger_entries "
+     "WHEN NEW.corrects_entry_id IS NOT NULL AND NOT EXISTS ("
+     "SELECT 1 FROM ledger_entries original "
+     "WHERE original.id = NEW.corrects_entry_id AND original.team_id = NEW.team_id) "
+     "BEGIN SELECT RAISE(ABORT, 'correction must reference an entry in the same team'); END;\n"},
+    /* Version 11: user-entered budget plans, kept separate from actual ledger
+     * entries (4.11). Amounts are non-negative planned minor units; no plan,
+     * category, or period is seeded. */
+    {11,
+     "CREATE TABLE budget_plans ("
+     "id INTEGER PRIMARY KEY,"
+     "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+     "season_id INTEGER REFERENCES seasons(id) ON DELETE SET NULL,"
+     "start_date TEXT NOT NULL "
+     "CHECK (start_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),"
+     "end_date TEXT NOT NULL "
+     "CHECK (end_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),"
+     "category TEXT NOT NULL,"
+     "category_key TEXT NOT NULL,"
+     "amount_minor INTEGER NOT NULL CHECK (amount_minor >= 0),"
+     "currency TEXT NOT NULL CHECK (length(currency) = 3 AND currency GLOB '[A-Z][A-Z][A-Z]'),"
+     "notes TEXT NOT NULL DEFAULT '',"
+     "created_at TEXT NOT NULL,"
+     "updated_at TEXT NOT NULL,"
+     "CHECK (start_date <= end_date),"
+     "CHECK (length(trim(category)) > 0),"
+     "CHECK (length(trim(category_key)) > 0),"
+     "UNIQUE (team_id, start_date, end_date, category_key)"
+     ");\n"
+     "CREATE INDEX idx_budget_team_dates ON budget_plans(team_id, start_date, end_date);\n"
+     "CREATE INDEX idx_budget_team_category ON budget_plans(team_id, category_key);\n"
+     "CREATE TRIGGER budget_season_same_team BEFORE INSERT ON budget_plans "
+     "WHEN NEW.season_id IS NOT NULL AND NOT EXISTS ("
+     "SELECT 1 FROM seasons WHERE seasons.id = NEW.season_id AND seasons.team_id = NEW.team_id) "
+     "BEGIN SELECT RAISE(ABORT, 'budget season must belong to the same team'); END;\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

@@ -33,6 +33,8 @@ typedef enum apl_record_kind {
     APL_RECORD_MEMBERSHIP,
     APL_RECORD_CAR,
     APL_RECORD_ACTIVITY,
+    APL_RECORD_LEDGER_ENTRY,
+    APL_RECORD_BUDGET_PLAN,
 } apl_record_kind;
 
 /** Stable storage code (for example "team"), or "" for an invalid kind. */
