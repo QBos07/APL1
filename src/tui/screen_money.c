@@ -850,11 +850,14 @@ void draw_budget_list(shell_state *const state)
         } else {
             (void)snprintf(variance, sizeof(variance), "unplanned actual");
         }
-        const char *const period =
-            row->start_date[0] != '\0' ? row->start_date : "(no plan period)";
-        const char *const period_end = row->end_date[0] != '\0' ? row->end_date : "?";
         char period_text[32];
-        (void)snprintf(period_text, sizeof(period_text), "%s..%s", period, period_end);
+        if (row->has_plan) {
+            const char *const period = row->start_date[0] != '\0' ? row->start_date : "(no start)";
+            const char *const period_end = row->end_date[0] != '\0' ? row->end_date : "(no end)";
+            (void)snprintf(period_text, sizeof(period_text), "%s..%s", period, period_end);
+        } else {
+            (void)snprintf(period_text, sizeof(period_text), "(no plan)");
+        }
         char line[512];
         (void)snprintf(line, sizeof(line), "%c %-23.23s %-16.16s %14s %14s %.80s%s",
                        focused ? '>' : ' ', period_text, row->category, planned, actual, variance,
@@ -902,16 +905,31 @@ void open_selected_money_entry(shell_state *const state)
 void open_selected_budget(shell_state *const state)
 {
     if (state->budget_row_count == 0 || state->list.selected >= state->budget_row_count) {
-        open_budget_form(state, false);
+        set_status_warning(state, "No budget plan is selected; press n to create one.");
         return;
     }
     const apl_budget_report_row *const row = &state->budget_rows[state->list.selected];
-    if (row->plan_id > 0 && row->archived) {
+    if (row->plan_id <= 0) {
+        set_status_warning(state, "This row is an unplanned actual, not an editable plan; select a "
+                                  "plan row or press n to create one.");
+        return;
+    }
+    if (row->archived) {
         set_status_warning(state, "This budget plan is archived and read-only; press a to include "
                                   "archived plans or n to create a new one.");
         return;
     }
     open_budget_form(state, true);
+}
+
+void select_first_budget_plan(shell_state *const state)
+{
+    for (size_t index = 0; index < state->budget_row_count; ++index) {
+        if (state->budget_rows[index].has_plan) {
+            apl_tui_list_select(&state->list, index);
+            return;
+        }
+    }
 }
 
 void perform_budget_archive(shell_state *const state, const int64_t id, apl_error *const error)
@@ -983,7 +1001,10 @@ void handle_money_list_input(shell_state *const state, const uint32_t id)
         if (load_budget_report(state, &error) != APL_OK) {
             show_error_dialog(state, &error);
         } else {
-            set_status(state, "Budget report. n creates/edits a plan; Esc returns to the ledger.");
+            select_first_budget_plan(state);
+            set_status(state,
+                       "Budget report. n creates a plan; Enter edits a plan row; Esc returns "
+                       "to the ledger.");
         }
         return;
     case 'd':
@@ -1167,6 +1188,17 @@ void handle_budget_list_input(shell_state *const state, const uint32_t id)
         }
         return;
     case NCKEY_ESC:
+        if (state->budget_project_filter > 0) {
+            state->section = APL_TUI_SECTION_DEVELOPMENT;
+            state->screen = SHELL_SCREEN_PROJECT_DETAIL;
+            if (load_project_detail(state, state->budget_project_filter, &error) != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+            sync_status_context(state);
+            set_status(state, "Back to the project; its budget plans remain linked.");
+            return;
+        }
         state->screen = SHELL_SCREEN_MONEY_LIST;
         if (load_ledger(state, 0, &error) != APL_OK) {
             show_error_dialog(state, &error);

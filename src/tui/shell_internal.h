@@ -374,6 +374,7 @@ void draw_budget_list(shell_state *state);
 void open_money_filter_dialog(shell_state *state);
 void open_selected_money_entry(shell_state *state);
 void open_selected_budget(shell_state *state);
+void select_first_budget_plan(shell_state *state);
 void perform_budget_archive(shell_state *state, int64_t id, apl_error *error);
 void open_money_entry_dialog_for_project(shell_state *state, apl_ledger_kind kind,
                                          const char *project_title);

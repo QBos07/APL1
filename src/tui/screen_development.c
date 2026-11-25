@@ -459,8 +459,11 @@ void handle_project_detail_input(shell_state *const state, const uint32_t id)
             show_error_dialog(state, &error);
             return;
         }
+        select_first_budget_plan(state);
         sync_status_context(state);
-        set_status(state, "Budget plans for project '%s'. n creates/edits a linked plan.",
+        set_status(state,
+                   "Budget plans for project '%s'. n creates a linked plan; Enter edits a "
+                   "plan row.",
                    state->project_detail.title);
         return;
     case 'q':

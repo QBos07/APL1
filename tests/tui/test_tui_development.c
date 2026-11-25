@@ -322,3 +322,87 @@ Test(tui_development, project_budget_report_and_archive_are_project_scoped)
 
     close_test_app(&app, dir, &err);
 }
+
+Test(tui_development, budget_enter_edits_a_plan_and_never_creates_from_an_actual_row)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+    apl_project project = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "", "", "", "", "", 0, 0, "",
+                                            &project, &err),
+                 APL_OK);
+
+    apl_ledger_entry expense = {};
+    cr_assert_eq(apl_ledger_service_post_expense_linked(&app, team.id, "100.00", "2026-01-05",
+                                                        "Tyres", "Linked", project.id, &expense,
+                                                        &err),
+                 APL_OK);
+    apl_budget_plan plan = {};
+    cr_assert_eq(apl_budget_service_save(&app, team.id, project.id, "2026-01-01", "2026-01-31",
+                                         "300.00", "Tyres", 0, "", &plan, &err),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_MONEY;
+    state.screen = SHELL_SCREEN_BUDGET_LIST;
+    state.budget_project_filter = project.id;
+    apl_tui_list_init(&state.list, 8);
+
+    cr_assert_eq(load_budget_report(&state, &err), APL_OK);
+    select_first_budget_plan(&state);
+    cr_assert_eq(state.budget_rows[state.list.selected].plan_id, plan.id);
+    open_selected_budget(&state);
+    cr_assert(apl_tui_dialog_active(&state.dialog));
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_BUDGET_FORM);
+    cr_assert_eq(state.dialog_record_id, plan.id);
+    cr_assert_str_eq(state.dialog.title, "Edit budget plan");
+
+    (void)apl_tui_dialog_set_field_value(&state.dialog, 3, "350.00");
+    store_budget_values(&state);
+    cr_assert(perform_budget_save(&state, &err), "save failed: %s", apl_error_message(&err));
+    apl_tui_dialog_init(&state.dialog);
+    state.dialog_context = SHELL_DIALOG_CONTEXT_NONE;
+
+    apl_budget_filter filter = {.team_id = team.id};
+    apl_budget_plan *plans = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_budget_service_list(&app, &filter, &plans, &count, &err), APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_eq(plans[0].id, plan.id);
+    cr_assert_eq(plans[0].amount.minor_units, 35000);
+    apl_budget_service_free_list(plans);
+
+    /* An expense outside the plan period creates an explicit actual-only row.
+     * Pressing Enter must not silently create a second plan from it. */
+    cr_assert_eq(apl_ledger_service_post_expense_linked(&app, team.id, "40.00", "2025-01-05",
+                                                        "Tyres", "Old", project.id, &expense, &err),
+                 APL_OK);
+    cr_assert_eq(load_budget_report(&state, &err), APL_OK);
+    cr_assert_eq(state.budget_row_count, 2);
+    size_t actual_row = SIZE_MAX;
+    for (size_t index = 0; index < state.budget_row_count; ++index) {
+        if (!state.budget_rows[index].has_plan) {
+            actual_row = index;
+            break;
+        }
+    }
+    cr_assert_neq(actual_row, SIZE_MAX);
+    apl_tui_list_select(&state.list, actual_row);
+    open_selected_budget(&state);
+    cr_assert_not(apl_tui_dialog_active(&state.dialog));
+
+    handle_budget_list_input(&state, NCKEY_ESC);
+    cr_assert_eq(state.section, APL_TUI_SECTION_DEVELOPMENT);
+    cr_assert_eq(state.screen, SHELL_SCREEN_PROJECT_DETAIL);
+    cr_assert_eq(state.project_detail.id, project.id);
+
+    close_test_app(&app, dir, &err);
+}
