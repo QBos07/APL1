@@ -7,6 +7,7 @@
 #include "app/use_case.h"
 #include "db/driver_repository.h"
 #include "db/transaction.h"
+#include "domain/record.h"
 
 static apl_status normalize_fields(const char *const name, const char *const short_name,
                                    const char *const notes, char *const out_name,
@@ -40,7 +41,8 @@ static apl_status append_event(const apl_app *const app, const char *const actio
     /* The driver directory is a shared identity, not team-owned data. A null
      * team scope keeps it visible through the explicit all-teams history and
      * through the shared-event path in an active-team history view. */
-    return apl_audit_append(app, 0, action, "driver", driver_id, summary, changes, count, error);
+    return apl_audit_append(app, 0, action, apl_record_kind_code(APL_RECORD_DRIVER), driver_id,
+                            summary, changes, count, error);
 }
 
 apl_status apl_driver_service_create(const apl_app *const app, const char *const name,

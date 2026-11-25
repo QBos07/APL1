@@ -9,6 +9,7 @@
 #include "db/membership_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
+#include "domain/record.h"
 
 /** Verify both references and reject a new current membership for an archived
  *  driver. Historical memberships may still be edited after archiving. */
@@ -67,8 +68,8 @@ static apl_status append_event(const apl_app *const app, const int64_t team_id,
                                const char *const summary, const apl_activity_change *const changes,
                                const size_t count, apl_error *const error)
 {
-    return apl_audit_append(app, team_id, action, "membership", membership_id, summary, changes,
-                            count, error);
+    return apl_audit_append(app, team_id, action, apl_record_kind_code(APL_RECORD_MEMBERSHIP),
+                            membership_id, summary, changes, count, error);
 }
 
 apl_status apl_membership_service_create(const apl_app *const app, const int64_t team_id,

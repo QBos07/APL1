@@ -8,6 +8,7 @@
 #include "db/settings_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
+#include "domain/record.h"
 
 /** Append one team activity event through the repository. The caller owns the
  *  transaction, so team, settings, and audit rows commit together. */
@@ -20,7 +21,8 @@ static apl_status append_team_event(const apl_app *const app, const int64_t team
     event.team_id = team_id;
     event.entity_id = team_id;
     (void)snprintf(event.action, sizeof(event.action), "%s", action);
-    (void)snprintf(event.entity_type, sizeof(event.entity_type), "team");
+    (void)snprintf(event.entity_type, sizeof(event.entity_type), "%s",
+                   apl_record_kind_code(APL_RECORD_TEAM));
     (void)snprintf(event.summary, sizeof(event.summary), "%s", summary);
     return apl_activity_repository_append(&app->db, &event, changes, change_count, nullptr, error);
 }

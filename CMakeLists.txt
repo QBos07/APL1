@@ -69,6 +69,7 @@ if(BUILD_TESTING)
         tests/unit/test_exit_code.c
         tests/unit/test_args.c
         tests/unit/test_reference.c
+        tests/unit/test_record.c
         tests/unit/test_team.c
         tests/unit/test_text.c
         tests/unit/test_util.c
@@ -173,6 +174,7 @@ add_library(apl_core STATIC
 target_include_directories(apl_core PUBLIC src)
 
 add_library(apl_domain STATIC
+    src/domain/record.c
     src/domain/reference.c
     src/domain/team.c
 )

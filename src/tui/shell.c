@@ -17,6 +17,7 @@
 #include "app/team_service.h"
 #include "app/version.h"
 #include "core/util.h"
+#include "domain/record.h"
 #include "tui/action.h"
 #include "tui/command.h"
 #include "tui/command_line.h"
@@ -545,8 +546,11 @@ static apl_status load_driver_memberships(shell_state *const state, const int64_
 
 static const char *history_entity_filter_name(const unsigned index)
 {
-    static const char *const NAMES[] = {"", "team", "season", "driver", "membership", "car"};
-    return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "";
+    static const apl_record_kind KINDS[] = {
+        APL_RECORD_NONE,   APL_RECORD_TEAM,       APL_RECORD_SEASON,
+        APL_RECORD_DRIVER, APL_RECORD_MEMBERSHIP, APL_RECORD_CAR,
+    };
+    return (index < APL_COUNT_OF(KINDS)) ? apl_record_kind_code(KINDS[index]) : "";
 }
 
 static const char *history_action_filter_name(const unsigned index)
