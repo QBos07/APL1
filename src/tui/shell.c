@@ -318,8 +318,8 @@ static void draw_tab_rail(shell_state *const state)
             break;
         }
         const bool active = section == state->section;
-        const bool focused =
-            state->focus.region == APL_TUI_FOCUS_TABS && index == state->tabs.selected;
+        const bool focused = state->focus.region == APL_TUI_FOCUS_TABS && !state->team_focus &&
+                             index == state->tabs.selected;
         const char *const label =
             compact ? apl_tui_section_short_label(section) : apl_tui_section_label(section);
         char line[64];
@@ -369,19 +369,19 @@ static const char *context_key_hint(const shell_state *const state)
     }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
-            return "u update | e edit | x archive | Enter cost | Esc projects";
+            return "u update | e edit | x archive | b budgets | Enter cost | Esc projects";
         }
-        return "n new | Enter open | f filters | a archived | C clear";
+        return "n new | Enter open | f filters | a archived | c clear";
     }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
             return "c correct | Esc ledger";
         }
         if (state->screen == SHELL_SCREEN_BUDGET_LIST) {
-            return "n plan | Enter edit | d dates | F category | C clear | Esc ledger";
+            return "n plan | Enter edit | d dates | F category | c clear | Esc ledger";
         }
         return "i income | x expense | o opening | u currency | b budgets | d dates | g kind | "
-               "F category";
+               "F category | c clear";
     }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return ", . views | : commands | m menu | q quit";
@@ -423,8 +423,10 @@ static void draw_key_hints(shell_state *const state)
         return;
     }
     char line[320];
-    (void)snprintf(line, sizeof(line), "Keys: %s", context_key_hint(state));
-    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_MUTED);
+    const bool focused = state->focus.region == APL_TUI_FOCUS_BODY;
+    (void)snprintf(line, sizeof(line), "%sKeys: %s", focused ? "Body | " : "",
+                   context_key_hint(state));
+    apl_tui_theme_apply(&state->theme, body, focused ? APL_TUI_ROLE_TAB_FOCUS : APL_TUI_ROLE_MUTED);
     apl_tui_frame_draw_line(body, (int)(layout->body.rows - 1), line);
     apl_tui_theme_reset(body);
 }
@@ -703,7 +705,9 @@ static void draw_screen(shell_state *const state)
             apl_tui_frame_draw_line(status, 0, line);
             apl_tui_theme_reset(status);
         } else {
-            if (state->status.message[0] != '\0') {
+            if (state->focus.region == APL_TUI_FOCUS_STATUS) {
+                role = APL_TUI_ROLE_TAB_FOCUS;
+            } else if (state->status.message[0] != '\0') {
                 switch (state->status.level) {
                 case APL_TUI_STATUS_SUCCESS:
                     role = APL_TUI_ROLE_SUCCESS;
@@ -1711,6 +1715,8 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
             }
         }
         apl_tui_menu_close(&state->menu);
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        state->team_focus = false;
         return;
     }
 
@@ -1768,9 +1774,12 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
     }
 
     if (input->id == NCKEY_BUTTON1 && layout != nullptr &&
-        point_in_rect(layout->body, input->y, input->x) &&
-        handle_key_hint_mouse(state, layout, input)) {
-        return;
+        point_in_rect(layout->body, input->y, input->x)) {
+        apl_tui_focus_set(&state->focus, APL_TUI_FOCUS_BODY);
+        state->team_focus = false;
+        if (handle_key_hint_mouse(state, layout, input)) {
+            return;
+        }
     }
 
     if (state->section == APL_TUI_SECTION_PEOPLE) {
