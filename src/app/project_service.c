@@ -8,6 +8,7 @@
 #include "core/util.h"
 #include "db/car_repository.h"
 #include "db/project_repository.h"
+#include "db/project_update_repository.h"
 #include "db/season_repository.h"
 #include "db/transaction.h"
 #include "domain/record.h"
@@ -350,7 +351,159 @@ apl_status apl_project_service_list(const apl_app *const app,
         "cannot list projects", error);
 }
 
+static apl_status normalize_update_fields(const char *const update_date, const char *const summary,
+                                          const char *const status_change, const char *const notes,
+                                          apl_project_update *const update, apl_error *const error)
+{
+    apl_status result = apl_reference_date_normalize(
+        update_date, "update date", update->update_date, sizeof(update->update_date), error);
+    if (result == APL_OK && update->update_date[0] == '\0') {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "update date is required");
+        result = APL_ERR_INVALID_ARGUMENT;
+    }
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_UPDATE_DATE);
+        return result;
+    }
+    result = apl_reference_label_normalize(summary, "update summary", update->summary,
+                                           sizeof(update->summary), error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_SUMMARY);
+        return result;
+    }
+    result = apl_project_label_normalize(status_change, "status change", update->status_change,
+                                         sizeof(update->status_change), update->status_change_key,
+                                         sizeof(update->status_change_key), error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_PROJECT_STATUS);
+        return result;
+    }
+    result = apl_project_notes_normalize(notes, update->notes, sizeof(update->notes), error);
+    return result;
+}
+
+apl_status apl_project_service_log_update(const apl_app *const app, const int64_t team_id,
+                                          const int64_t project_id, const char *const update_date,
+                                          const char *const summary,
+                                          const char *const status_change, const char *const notes,
+                                          apl_project_update *const out_update,
+                                          apl_project *const out_project, apl_error *const error)
+{
+    if (app == nullptr || out_update == nullptr || out_project == nullptr || team_id <= 0 ||
+        project_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "project update arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    *out_update = (apl_project_update){};
+    *out_project = (apl_project){};
+
+    apl_project_update update = {.project_id = project_id};
+    apl_status result =
+        normalize_update_fields(update_date, summary, status_change, notes, &update, error);
+    if (result != APL_OK) {
+        return apl_use_case_with_context(result, "cannot log project update", error);
+    }
+
+    apl_db_transaction transaction = {};
+    result = apl_use_case_begin(&transaction, app, "cannot log project update", error);
+    if (result != APL_OK) {
+        return result;
+    }
+    apl_project project = {};
+    result = apl_project_repository_get(&app->db, team_id, project_id, &project, error);
+    if (result == APL_OK && project.meta.archived) {
+        apl_error_set(error, APL_ERR_CONFLICT,
+                      "archived projects cannot receive new updates; choose an active project");
+        result = APL_ERR_CONFLICT;
+    }
+    if (result == APL_OK) {
+        result =
+            apl_project_update_repository_append(&app->db, team_id, &update, out_update, error);
+    }
+
+    apl_project updated = project;
+    const bool changes_status = update.status_change_key[0] != '\0' &&
+                                strcmp(project.status_key, update.status_change_key) != 0;
+    if (result == APL_OK && changes_status) {
+        (void)snprintf(updated.status, sizeof(updated.status), "%s", update.status_change);
+        (void)snprintf(updated.status_key, sizeof(updated.status_key), "%s",
+                       update.status_change_key);
+        apl_project stored = {};
+        result = apl_project_repository_update(&app->db, &updated, &stored, error);
+        if (result == APL_OK) {
+            updated = stored;
+        }
+    }
+    if (result == APL_OK) {
+        apl_activity_change changes[4] = {};
+        apl_audit_change_text(&changes[0], "date", nullptr, true, out_update->update_date, false);
+        apl_audit_change_text(&changes[1], "summary", nullptr, true, out_update->summary, false);
+        apl_audit_change_text(&changes[2], "status_change", nullptr, true,
+                              out_update->status_change, out_update->status_change[0] == '\0');
+        apl_audit_change_text(&changes[3], "notes", nullptr, true, out_update->notes,
+                              out_update->notes[0] == '\0');
+        char summary_text[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary_text, sizeof(summary_text), "Logged update for project '%s' on %s",
+                       project.title, out_update->update_date);
+        result = apl_audit_append(app, team_id, "project_update_logged",
+                                  apl_record_kind_code(APL_RECORD_PROJECT_UPDATE), out_update->id,
+                                  summary_text, changes, APL_COUNT_OF(changes), error);
+    }
+    if (result == APL_OK && changes_status) {
+        apl_activity_change change = {};
+        apl_audit_change_text(&change, "status", project.status, false, updated.status, false);
+        char summary_text[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary_text, sizeof(summary_text), "Project '%s' status changed to '%s'",
+                       updated.title, updated.status);
+        result = apl_audit_append(app, team_id, "project_status_changed",
+                                  apl_record_kind_code(APL_RECORD_PROJECT), project.id,
+                                  summary_text, &change, 1, error);
+    }
+    if (result != APL_OK) {
+        return apl_use_case_rollback(&transaction, result, "cannot log project update", error);
+    }
+    result = apl_use_case_commit(&transaction, "cannot log project update", error);
+    if (result == APL_OK) {
+        *out_project = changes_status ? updated : project;
+    }
+    return result;
+}
+
+apl_status apl_project_service_get_update(const apl_app *const app, const int64_t team_id,
+                                          const int64_t id, apl_project_update *const out_update,
+                                          apl_error *const error)
+{
+    if (app == nullptr || out_update == nullptr || team_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "project update get arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    return apl_use_case_with_context(
+        apl_project_update_repository_get(&app->db, team_id, id, out_update, error),
+        "cannot load project update", error);
+}
+
+apl_status apl_project_service_list_updates(const apl_app *const app, const int64_t team_id,
+                                            const int64_t project_id,
+                                            apl_project_update **const out_updates,
+                                            size_t *const out_count, apl_error *const error)
+{
+    if (app == nullptr || out_updates == nullptr || out_count == nullptr || team_id <= 0 ||
+        project_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "project update list arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    return apl_use_case_with_context(apl_project_update_repository_list(&app->db, team_id,
+                                                                        project_id, out_updates,
+                                                                        out_count, error),
+                                     "cannot list project updates", error);
+}
+
 void apl_project_service_free_list(apl_project *const projects)
 {
     apl_project_repository_free_list(projects);
+}
+
+void apl_project_service_free_updates(apl_project_update *const updates)
+{
+    apl_project_update_repository_free_list(updates);
 }

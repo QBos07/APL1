@@ -93,6 +93,7 @@ if(BUILD_TESTING)
         tests/integration/test_project_repository.c
         tests/integration/test_project_service.c
         tests/integration/test_project_update_repository.c
+        tests/integration/test_project_update_service.c
         tests/integration/test_reference_services.c
         tests/integration/test_scenario.c
         tests/integration/test_season_repository.c

@@ -41,6 +41,23 @@ apl_status apl_project_service_list(const apl_app *app, const apl_project_filter
                                     apl_project **out_projects, size_t *out_count,
                                     apl_error *error);
 
+/** Append one dated work update and, when `status_change` is nonblank, update
+ *  the project's current status in the same transaction. Archived projects
+ *  reject new updates. */
+apl_status apl_project_service_log_update(const apl_app *app, int64_t team_id, int64_t project_id,
+                                          const char *update_date, const char *summary,
+                                          const char *status_change, const char *notes,
+                                          apl_project_update *out_update, apl_project *out_project,
+                                          apl_error *error);
+
+apl_status apl_project_service_get_update(const apl_app *app, int64_t team_id, int64_t id,
+                                          apl_project_update *out_update, apl_error *error);
+
+apl_status apl_project_service_list_updates(const apl_app *app, int64_t team_id, int64_t project_id,
+                                            apl_project_update **out_updates, size_t *out_count,
+                                            apl_error *error);
+
 void apl_project_service_free_list(apl_project *projects);
+void apl_project_service_free_updates(apl_project_update *updates);
 
 #endif /* APL_APP_PROJECT_SERVICE_H */
