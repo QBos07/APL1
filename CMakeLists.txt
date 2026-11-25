@@ -91,6 +91,7 @@ if(BUILD_TESTING)
         tests/integration/test_ledger_service.c
         tests/integration/test_membership_repository.c
         tests/integration/test_project_repository.c
+        tests/integration/test_project_service.c
         tests/integration/test_reference_services.c
         tests/integration/test_scenario.c
         tests/integration/test_season_repository.c
@@ -268,6 +269,7 @@ add_library(apl_app STATIC
     src/app/exit_code.c
     src/app/ledger_service.c
     src/app/membership_service.c
+    src/app/project_service.c
     src/app/season_service.c
     src/app/team_service.c
     src/app/use_case.c
