@@ -15,9 +15,9 @@ explicit triggers.
 | [ARCH-02](ARCH-02-database-growth-overflow.md) | Shared array-growth and overflow checks | Before 4.3 | Implemented |
 | [ARCH-03](ARCH-03-structured-field-validation.md) | Structured validation field identifiers | Before 4.4 | Implemented |
 | [ARCH-04](ARCH-04-record-metadata-composition.md) | Compose shared record metadata | Before 5.1 | Implemented |
-| [ARCH-05](ARCH-05-record-kinds-and-links.md) | Typed record references and cross-feature links | Before 5.5 / 8.1 | Partial |
+| [ARCH-05](ARCH-05-record-kinds-and-links.md) | Typed record references and cross-feature links | Record kinds before 5.2/5.4; link decisions before 5.5/6.7; routing before 8.1 | Partial |
 | [ARCH-06](ARCH-06-money-and-ledger-model.md) | Money representation and ledger/correction model | Before 4.1 | Implemented |
-| [ARCH-07](ARCH-07-tui-shell-decomposition.md) | Split the monolithic shell into screens and a testable controller | Before 4.8 | Implemented |
+| [ARCH-07](ARCH-07-tui-shell-decomposition.md) | Split the monolithic shell into screens and a testable controller | Before 4.8 and Phase 5 screens | Implemented |
 | [ARCH-08](ARCH-08-query-filter-command-dispatch.md) | Per-view filters, query pieces, command handler table | Before 8.3 | Partial |
 | [ARCH-09](ARCH-09-testing-operations-ci.md) | Scenario fixtures, sanitizer/Clang CI, database operations | Before 9.3 | Partial |
 
@@ -27,9 +27,19 @@ explicit triggers.
   correction model.
 - Each new entity in Phases 4–7 should use the shared transaction/audit helpers
   from ARCH-01 instead of copying service boilerplate.
+- Phase 5 project and update entities compose ARCH-04 metadata and register
+  stable ARCH-05 record kinds before emitting activity events.
+- Phase 5.5 and Phase 6.7 must use the explicit link model agreed in ARCH-05;
+  linked actual costs remain ledger entries and are not counted twice.
 - New screens/forms should use the result of ARCH-07; adding another feature to
   `src/tui/shell.c` directly should be treated as temporary.
 - New record types should get an ARCH-05 record-kind entry before they emit
   audit events, so Phase 8 history can open the affected record.
+- ARCH-08 is a Phase 8 prerequisite, not a blocker for the Phase 5 project
+  screens. ARCH-09 scenario fixtures should be extended alongside feature work;
+  its remaining operational-failure checks gate the listed Phase 9 review tasks.
 - Advanced filtering, custom fields, inventory, attachments, multi-currency
   conversion, and export remain explicitly deferred by the product roadmap.
+
+The [implementation work breakdown](../../WORK_BREAKDOWN.md#architecture-hardening--cross-phase-prerequisites)
+tracks the checked state and the feature-phase entry points for these items.

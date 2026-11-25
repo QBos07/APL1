@@ -17,9 +17,16 @@ without losing referential integrity.
 - [x] Add round-trip and unknown-code tests.
 - [x] Add a `apl_record_ref` (`kind` + `id`) and a routing registry that maps a
       kind to a screen/open action.
-- [ ] Decide the cross-feature link model before Phase 5.5/6.7. Prefer explicit
-      nullable foreign keys for the known links over a generic polymorphic
-      `entity_type/entity_id` table.
+- [ ] Confirm the explicit nullable `transactions.project_id` relationship
+      specified in [5.5](../phase-5/5.5-project-transaction-links.md) before
+      that item's schema change; 5.5 owns the implementation.
+- [ ] Decide and implement the explicit replacement-to-transaction relationship
+      before Phase 6.7; do not introduce a generic polymorphic link table for
+      these known relationships.
+- [ ] Register each new auditable record kind before its first activity event:
+      project in [5.1](../phase-5/5.1-project-schema-repository.md), update in
+      [5.3](../phase-5/5.3-development-update-schema-repository.md), and parts
+      records in their Phase 6 schema items.
 
 ## Acceptance checks
 
@@ -31,6 +38,6 @@ without losing referential integrity.
 
 ## Boundaries
 
-- The link model is deliberately deferred until the concrete Phase 5/6 link
-  requirements exist.
+- The concrete Phase 5 project link is specified in 5.5. The Phase 6 replacement
+  link still needs a matching explicit-FK decision before implementation.
 - Record kinds are append-only; do not renumber existing values.

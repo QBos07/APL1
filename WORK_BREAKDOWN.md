@@ -190,6 +190,22 @@ Goal: add manually maintained people/season/car references and a user-inspectabl
 - `./scripts/check-format.sh` and `./scripts/check-static.sh` pass.
 
 
+## Architecture hardening — cross-phase prerequisites
+
+These work items support multiple product phases and are tracked separately from the feature numbering. Checked items are implemented; remaining items are sequenced at their first dependent phase. See the [architecture-hardening roadmap](work-items/architecture-hardening/ARCH-00-roadmap-driven-architecture.md).
+
+- [x] **ARCH-01 Shared write-use-case transaction plumbing.** Required for atomic audited writes in 4.5–4.6 and 5.2/5.4. [Work item](work-items/architecture-hardening/ARCH-01-shared-use-case-transaction.md)
+- [x] **ARCH-02 Shared array-growth and overflow checks.** Required for new repository list operations, including 4.3. [Work item](work-items/architecture-hardening/ARCH-02-database-growth-overflow.md)
+- [x] **ARCH-03 Structured field validation.** Required for money validation in 4.4 and reusable by later feature forms. [Work item](work-items/architecture-hardening/ARCH-03-structured-field-validation.md)
+- [x] **ARCH-04 Shared record metadata.** Required before the Phase 5 project schema in 5.1. [Work item](work-items/architecture-hardening/ARCH-04-record-metadata-composition.md)
+- [ ] **ARCH-05 Record kinds and cross-feature links.** Register project/update record kinds before audited writes (5.2/5.4); confirm explicit transaction-to-project and part-to-transaction links before 5.5/6.7; finish record-opening routes by 8.1. [Work item](work-items/architecture-hardening/ARCH-05-record-kinds-and-links.md)
+- [x] **ARCH-06 Money and ledger model.** Settled before Phase 4 money schema and corrections. [Work item](work-items/architecture-hardening/ARCH-06-money-and-ledger-model.md)
+- [x] **ARCH-07 TUI shell decomposition.** Feature screens use dedicated screen modules rather than growing `shell.c` (4.8 onward, including 5.6–5.8). [Work item](work-items/architecture-hardening/ARCH-07-tui-shell-decomposition.md)
+- [ ] **ARCH-08 Query filters and command dispatch.** Complete before Phase 8 search/filter and feature-command routes (8.3–8.8). [Work item](work-items/architecture-hardening/ARCH-08-query-filter-command-dispatch.md)
+- [ ] **ARCH-09 Testing, operations, and CI.** Extend scenario fixtures as Phases 5–7 land; finish operational-failure coverage before Phase 9 hardening (9.3–9.6). [Work item](work-items/architecture-hardening/ARCH-09-testing-operations-ci.md)
+
+**Sequencing rule:** An architecture item is a gate only at its documented target. ARCH-05’s remaining link decision gates 5.5/6.7; ARCH-08 and ARCH-09 do not block Phase 5 feature work.
+
 ## Phase 4 — Money ledger and budgets
 
 Goal: deliver a trustworthy, testable money-management loop before adding dependent cost links.
@@ -215,14 +231,14 @@ Goal: deliver a trustworthy, testable money-management loop before adding depend
 
 Goal: record work and relate it to money and cars/parts without fabricating progress or performance.
 
-- [ ] **5.1 Add development-project schema and repository.** Support user-entered title, optional category/description/dates, status, notes, team, and optional season/car links.
-- [ ] **5.2 Add project create/edit/archive use cases.** Validate references and preserve audit history.
-- [ ] **5.3 Add dated development-update schema and repository.** Each update has a date, summary, optional status change, and notes.
-- [ ] **5.4 Add project update use case.** Save update and audit history atomically; do not calculate a progress percentage.
-- [ ] **5.5 Link actual money transactions to a project.** Ensure reports count a linked expense once, not once in each feature.
-- [ ] **5.6 Add project list and filters.** Filter by status, season, and category where available.
-- [ ] **5.7 Add project detail/timeline view.** Show entered project details, dated updates, and linked ledger transactions.
-- [ ] **5.8 Add project create/update forms and command handoff.** Both entry points use the same use cases.
+- [ ] **5.1 Add development-project schema and repository.** Support user-entered title, optional category/description/dates, status, notes, team, and optional season/car links. [Work item](work-items/phase-5/5.1-project-schema-repository.md)
+- [ ] **5.2 Add project create/edit/archive use cases.** Validate references and preserve audit history. [Work item](work-items/phase-5/5.2-project-use-cases.md)
+- [ ] **5.3 Add dated development-update schema and repository.** Each update has a date, summary, optional status change, and notes. [Work item](work-items/phase-5/5.3-development-update-schema-repository.md)
+- [ ] **5.4 Add project update use case.** Save update and audit history atomically; do not calculate a progress percentage. [Work item](work-items/phase-5/5.4-project-update-use-case.md)
+- [ ] **5.5 Link actual money transactions to a project.** Ensure reports count a linked expense once, not once in each feature. [Work item](work-items/phase-5/5.5-project-transaction-links.md)
+- [ ] **5.6 Add project list and filters.** Filter by status, season, and category where available. [Work item](work-items/phase-5/5.6-project-list-filters.md)
+- [ ] **5.7 Add project detail/timeline view.** Show entered project details, dated updates, and linked ledger transactions. [Work item](work-items/phase-5/5.7-project-detail-timeline.md)
+- [ ] **5.8 Add project create/update forms and command handoff.** Both entry points use the same use cases. [Work item](work-items/phase-5/5.8-project-forms-handoff.md)
 
 **Gate:** users can create a project, log successive updates, link recorded costs, and review the timeline without simulated progress.
 
