@@ -194,20 +194,20 @@ Goal: add manually maintained people/season/car references and a user-inspectabl
 
 Goal: deliver a trustworthy, testable money-management loop before adding dependent cost links.
 
-- [ ] **4.1 Choose the v1 amount/currency representation.** Document precision, display rules, and the one-currency-per-team or explicit-conversion policy before schema work.
-- [ ] **4.2 Add transaction/category schema.** Support user-entered income, expense, and opening-balance entries with dates, category, description, and team scope.
-- [ ] **4.3 Add transaction repository create/list/get.** Use parameterized SQL and test values, ordering, filters, and team isolation.
-- [ ] **4.4 Add amount and required-field validation.** Test zero, negative, precision, blank, and boundary cases according to the chosen money rules.
-- [ ] **4.5 Add opening-balance use case.** Represent it as an explicit ledger entry; do not expose a separately editable balance field.
-- [ ] **4.6 Add income and expense use cases.** Save the transaction and audit activity atomically; do not block recording an actual expense merely because it exceeds a budget.
-- [ ] **4.7 Add balance and period/category totals.** Derive values from ledger entries and test empty ledgers, filters, and corrections.
-- [ ] **4.8 Add transaction list and detail screens.** Show amount/date/category/description, current filters, and related history.
-- [ ] **4.9 Add guided income, expense, and opening-balance forms.** Review team/currency and entered details before save.
-- [ ] **4.10 Add a traceable transaction-correction workflow.** Prefer reversal/adjustment entries; test that prior balance history remains explainable.
-- [ ] **4.11 Add budget-plan schema and repository.** Store user-entered period/category limits separately from actual transactions.
-- [ ] **4.12 Add budget-plan validation and save use case.** Keep plan edits auditable and test category/period scope.
-- [ ] **4.13 Add budget-versus-actual report calculations.** Show plan, actual, and variance with filters and an overspend warning; never count a plan as actual spending.
-- [ ] **4.14 Add budget list/edit forms and report screen.** Make no-plan and no-actual states explicit.
+- [x] **4.1 Choose the v1 amount/currency representation.** Document precision, display rules, and the one-currency-per-team or explicit-conversion policy before schema work. [Work item](work-items/phase-4/4.1-money-and-currency-policy.md)
+- [x] **4.2 Add transaction/category schema.** Support user-entered income, expense, and opening-balance entries with dates, category, description, and team scope. [Work item](work-items/phase-4/4.2-ledger-schema.md)
+- [x] **4.3 Add transaction repository create/list/get.** Use parameterized SQL and test values, ordering, filters, and team isolation. [Work item](work-items/phase-4/4.3-ledger-repository.md)
+- [x] **4.4 Add amount and required-field validation.** Test zero, negative, precision, blank, and boundary cases according to the chosen money rules. [Work item](work-items/phase-4/4.4-ledger-validation.md)
+- [x] **4.5 Add opening-balance use case.** Represent it as an explicit ledger entry; do not expose a separately editable balance field. [Work item](work-items/phase-4/4.5-opening-balance-use-case.md)
+- [x] **4.6 Add income and expense use cases.** Save the transaction and audit activity atomically; do not block recording an actual expense merely because it exceeds a budget. [Work item](work-items/phase-4/4.6-income-expense-use-cases.md)
+- [x] **4.7 Add balance and period/category totals.** Derive values from ledger entries and test empty ledgers, filters, and corrections. [Work item](work-items/phase-4/4.7-ledger-totals.md)
+- [x] **4.8 Add transaction list and detail screens.** Show amount/date/category/description, current filters, and related history. [Work item](work-items/phase-4/4.8-transaction-list-detail.md)
+- [x] **4.9 Add guided income, expense, and opening-balance forms.** Review team/currency and entered details before save. [Work item](work-items/phase-4/4.9-ledger-entry-forms.md)
+- [x] **4.10 Add a traceable transaction-correction workflow.** Prefer reversal/adjustment entries; test that prior balance history remains explainable. [Work item](work-items/phase-4/4.10-transaction-corrections.md)
+- [x] **4.11 Add budget-plan schema and repository.** Store user-entered period/category limits separately from actual transactions. [Work item](work-items/phase-4/4.11-budget-schema-repository.md)
+- [x] **4.12 Add budget-plan validation and save use case.** Keep plan edits auditable and test category/period scope. [Work item](work-items/phase-4/4.12-budget-plan-use-case.md)
+- [x] **4.13 Add budget-versus-actual report calculations.** Show plan, actual, and variance with filters and an overspend warning; never count a plan as actual spending. [Work item](work-items/phase-4/4.13-budget-report-calculations.md)
+- [x] **4.14 Add budget list/edit forms and report screen.** Make no-plan and no-actual states explicit. [Work item](work-items/phase-4/4.14-budget-ui.md)
 
 **Gate:** a user can enter an opening balance, post income/expenses, correct a posted amount traceably, and compare actuals with a manually entered budget.
 
@@ -319,3 +319,15 @@ These are not implicit commitments for v1. When one becomes relevant, define its
   redesigned menu/tab/status/dialog/command flow, resize-with-open-modal
   checks, persistence, and a limited-color (`xterm-mono`) launch.
 - All 2.16-2.28 follow-up items are complete; the redesign gate is met.
+
+### Phase 4 verification (2026-11-25)
+
+- `./scripts/check.sh` and `./scripts/check-static.sh` pass.
+- Unit/integration coverage includes ledger/budget schema and repositories,
+  signed-entry validation, opening/income/expense use cases, derived totals,
+  reversal/adjustment corrections, budget-plan auditing, planned-versus-actual
+  calculations, team isolation, and currency-change protection.
+- The TUI exposes the Money tab, Records-menu routes, currency selection,
+  guided entry/correction forms with review, filters, transaction detail, and
+  the budget report. The interactive smoke flow was extended through currency,
+  opening balance, expense, budget comparison, and correction persistence.

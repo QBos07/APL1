@@ -1,6 +1,6 @@
 # ARCH-06 — Money and ledger model
 
-**Status:** Partially implemented  
+**Status:** Implemented  
 **Target:** Before work item 4.1
 
 ## Decision
@@ -22,10 +22,10 @@
 - [x] Add `APL_FIELD_AMOUNT` / `APL_FIELD_CURRENCY` validation annotations.
 - [x] Reject excess precision, exponents, separators, and mixed currencies.
 - [x] Add unit tests including `INT64_MIN` formatting and add overflow.
-- [ ] Add the transaction/category schema and repository in Phase 4.2/4.3.
-- [ ] Encode the opening-balance, income, expense, reversal, and adjustment
+- [x] Add the transaction/category schema and repository in Phase 4.2/4.3.
+- [x] Encode the opening-balance, income, expense, reversal, and adjustment
       entry kinds in Phase 4.5/4.6/4.10.
-- [ ] Store the team reporting currency once the Phase 4.1 policy is finalized.
+- [x] Store the team reporting currency once the Phase 4.1 policy is finalized.
 
 ## Acceptance checks
 
@@ -33,8 +33,8 @@
 - [x] Mixed currencies cannot be added.
 - [x] Invalid amounts carry `APL_FIELD_AMOUNT`; invalid currencies carry
       `APL_FIELD_CURRENCY`.
-- [ ] Phase 4 reports derive balances only from ledger entries.
-- [ ] Corrections keep the prior value explainable.
+- [x] Phase 4 reports derive balances only from ledger entries.
+- [x] Corrections keep the prior value explainable.
 
 ## Boundaries
 
