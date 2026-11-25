@@ -7,6 +7,7 @@
 
 #include <criterion/criterion.h>
 
+#include "core/util.h"
 #include "test_support.h"
 
 /** Write a small file, failing the test on any filesystem error. */
@@ -73,7 +74,7 @@ Test(test_support, unset_or_invalid_tmpdir_falls_back_to_tmp)
         "relative/path",
         "/definitely/not/a/real/tmpdir-for-apl1-tests",
     };
-    for (size_t index = 0; index < sizeof(invalid) / sizeof(invalid[0]); ++index) {
+    for (size_t index = 0; index < APL_COUNT_OF(invalid); ++index) {
         cr_assert_eq(apl_test_temp_base_ex(invalid[index], base, sizeof(base), &err), APL_OK);
         cr_assert_str_eq(base, "/tmp");
     }

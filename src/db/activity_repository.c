@@ -1,29 +1,23 @@
 #include "db/activity_repository.h"
 
 #include <sqlite3.h>
-#include <stdio.h>
 #include <stdlib.h>
 
-#define EVENT_COLUMNS "id, team_id, occurred_at, action, entity_type, entity_id, summary"
+#include "db/sqlite_util.h"
 
-static void copy_text(sqlite3_stmt *const statement, const int column, char *const out,
-                      const size_t out_size)
-{
-    const unsigned char *const text = sqlite3_column_text(statement, column);
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? (const char *)text : "");
-}
+#define EVENT_COLUMNS "id, team_id, occurred_at, action, entity_type, entity_id, summary"
 
 static void read_event(sqlite3_stmt *const statement, apl_activity_event *const event)
 {
     event->id = sqlite3_column_int64(statement, 0);
     event->team_id =
         sqlite3_column_type(statement, 1) == SQLITE_NULL ? 0 : sqlite3_column_int64(statement, 1);
-    copy_text(statement, 2, event->occurred_at, sizeof(event->occurred_at));
-    copy_text(statement, 3, event->action, sizeof(event->action));
-    copy_text(statement, 4, event->entity_type, sizeof(event->entity_type));
+    apl_db_copy_column_text(statement, 2, event->occurred_at, sizeof(event->occurred_at));
+    apl_db_copy_column_text(statement, 3, event->action, sizeof(event->action));
+    apl_db_copy_column_text(statement, 4, event->entity_type, sizeof(event->entity_type));
     event->entity_id =
         sqlite3_column_type(statement, 5) == SQLITE_NULL ? 0 : sqlite3_column_int64(statement, 5);
-    copy_text(statement, 6, event->summary, sizeof(event->summary));
+    apl_db_copy_column_text(statement, 6, event->summary, sizeof(event->summary));
 }
 
 static apl_status prepare(sqlite3 *const handle, const char *const sql, sqlite3_stmt **const out,
@@ -271,7 +265,7 @@ apl_status apl_activity_repository_list(const apl_db_connection *const connectio
         }
         if (count == capacity) {
             const size_t grown_capacity = (capacity == 0) ? 16 : capacity * 2;
-            apl_activity_event *const grown = realloc(events, grown_capacity * sizeof(*events));
+            typeof(events) const grown = realloc(events, grown_capacity * sizeof(*events));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate activity list");
                 status = APL_ERR_OUT_OF_MEMORY;
@@ -336,7 +330,7 @@ apl_status apl_activity_repository_list_changes(const apl_db_connection *const c
         }
         if (count == capacity) {
             const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            apl_activity_change *const grown = realloc(changes, grown_capacity * sizeof(*changes));
+            typeof(changes) const grown = realloc(changes, grown_capacity * sizeof(*changes));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate activity changes");
                 status = APL_ERR_OUT_OF_MEMORY;
@@ -347,14 +341,14 @@ apl_status apl_activity_repository_list_changes(const apl_db_connection *const c
         }
         apl_activity_change *const change = &changes[count];
         *change = (apl_activity_change){};
-        copy_text(statement, 0, change->field, sizeof(change->field));
+        apl_db_copy_column_text(statement, 0, change->field, sizeof(change->field));
         change->old_missing = sqlite3_column_type(statement, 1) == SQLITE_NULL;
         if (!change->old_missing) {
-            copy_text(statement, 1, change->old_value, sizeof(change->old_value));
+            apl_db_copy_column_text(statement, 1, change->old_value, sizeof(change->old_value));
         }
         change->new_missing = sqlite3_column_type(statement, 2) == SQLITE_NULL;
         if (!change->new_missing) {
-            copy_text(statement, 2, change->new_value, sizeof(change->new_value));
+            apl_db_copy_column_text(statement, 2, change->new_value, sizeof(change->new_value));
         }
         ++count;
     }

@@ -2,6 +2,7 @@
 
 #include <criterion/criterion.h>
 
+#include "core/util.h"
 #include "domain/reference.h"
 
 Test(reference, required_label_is_trimmed)
@@ -65,7 +66,7 @@ Test(reference, invalid_dates_are_rejected_without_overwriting_output)
     const char *const invalid[] = {"2026-13-01", "2026-02-30", "2023-02-29", "26-01-01",
                                    "2026/01/01", "2026-1-1",   "not-a-date"};
 
-    for (size_t index = 0; index < sizeof(invalid) / sizeof(invalid[0]); ++index) {
+    for (size_t index = 0; index < APL_COUNT_OF(invalid); ++index) {
         apl_error err;
         apl_error_init(&err);
         char out[APL_REFERENCE_DATE_MAX] = "keep";

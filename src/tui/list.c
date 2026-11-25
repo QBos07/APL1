@@ -2,10 +2,7 @@
 
 #include <stdint.h>
 
-static size_t min_size(const size_t left, const size_t right)
-{
-    return (left < right) ? left : right;
-}
+#include "core/util.h"
 
 static void ensure_selection_visible(apl_tui_list *const list)
 {
@@ -66,7 +63,7 @@ void apl_tui_list_select(apl_tui_list *const list, const size_t index)
     if (list == nullptr || list->count == 0) {
         return;
     }
-    list->selected = min_size(index, list->count - 1);
+    list->selected = apl_min_size(index, list->count - 1);
     ensure_selection_visible(list);
 }
 
@@ -129,7 +126,7 @@ size_t apl_tui_list_visible_count(const apl_tui_list *const list)
     if (list->offset >= list->count) {
         return 0;
     }
-    return min_size((size_t)list->viewport_rows, list->count - list->offset);
+    return apl_min_size((size_t)list->viewport_rows, list->count - list->offset);
 }
 
 bool apl_tui_list_index_visible(const apl_tui_list *const list, const size_t index)

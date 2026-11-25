@@ -2,6 +2,7 @@
 
 #include <criterion/criterion.h>
 
+#include "core/util.h"
 #include "domain/team.h"
 
 Test(team, name_is_trimmed)
@@ -19,7 +20,7 @@ Test(team, blank_name_is_rejected)
 {
     const char *const blanks[] = {nullptr, "", "   ", "\t\n"};
 
-    for (size_t index = 0; index < sizeof(blanks) / sizeof(blanks[0]); ++index) {
+    for (size_t index = 0; index < APL_COUNT_OF(blanks); ++index) {
         apl_error err;
         apl_error_init(&err);
         char out[APL_TEAM_NAME_MAX] = "unchanged";

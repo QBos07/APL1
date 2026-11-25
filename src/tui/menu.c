@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "core/util.h"
+
 static const char *const GROUP_LABELS[APL_TUI_MENU_GROUP_COUNT] = {
     "Overview", "Records", "Settings", "Help", "About",
 };
@@ -43,11 +45,9 @@ typedef struct menu_group_definition {
 } menu_group_definition;
 
 static const menu_group_definition GROUP_ITEMS[APL_TUI_MENU_GROUP_COUNT] = {
-    {OVERVIEW_ITEMS, sizeof(OVERVIEW_ITEMS) / sizeof(OVERVIEW_ITEMS[0])},
-    {RECORDS_ITEMS, sizeof(RECORDS_ITEMS) / sizeof(RECORDS_ITEMS[0])},
-    {SETTINGS_ITEMS, sizeof(SETTINGS_ITEMS) / sizeof(SETTINGS_ITEMS[0])},
-    {HELP_ITEMS, sizeof(HELP_ITEMS) / sizeof(HELP_ITEMS[0])},
-    {ABOUT_ITEMS, sizeof(ABOUT_ITEMS) / sizeof(ABOUT_ITEMS[0])},
+    {OVERVIEW_ITEMS, APL_COUNT_OF(OVERVIEW_ITEMS)}, {RECORDS_ITEMS, APL_COUNT_OF(RECORDS_ITEMS)},
+    {SETTINGS_ITEMS, APL_COUNT_OF(SETTINGS_ITEMS)}, {HELP_ITEMS, APL_COUNT_OF(HELP_ITEMS)},
+    {ABOUT_ITEMS, APL_COUNT_OF(ABOUT_ITEMS)},
 };
 
 static bool valid_group(const apl_tui_menu_group group)
@@ -58,11 +58,6 @@ static bool valid_group(const apl_tui_menu_group group)
 static size_t group_count(const apl_tui_menu_group group)
 {
     return valid_group(group) ? GROUP_ITEMS[group].count : 0;
-}
-
-static unsigned min_u(const unsigned left, const unsigned right)
-{
-    return (left < right) ? left : right;
 }
 
 void apl_tui_menu_init(apl_tui_menu *const menu)
@@ -206,7 +201,7 @@ apl_tui_rect apl_tui_menu_popup_rect(const apl_tui_menu *const menu, const unsig
         const unsigned label_width = (unsigned)strlen(GROUP_ITEMS[menu->group].items[index].label);
         width = (label_width + 6 > width) ? label_width + 6 : width;
     }
-    width = min_u(width, terminal_cols);
+    width = apl_min_unsigned(width, terminal_cols);
 
     unsigned x = GROUP_OFFSETS[menu->group];
     if (x + width > terminal_cols) {

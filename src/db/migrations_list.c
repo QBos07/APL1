@@ -1,5 +1,7 @@
 #include "db/migrations.h"
 
+#include "core/util.h"
+
 /*
  * Compiled-in migration list for apl1.
  *
@@ -136,7 +138,7 @@ static const apl_db_migration apl_migrations[] = {
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)
 {
     if (out_count != nullptr) {
-        *out_count = sizeof(apl_migrations) / sizeof(apl_migrations[0]);
+        *out_count = APL_COUNT_OF(apl_migrations);
     }
     return apl_migrations;
 }

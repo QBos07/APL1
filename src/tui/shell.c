@@ -16,6 +16,7 @@
 #include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
+#include "core/util.h"
 #include "tui/action.h"
 #include "tui/command.h"
 #include "tui/command_line.h"
@@ -532,7 +533,7 @@ static apl_status load_driver_memberships(shell_state *const state, const int64_
 static const char *history_entity_filter_name(const unsigned index)
 {
     static const char *const NAMES[] = {"", "team", "season", "driver", "membership", "car"};
-    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "";
+    return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "";
 }
 
 static const char *history_action_filter_name(const unsigned index)
@@ -555,7 +556,7 @@ static const char *history_action_filter_name(const unsigned index)
         "membership_updated",
         "membership_ended",
     };
-    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "";
+    return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "";
 }
 
 static unsigned history_action_filter_count(void)
@@ -2012,7 +2013,7 @@ static void draw_person_detail(shell_state *const state)
 static const char *history_entity_filter_short_name(const unsigned index)
 {
     static const char *const NAMES[] = {"all", "team", "season", "driver", "member", "car"};
-    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "all";
+    return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "all";
 }
 
 static const char *history_action_filter_short_name(const unsigned index)
@@ -2036,7 +2037,7 @@ static const char *history_action_filter_short_name(const unsigned index)
         "member:updated",
         "member:ended",
     };
-    return (index < sizeof(NAMES) / sizeof(NAMES[0])) ? NAMES[index] : "all";
+    return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "all";
 }
 
 static const char *history_date_filter_short_name(const unsigned preset)

@@ -1,18 +1,12 @@
 #include "db/membership_repository.h"
 
 #include <sqlite3.h>
-#include <stdio.h>
 #include <stdlib.h>
+
+#include "db/sqlite_util.h"
 
 #define MEMBERSHIP_COLUMNS                                                                         \
     "id, team_id, driver_id, start_date, end_date, role, notes, created_at, updated_at"
-
-static void copy_text(sqlite3_stmt *const statement, const int column, char *const out,
-                      const size_t out_size)
-{
-    const unsigned char *const text = sqlite3_column_text(statement, column);
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? (const char *)text : "");
-}
 
 static void bind_optional_text(sqlite3_stmt *const statement, const int index,
                                const char *const value)
@@ -29,12 +23,12 @@ static void read_membership(sqlite3_stmt *const statement, apl_membership *const
     membership->id = sqlite3_column_int64(statement, 0);
     membership->team_id = sqlite3_column_int64(statement, 1);
     membership->driver_id = sqlite3_column_int64(statement, 2);
-    copy_text(statement, 3, membership->start_date, sizeof(membership->start_date));
-    copy_text(statement, 4, membership->end_date, sizeof(membership->end_date));
-    copy_text(statement, 5, membership->role, sizeof(membership->role));
-    copy_text(statement, 6, membership->notes, sizeof(membership->notes));
-    copy_text(statement, 7, membership->created_at, sizeof(membership->created_at));
-    copy_text(statement, 8, membership->updated_at, sizeof(membership->updated_at));
+    apl_db_copy_column_text(statement, 3, membership->start_date, sizeof(membership->start_date));
+    apl_db_copy_column_text(statement, 4, membership->end_date, sizeof(membership->end_date));
+    apl_db_copy_column_text(statement, 5, membership->role, sizeof(membership->role));
+    apl_db_copy_column_text(statement, 6, membership->notes, sizeof(membership->notes));
+    apl_db_copy_column_text(statement, 7, membership->created_at, sizeof(membership->created_at));
+    apl_db_copy_column_text(statement, 8, membership->updated_at, sizeof(membership->updated_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, apl_error *const error)
@@ -319,7 +313,7 @@ static apl_status collect_memberships(sqlite3 *const handle, sqlite3_stmt *const
         }
         if (count == capacity) {
             const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            apl_membership *const grown =
+            typeof(memberships) const grown =
                 realloc(memberships, grown_capacity * sizeof(*memberships));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate membership list");

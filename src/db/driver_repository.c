@@ -1,28 +1,22 @@
 #include "db/driver_repository.h"
 
 #include <sqlite3.h>
-#include <stdio.h>
 #include <stdlib.h>
 
-#define DRIVER_COLUMNS "id, name, short_name, notes, archived, created_at, updated_at, archived_at"
+#include "db/sqlite_util.h"
 
-static void copy_text(sqlite3_stmt *const statement, const int column, char *const out,
-                      const size_t out_size)
-{
-    const unsigned char *const text = sqlite3_column_text(statement, column);
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? (const char *)text : "");
-}
+#define DRIVER_COLUMNS "id, name, short_name, notes, archived, created_at, updated_at, archived_at"
 
 static void read_driver(sqlite3_stmt *const statement, apl_driver *const driver)
 {
     driver->id = sqlite3_column_int64(statement, 0);
-    copy_text(statement, 1, driver->name, sizeof(driver->name));
-    copy_text(statement, 2, driver->short_name, sizeof(driver->short_name));
-    copy_text(statement, 3, driver->notes, sizeof(driver->notes));
+    apl_db_copy_column_text(statement, 1, driver->name, sizeof(driver->name));
+    apl_db_copy_column_text(statement, 2, driver->short_name, sizeof(driver->short_name));
+    apl_db_copy_column_text(statement, 3, driver->notes, sizeof(driver->notes));
     driver->archived = sqlite3_column_int(statement, 4) != 0;
-    copy_text(statement, 5, driver->created_at, sizeof(driver->created_at));
-    copy_text(statement, 6, driver->updated_at, sizeof(driver->updated_at));
-    copy_text(statement, 7, driver->archived_at, sizeof(driver->archived_at));
+    apl_db_copy_column_text(statement, 5, driver->created_at, sizeof(driver->created_at));
+    apl_db_copy_column_text(statement, 6, driver->updated_at, sizeof(driver->updated_at));
+    apl_db_copy_column_text(statement, 7, driver->archived_at, sizeof(driver->archived_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, apl_error *const error)
@@ -236,7 +230,7 @@ static apl_status collect_drivers(sqlite3 *const handle, sqlite3_stmt *const sta
         }
         if (count == capacity) {
             const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            apl_driver *const grown = realloc(drivers, grown_capacity * sizeof(*drivers));
+            typeof(drivers) const grown = realloc(drivers, grown_capacity * sizeof(*drivers));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate driver list");
                 status = APL_ERR_OUT_OF_MEMORY;

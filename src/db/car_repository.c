@@ -1,30 +1,24 @@
 #include "db/car_repository.h"
 
 #include <sqlite3.h>
-#include <stdio.h>
 #include <stdlib.h>
+
+#include "db/sqlite_util.h"
 
 #define CAR_COLUMNS                                                                                \
     "id, team_id, label, chassis, notes, archived, created_at, updated_at, archived_at"
-
-static void copy_text(sqlite3_stmt *const statement, const int column, char *const out,
-                      const size_t out_size)
-{
-    const unsigned char *const text = sqlite3_column_text(statement, column);
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? (const char *)text : "");
-}
 
 static void read_car(sqlite3_stmt *const statement, apl_car *const car)
 {
     car->id = sqlite3_column_int64(statement, 0);
     car->team_id = sqlite3_column_int64(statement, 1);
-    copy_text(statement, 2, car->label, sizeof(car->label));
-    copy_text(statement, 3, car->chassis, sizeof(car->chassis));
-    copy_text(statement, 4, car->notes, sizeof(car->notes));
+    apl_db_copy_column_text(statement, 2, car->label, sizeof(car->label));
+    apl_db_copy_column_text(statement, 3, car->chassis, sizeof(car->chassis));
+    apl_db_copy_column_text(statement, 4, car->notes, sizeof(car->notes));
     car->archived = sqlite3_column_int(statement, 5) != 0;
-    copy_text(statement, 6, car->created_at, sizeof(car->created_at));
-    copy_text(statement, 7, car->updated_at, sizeof(car->updated_at));
-    copy_text(statement, 8, car->archived_at, sizeof(car->archived_at));
+    apl_db_copy_column_text(statement, 6, car->created_at, sizeof(car->created_at));
+    apl_db_copy_column_text(statement, 7, car->updated_at, sizeof(car->updated_at));
+    apl_db_copy_column_text(statement, 8, car->archived_at, sizeof(car->archived_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, const char *const label,
@@ -279,7 +273,7 @@ apl_status apl_car_repository_list(const apl_db_connection *const connection, co
         }
         if (count == capacity) {
             const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            apl_car *const grown = realloc(cars, grown_capacity * sizeof(*cars));
+            typeof(cars) const grown = realloc(cars, grown_capacity * sizeof(*cars));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate car list");
                 status = APL_ERR_OUT_OF_MEMORY;

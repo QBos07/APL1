@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#include "core/util.h"
 #include "tui/text.h"
 
 typedef struct section_definition {
@@ -28,7 +29,7 @@ static const section_definition SECTIONS[] = {
     {APL_TUI_SECTION_HISTORY, "History", "History", {"history", "activity", nullptr, nullptr}},
 };
 
-constexpr size_t TAB_COUNT = sizeof(SECTIONS) / sizeof(SECTIONS[0]);
+constexpr size_t TAB_COUNT = APL_COUNT_OF(SECTIONS);
 
 static const section_definition *find_definition(const apl_tui_section section)
 {

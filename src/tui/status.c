@@ -4,19 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "core/text.h"
 #include "tui/text.h"
 
 constexpr size_t STATUS_LINE_MAX = 768;
 constexpr unsigned HINT_MIN_COLUMNS = 60;
 constexpr unsigned FULL_HINT_MIN_COLUMNS = 100;
-
-static void copy_text(char *const destination, const size_t capacity, const char *const source)
-{
-    if (destination == nullptr || capacity == 0) {
-        return;
-    }
-    (void)snprintf(destination, capacity, "%s", (source != nullptr) ? source : "");
-}
 
 void apl_tui_status_init(apl_tui_status *const status)
 {
@@ -37,7 +30,7 @@ void apl_tui_status_set_team(apl_tui_status *const status, const char *const tea
         apl_tui_status_clear_team(status);
         return;
     }
-    copy_text(status->team, sizeof(status->team), team);
+    apl_text_copy(status->team, sizeof(status->team), team);
     status->has_team = true;
 }
 
@@ -59,7 +52,7 @@ void apl_tui_status_set_season(apl_tui_status *const status, const char *const s
         apl_tui_status_clear_season(status);
         return;
     }
-    copy_text(status->season, sizeof(status->season), season);
+    apl_text_copy(status->season, sizeof(status->season), season);
     status->has_season = true;
 }
 
@@ -77,7 +70,7 @@ void apl_tui_status_set_context(apl_tui_status *const status, const char *const 
     if (status == nullptr) {
         return;
     }
-    copy_text(status->context, sizeof(status->context), context);
+    apl_text_copy(status->context, sizeof(status->context), context);
 }
 
 bool apl_tui_status_set_message(apl_tui_status *const status, const apl_tui_status_level level,

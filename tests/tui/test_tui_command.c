@@ -3,6 +3,7 @@
 
 #include <criterion/criterion.h>
 
+#include "core/util.h"
 #include "tui/command.h"
 
 Test(tui_command, empty_and_whitespace_lines)
@@ -70,7 +71,7 @@ Test(tui_command, direct_view_shortcuts_parse_as_view_commands)
 {
     const char *const shortcuts[] = {"teams",       "people", "events",  "money",
                                      "development", "parts",  "history", "settings"};
-    for (size_t index = 0; index < sizeof(shortcuts) / sizeof(shortcuts[0]); ++index) {
+    for (size_t index = 0; index < APL_COUNT_OF(shortcuts); ++index) {
         char line[32];
         (void)snprintf(line, sizeof(line), ":%s", shortcuts[index]);
         const apl_tui_command_parse_result result = apl_tui_command_parse(line);

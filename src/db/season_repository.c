@@ -1,18 +1,12 @@
 #include "db/season_repository.h"
 
 #include <sqlite3.h>
-#include <stdio.h>
 #include <stdlib.h>
+
+#include "db/sqlite_util.h"
 
 #define SEASON_COLUMNS                                                                             \
     "id, team_id, label, start_date, end_date, notes, archived, created_at, updated_at, archived_at"
-
-static void copy_text(sqlite3_stmt *const statement, const int column, char *const out,
-                      const size_t out_size)
-{
-    const unsigned char *const text = sqlite3_column_text(statement, column);
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? (const char *)text : "");
-}
 
 static void bind_optional_text(sqlite3_stmt *const statement, const int index,
                                const char *const value)
@@ -28,14 +22,14 @@ static void read_season(sqlite3_stmt *const statement, apl_season *const season)
 {
     season->id = sqlite3_column_int64(statement, 0);
     season->team_id = sqlite3_column_int64(statement, 1);
-    copy_text(statement, 2, season->label, sizeof(season->label));
-    copy_text(statement, 3, season->start_date, sizeof(season->start_date));
-    copy_text(statement, 4, season->end_date, sizeof(season->end_date));
-    copy_text(statement, 5, season->notes, sizeof(season->notes));
+    apl_db_copy_column_text(statement, 2, season->label, sizeof(season->label));
+    apl_db_copy_column_text(statement, 3, season->start_date, sizeof(season->start_date));
+    apl_db_copy_column_text(statement, 4, season->end_date, sizeof(season->end_date));
+    apl_db_copy_column_text(statement, 5, season->notes, sizeof(season->notes));
     season->archived = sqlite3_column_int(statement, 6) != 0;
-    copy_text(statement, 7, season->created_at, sizeof(season->created_at));
-    copy_text(statement, 8, season->updated_at, sizeof(season->updated_at));
-    copy_text(statement, 9, season->archived_at, sizeof(season->archived_at));
+    apl_db_copy_column_text(statement, 7, season->created_at, sizeof(season->created_at));
+    apl_db_copy_column_text(statement, 8, season->updated_at, sizeof(season->updated_at));
+    apl_db_copy_column_text(statement, 9, season->archived_at, sizeof(season->archived_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, const char *const label,
@@ -303,7 +297,7 @@ apl_status apl_season_repository_list(const apl_db_connection *const connection,
         }
         if (count == capacity) {
             const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            apl_season *const grown = realloc(seasons, grown_capacity * sizeof(*seasons));
+            typeof(seasons) const grown = realloc(seasons, grown_capacity * sizeof(*seasons));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate season list");
                 status = APL_ERR_OUT_OF_MEMORY;

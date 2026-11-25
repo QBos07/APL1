@@ -1,29 +1,22 @@
 #include "db/team_repository.h"
 
 #include <sqlite3.h>
-#include <stdio.h>
 #include <stdlib.h>
 
-#define TEAM_COLUMNS "id, name, notes, archived, created_at, updated_at, archived_at"
+#include "db/sqlite_util.h"
 
-/** Copy a text column into a fixed buffer, treating SQL NULL as empty. */
-static void copy_column_text(sqlite3_stmt *const statement, const int column, char *const out,
-                             const size_t out_size)
-{
-    const unsigned char *const text = sqlite3_column_text(statement, column);
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? (const char *)text : "");
-}
+#define TEAM_COLUMNS "id, name, notes, archived, created_at, updated_at, archived_at"
 
 /** Read the current row into a team value. */
 static void read_team(sqlite3_stmt *const statement, apl_team *const team)
 {
     team->id = sqlite3_column_int64(statement, 0);
-    copy_column_text(statement, 1, team->name, sizeof(team->name));
-    copy_column_text(statement, 2, team->notes, sizeof(team->notes));
+    apl_db_copy_column_text(statement, 1, team->name, sizeof(team->name));
+    apl_db_copy_column_text(statement, 2, team->notes, sizeof(team->notes));
     team->archived = sqlite3_column_int(statement, 3) != 0;
-    copy_column_text(statement, 4, team->created_at, sizeof(team->created_at));
-    copy_column_text(statement, 5, team->updated_at, sizeof(team->updated_at));
-    copy_column_text(statement, 6, team->archived_at, sizeof(team->archived_at));
+    apl_db_copy_column_text(statement, 4, team->created_at, sizeof(team->created_at));
+    apl_db_copy_column_text(statement, 5, team->updated_at, sizeof(team->updated_at));
+    apl_db_copy_column_text(statement, 6, team->archived_at, sizeof(team->archived_at));
 }
 
 /** Translate a failed team write, including unique-name conflicts. */
@@ -285,7 +278,7 @@ apl_status apl_team_repository_list(const apl_db_connection *const connection,
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
-            apl_team *const grown = realloc(teams, new_capacity * sizeof(*teams));
+            typeof(teams) const grown = realloc(teams, new_capacity * sizeof(*teams));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate team list");
                 status = APL_ERR_OUT_OF_MEMORY;

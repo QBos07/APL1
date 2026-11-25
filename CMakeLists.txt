@@ -70,6 +70,7 @@ if(BUILD_TESTING)
         tests/unit/test_args.c
         tests/unit/test_reference.c
         tests/unit/test_team.c
+        tests/unit/test_text.c
         tests/integration/test_test_support.c
         tests/integration/test_activity_repository.c
         tests/integration/test_car_repository.c
@@ -165,6 +166,7 @@ endif()
 
 add_library(apl_core STATIC
     src/core/error.c
+    src/core/text.c
 )
 
 target_include_directories(apl_core PUBLIC src)
@@ -190,6 +192,7 @@ add_library(apl_db STATIC
     src/db/path.c
     src/db/season_repository.c
     src/db/settings_repository.c
+    src/db/sqlite_util.c
     src/db/team_repository.c
     src/db/transaction.c
 )

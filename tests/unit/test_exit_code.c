@@ -1,6 +1,7 @@
 #include <criterion/criterion.h>
 
 #include "app/exit_code.h"
+#include "core/util.h"
 
 Test(exit_code, success_maps_to_zero)
 {
@@ -28,7 +29,7 @@ Test(exit_code, application_and_database_failures_are_runtime_failures)
         APL_ERR_DB_QUERY,      APL_ERR_DB_FOREIGN_KEYS,
         APL_ERR_DB_MIGRATION,  APL_ERR_DB_SCHEMA_TOO_NEW,
     };
-    for (size_t index = 0; index < sizeof(statuses) / sizeof(statuses[0]); ++index) {
+    for (size_t index = 0; index < APL_COUNT_OF(statuses); ++index) {
         cr_assert_eq(apl_exit_code_for_status(statuses[index]), APL_EXIT_APPLICATION_FAILURE);
     }
 }

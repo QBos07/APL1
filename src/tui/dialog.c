@@ -1,20 +1,10 @@
 #include "tui/dialog.h"
 
 #include <limits.h>
-#include <stdio.h>
 
+#include "core/text.h"
+#include "core/util.h"
 #include "tui/text.h"
-
-/** Copy a title/message, rejecting null and truncating safely. */
-static void copy_text(char *const out, const size_t out_size, const char *const text)
-{
-    (void)snprintf(out, out_size, "%s", (text != nullptr) ? text : "");
-}
-
-static unsigned min_u(const unsigned left, const unsigned right)
-{
-    return (left < right) ? left : right;
-}
 
 void apl_tui_dialog_init(apl_tui_dialog *const dialog)
 {
@@ -31,8 +21,8 @@ void apl_tui_dialog_open_confirm(apl_tui_dialog *const dialog, const char *const
         return;
     }
     *dialog = (apl_tui_dialog){.kind = APL_TUI_DIALOG_CONFIRM, .focus = 0};
-    copy_text(dialog->title, sizeof(dialog->title), title);
-    copy_text(dialog->message, sizeof(dialog->message), message);
+    apl_text_copy(dialog->title, sizeof(dialog->title), title);
+    apl_text_copy(dialog->message, sizeof(dialog->message), message);
 }
 
 void apl_tui_dialog_open_error(apl_tui_dialog *const dialog, const char *const title,
@@ -42,8 +32,8 @@ void apl_tui_dialog_open_error(apl_tui_dialog *const dialog, const char *const t
         return;
     }
     *dialog = (apl_tui_dialog){.kind = APL_TUI_DIALOG_ERROR, .focus = 0};
-    copy_text(dialog->title, sizeof(dialog->title), title);
-    copy_text(dialog->message, sizeof(dialog->message), message);
+    apl_text_copy(dialog->title, sizeof(dialog->title), title);
+    apl_text_copy(dialog->message, sizeof(dialog->message), message);
 }
 
 void apl_tui_dialog_open_form(apl_tui_dialog *const dialog, const char *const title,
@@ -57,8 +47,8 @@ void apl_tui_dialog_open_form(apl_tui_dialog *const dialog, const char *const ti
         .focus = 0,
         .viewport_rows = 6,
     };
-    copy_text(dialog->title, sizeof(dialog->title), title);
-    copy_text(dialog->message, sizeof(dialog->message), message);
+    apl_text_copy(dialog->title, sizeof(dialog->title), title);
+    apl_text_copy(dialog->message, sizeof(dialog->message), message);
 }
 
 unsigned apl_tui_dialog_add_field(apl_tui_dialog *const dialog, const char *const label,
@@ -70,8 +60,8 @@ unsigned apl_tui_dialog_add_field(apl_tui_dialog *const dialog, const char *cons
     }
     const unsigned index = dialog->field_count++;
     apl_tui_dialog_field *const field = &dialog->fields[index];
-    copy_text(field->label, sizeof(field->label), label);
-    copy_text(field->value, sizeof(field->value), value);
+    apl_text_copy(field->label, sizeof(field->label), label);
+    apl_text_copy(field->value, sizeof(field->value), value);
     field->required = required;
     return index;
 }
@@ -82,7 +72,7 @@ void apl_tui_dialog_set_field_value(apl_tui_dialog *const dialog, const unsigned
     if (dialog == nullptr || index >= dialog->field_count) {
         return;
     }
-    copy_text(dialog->fields[index].value, sizeof(dialog->fields[index].value), value);
+    apl_text_copy(dialog->fields[index].value, sizeof(dialog->fields[index].value), value);
 }
 
 void apl_tui_dialog_open_choice(apl_tui_dialog *const dialog, const char *const title,
@@ -96,8 +86,8 @@ void apl_tui_dialog_open_choice(apl_tui_dialog *const dialog, const char *const 
         .focus = 0,
         .viewport_rows = 6,
     };
-    copy_text(dialog->title, sizeof(dialog->title), title);
-    copy_text(dialog->message, sizeof(dialog->message), message);
+    apl_text_copy(dialog->title, sizeof(dialog->title), title);
+    apl_text_copy(dialog->message, sizeof(dialog->message), message);
 }
 
 static void keep_option_visible(apl_tui_dialog *const dialog)
@@ -110,7 +100,7 @@ static void keep_option_visible(apl_tui_dialog *const dialog)
     }
     const unsigned max_offset =
         (dialog->option_count > visible) ? dialog->option_count - visible : 0;
-    dialog->option_offset = min_u(dialog->option_offset, max_offset);
+    dialog->option_offset = apl_min_unsigned(dialog->option_offset, max_offset);
 }
 
 unsigned apl_tui_dialog_add_option(apl_tui_dialog *const dialog, const char *const label,
@@ -122,7 +112,7 @@ unsigned apl_tui_dialog_add_option(apl_tui_dialog *const dialog, const char *con
     }
     const unsigned index = dialog->option_count++;
     apl_tui_dialog_option *const option = &dialog->options[index];
-    copy_text(option->label, sizeof(option->label), label);
+    apl_text_copy(option->label, sizeof(option->label), label);
     option->enabled = enabled;
     option->active = active;
     keep_option_visible(dialog);
@@ -213,7 +203,7 @@ static bool validate_fields(apl_tui_dialog *const dialog)
         apl_tui_dialog_field *const field = &dialog->fields[index];
         if (field->required && field->value[0] == '\0') {
             field->invalid = true;
-            copy_text(field->error, sizeof(field->error), "Required value.");
+            apl_text_copy(field->error, sizeof(field->error), "Required value.");
             if (first_invalid == UINT_MAX) {
                 first_invalid = index;
             }
@@ -221,8 +211,8 @@ static bool validate_fields(apl_tui_dialog *const dialog)
         }
     }
     if (!valid) {
-        copy_text(dialog->validation, sizeof(dialog->validation),
-                  "Fill in the required field marked above.");
+        apl_text_copy(dialog->validation, sizeof(dialog->validation),
+                      "Fill in the required field marked above.");
         dialog->focus = first_invalid;
     }
     return valid;
@@ -301,8 +291,8 @@ void apl_tui_dialog_set_field_error(apl_tui_dialog *const dialog, const unsigned
     }
     apl_tui_dialog_field *const field = &dialog->fields[index];
     field->invalid = true;
-    copy_text(field->error, sizeof(field->error), message);
-    copy_text(dialog->validation, sizeof(dialog->validation), message);
+    apl_text_copy(field->error, sizeof(field->error), message);
+    apl_text_copy(dialog->validation, sizeof(dialog->validation), message);
     dialog->focus = index;
 }
 

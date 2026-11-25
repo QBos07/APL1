@@ -1,5 +1,6 @@
 #include <criterion/criterion.h>
 
+#include "core/util.h"
 #include "tui/layout.h"
 
 /*
@@ -30,7 +31,7 @@ Test(tui_layout, below_minimum_is_too_small)
         apl_tui_layout_compute(200, APL_TUI_MIN_COLS - 1),
     };
 
-    for (size_t index = 0; index < sizeof(sizes) / sizeof(sizes[0]); ++index) {
+    for (size_t index = 0; index < APL_COUNT_OF(sizes); ++index) {
         cr_assert_eq(sizes[index].mode, APL_TUI_LAYOUT_TOO_SMALL);
         assert_rect_zero(sizes[index].window);
         assert_rect_zero(sizes[index].tabs);
@@ -77,8 +78,8 @@ Test(tui_layout, regions_tile_the_terminal_without_overlap)
     const unsigned row_counts[] = {10, 11, 23, 24, 25, 60};
     const unsigned col_counts[] = {40, 41, 79, 80, 81, 200};
 
-    for (size_t r = 0; r < sizeof(row_counts) / sizeof(row_counts[0]); ++r) {
-        for (size_t c = 0; c < sizeof(col_counts) / sizeof(col_counts[0]); ++c) {
+    for (size_t r = 0; r < APL_COUNT_OF(row_counts); ++r) {
+        for (size_t c = 0; c < APL_COUNT_OF(col_counts); ++c) {
             const unsigned rows = row_counts[r];
             const unsigned cols = col_counts[c];
             const apl_tui_layout layout = apl_tui_layout_compute(rows, cols);
@@ -128,8 +129,8 @@ Test(tui_layout, overlay_stays_inside_the_body)
     const unsigned row_counts[] = {10, 11, 17, 18, 24, 25, 60};
     const unsigned col_counts[] = {40, 41, 79, 80, 81, 200};
 
-    for (size_t r = 0; r < sizeof(row_counts) / sizeof(row_counts[0]); ++r) {
-        for (size_t c = 0; c < sizeof(col_counts) / sizeof(col_counts[0]); ++c) {
+    for (size_t r = 0; r < APL_COUNT_OF(row_counts); ++r) {
+        for (size_t c = 0; c < APL_COUNT_OF(col_counts); ++c) {
             const apl_tui_layout layout = apl_tui_layout_compute(row_counts[r], col_counts[c]);
 
             cr_assert_neq(layout.mode, APL_TUI_LAYOUT_TOO_SMALL);

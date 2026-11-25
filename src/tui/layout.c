@@ -1,16 +1,6 @@
 #include "tui/layout.h"
 
-/** Return the smaller of two unsigned values. */
-static unsigned min_u(const unsigned left, const unsigned right)
-{
-    return (left < right) ? left : right;
-}
-
-/** Return the larger of two unsigned values. */
-static unsigned max_u(const unsigned left, const unsigned right)
-{
-    return (left > right) ? left : right;
-}
+#include "core/util.h"
 
 /** Build a rectangle from already validated non-negative values. */
 static apl_tui_rect make_rect(const unsigned y, const unsigned x, const unsigned rows,
@@ -50,7 +40,7 @@ apl_tui_layout apl_tui_layout_compute(const unsigned rows, const unsigned cols)
     const unsigned middle_rows = rows - APL_TUI_CHROME_ROWS;
     unsigned rail_cols = normal ? APL_TUI_RAIL_COLS_NORMAL : APL_TUI_RAIL_COLS_COMPACT;
     /* Never let the rail consume more than half of a narrow screen. */
-    rail_cols = min_u(rail_cols, max_u(APL_TUI_MIN_COLS / 4, cols / 2));
+    rail_cols = apl_min_unsigned(rail_cols, apl_max_unsigned(APL_TUI_MIN_COLS / 4, cols / 2));
 
     layout.window = make_rect(0, 0, 1, cols);
     layout.status = make_rect(rows - 1, 0, 1, cols);
