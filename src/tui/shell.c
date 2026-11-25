@@ -1072,6 +1072,14 @@ static void perform_set_active(shell_state *const state, const int64_t team_id,
         show_error_dialog(state, error);
         return;
     }
+    if (state->section == APL_TUI_SECTION_MONEY) {
+        state->screen = SHELL_SCREEN_MONEY_LIST;
+        state->entry_detail = (apl_ledger_entry){};
+        if (load_ledger(state, 0, error) != APL_OK) {
+            show_error_dialog(state, error);
+            return;
+        }
+    }
     sync_status_context(state);
     set_status_success(state, "Active team: %s", state->active_team.name);
 }
