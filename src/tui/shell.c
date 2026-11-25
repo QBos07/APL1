@@ -919,7 +919,7 @@ static void open_create_dialog(shell_state *const state, const char *const name,
     apl_tui_dialog_open_form(&state->dialog, "Create team",
                              "Name is required and must be unique. Notes are optional.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Name", name, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_TEAM_CREATE;
     state->dialog_team_id = 0;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -936,7 +936,7 @@ static void open_edit_form(shell_state *const state)
     apl_tui_dialog_open_form(&state->dialog, "Edit team",
                              "Editing team. Enter saves; Esc cancels.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Name", state->detail.name, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", state->detail.notes, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", state->detail.notes, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_TEAM_EDIT;
     state->dialog_team_id = state->detail.id;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -1103,9 +1103,9 @@ static void open_season_dialog(shell_state *const state, const bool edit, const 
     apl_tui_dialog_open_form(&state->dialog, edit ? "Edit season/period" : "Create season/period",
                              "Label is required. Dates use YYYY-MM-DD or stay blank.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Label", label, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start_date, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end_date, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date (YYYY-MM-DD)", start_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date (YYYY-MM-DD)", end_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context =
         edit ? SHELL_DIALOG_CONTEXT_SEASON_EDIT : SHELL_DIALOG_CONTEXT_SEASON_CREATE;
     state->dialog_record_id = edit ? state->season_detail.id : 0;
@@ -1119,8 +1119,8 @@ static void open_car_dialog(shell_state *const state, const bool edit, const cha
     apl_tui_dialog_open_form(&state->dialog, edit ? "Edit car/chassis" : "Create car/chassis",
                              "Identifier is required. Chassis and notes are optional.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Identifier", label, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Chassis", chassis, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Chassis (optional)", chassis, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context = edit ? SHELL_DIALOG_CONTEXT_CAR_EDIT : SHELL_DIALOG_CONTEXT_CAR_CREATE;
     state->dialog_record_id = edit ? state->car_detail.id : 0;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -1131,11 +1131,10 @@ static void open_driver_dialog(shell_state *const state, const bool edit, const 
                                const char *const short_name, const char *const notes)
 {
     apl_tui_dialog_open_form(&state->dialog, edit ? "Edit driver" : "Create driver",
-                             "Display name is required. Duplicate names are allowed as separate "
-                             "identities.");
+                             "Display name is required. Duplicate names stay separate.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Name", name, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Short name", short_name, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Short name (optional)", short_name, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context =
         edit ? SHELL_DIALOG_CONTEXT_DRIVER_EDIT : SHELL_DIALOG_CONTEXT_DRIVER_CREATE;
     state->dialog_record_id = edit ? state->driver_detail.id : 0;
@@ -1152,12 +1151,11 @@ static void open_membership_add_dialog(shell_state *const state, const int64_t d
         return;
     }
     apl_tui_dialog_open_form(&state->dialog, "Add team membership",
-                             "Start date is required. End date and role are optional and "
-                             "user-entered.");
-    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start_date, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end_date, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Role/seat", role, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+                             "Start date is required. End date and role are optional.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date (YYYY-MM-DD)", start_date, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date (YYYY-MM-DD)", end_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Role/seat (optional)", role, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_MEMBERSHIP_ADD;
     state->dialog_driver_id = driver_id;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -1168,10 +1166,9 @@ static void open_membership_end_dialog(shell_state *const state, const int64_t m
                                        const char *const start_date, const char *const end_date)
 {
     apl_tui_dialog_open_form(&state->dialog, "End team membership",
-                             "Enter the final date for this membership period. The period remains "
-                             "in history.");
-    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start_date, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end_date, true);
+                             "Enter the final date; the period remains in history.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date (YYYY-MM-DD)", start_date, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date (YYYY-MM-DD)", end_date, true);
     state->dialog_context = SHELL_DIALOG_CONTEXT_MEMBERSHIP_END;
     state->dialog_record_id = membership_id;
     state->dialog.fields[0].required = false;
@@ -1421,11 +1418,10 @@ static void open_money_currency_dialog(shell_state *const state)
         set_status_warning(state, "Select an active team before choosing a reporting currency.");
         return;
     }
-    apl_tui_dialog_open_form(
-        &state->dialog, "Reporting currency",
-        "One currency is used for every money record in this team. v1 does not convert "
-        "currencies. The code cannot change after money records exist.");
-    (void)apl_tui_dialog_add_field(&state->dialog, "Currency", state->active_team.currency, true);
+    apl_tui_dialog_open_form(&state->dialog, "Reporting currency",
+                             "Three-letter code, for example EUR.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Currency (3 letters)",
+                                   state->active_team.currency, true);
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_CURRENCY;
     state->dialog_team_id = state->active_team.id;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -1446,17 +1442,14 @@ static void open_money_entry_dialog(shell_state *const state, const apl_ledger_k
         (kind == APL_LEDGER_KIND_OPENING_BALANCE)
             ? "Record opening balance"
             : ((kind == APL_LEDGER_KIND_INCOME) ? "Record income" : "Record expense");
-    char message[320];
-    (void)snprintf(message, sizeof(message), "Team: %s   Currency: %s. All fields are required. %s",
-                   state->active_team.name, state->active_team.currency,
-                   (kind == APL_LEDGER_KIND_OPENING_BALANCE)
-                       ? "The opening amount may be positive, zero, or negative."
-                       : "Enter a positive amount; the sign is applied automatically.");
+    const char *const message = (kind == APL_LEDGER_KIND_OPENING_BALANCE)
+                                    ? "Amount may be positive, zero, or negative."
+                                    : "Enter a positive amount; the sign is applied automatically.";
     apl_tui_dialog_open_form(&state->dialog, title, message);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Amount", "", true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Date", "", true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Category", "", true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Description", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Amount (e.g. 250.00)", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Date (YYYY-MM-DD)", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Category (user-entered)", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Description (required)", "", true);
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_ENTRY;
     state->pending_ledger_kind = kind;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -1518,17 +1511,15 @@ static void open_money_correct_dialog(shell_state *const state, const apl_ledger
     }
     char amount_text[64];
     (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
-    char message[512];
-    (void)snprintf(message, sizeof(message),
-                   "Original #%lld: %s %s on %s, category '%s'. Leave the replacement amount "
-                   "blank for a full reversal.",
-                   (long long)entry->id, apl_ledger_kind_label(entry->kind), amount_text,
-                   entry->entry_date, entry->category);
+    char message[128];
+    (void)snprintf(message, sizeof(message), "Original: %.60s on %s. Blank amount = full reversal.",
+                   amount_text, entry->entry_date);
     apl_tui_dialog_open_form(&state->dialog, "Correct money entry", message);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Replacement amount", replacement_amount, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Date", date, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "New amount (blank = reverse)",
+                                   replacement_amount, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Date (YYYY-MM-DD)", date, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Category", category, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Reason/description", reason, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Reason (required)", reason, true);
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_CORRECT;
     state->dialog_record_id = entry->id;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -1694,7 +1685,6 @@ static void open_budget_form(shell_state *const state, const bool edit)
     char end[APL_REFERENCE_DATE_MAX] = "";
     char category[APL_LEDGER_CATEGORY_MAX] = "";
     char amount[64] = "";
-    char season[32] = "";
     char notes[APL_REFERENCE_NOTES_MAX] = "";
     if (has_plan) {
         (void)snprintf(start, sizeof(start), "%s", row->start_date);
@@ -1703,40 +1693,34 @@ static void open_budget_form(shell_state *const state, const bool edit)
         (void)snprintf(amount, sizeof(amount), "%lld.%02lld",
                        (long long)(row->planned.minor_units / 100),
                        (long long)(row->planned.minor_units % 100));
-        if (row->season_id > 0) {
-            (void)snprintf(season, sizeof(season), "%lld", (long long)row->season_id);
-        }
+        state->pending_season_id = row->season_id;
         (void)snprintf(notes, sizeof(notes), "%s", row->notes);
-    } else if (row != nullptr) {
-        (void)snprintf(category, sizeof(category), "%s", row->category);
+    } else {
+        state->pending_season_id = 0;
+        if (row != nullptr) {
+            (void)snprintf(category, sizeof(category), "%s", row->category);
+        }
     }
-    char message[320];
-    (void)snprintf(message, sizeof(message),
-                   "Team: %s   Currency: %s. Period, category, and a non-negative planned amount "
-                   "are required. Plans never count as spending.",
-                   state->active_team.name, state->active_team.currency);
     apl_tui_dialog_open_form(&state->dialog, has_plan ? "Edit budget plan" : "Create budget plan",
-                             message);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Category", category, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Planned amount", amount, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Season ID", season, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+                             "Planned amount cannot be negative.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date (YYYY-MM-DD)", start, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date (YYYY-MM-DD)", end, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Category (user-entered)", category, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Planned (e.g. 300.00)", amount, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_BUDGET_FORM;
     state->dialog_record_id = has_plan ? row->plan_id : 0;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
     set_status(state, "Tab moves fields. Enter reviews the plan; Esc writes nothing.");
 }
 
-static bool store_budget_values(shell_state *const state, apl_error *const error)
+static void store_budget_values(shell_state *const state)
 {
     const apl_tui_dialog_field *const start = apl_tui_dialog_field_at(&state->dialog, 0);
     const apl_tui_dialog_field *const end = apl_tui_dialog_field_at(&state->dialog, 1);
     const apl_tui_dialog_field *const category = apl_tui_dialog_field_at(&state->dialog, 2);
     const apl_tui_dialog_field *const amount = apl_tui_dialog_field_at(&state->dialog, 3);
-    const apl_tui_dialog_field *const season = apl_tui_dialog_field_at(&state->dialog, 4);
-    const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 5);
+    const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 4);
     (void)snprintf(state->pending_start, sizeof(state->pending_start), "%.10s",
                    start != nullptr ? start->value : "");
     (void)snprintf(state->pending_end, sizeof(state->pending_end), "%.10s",
@@ -1747,31 +1731,17 @@ static bool store_budget_values(shell_state *const state, apl_error *const error
                    amount != nullptr ? amount->value : "");
     (void)snprintf(state->pending_notes, sizeof(state->pending_notes), "%.1023s",
                    notes != nullptr ? notes->value : "");
-    state->pending_season_id = 0;
-    if (season != nullptr && season->value[0] != '\0') {
-        if (!text_is_numeric(season->value)) {
-            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
-                          "season ID must be a number or left blank");
-            apl_error_set_field(error, APL_FIELD_SEASON);
-            return false;
-        }
-        state->pending_season_id = strtoll(season->value, nullptr, 10);
-    }
-    return true;
+    return;
 }
 
 static void open_budget_review_dialog(shell_state *const state)
 {
-    char season[32] = "(none)";
-    if (state->pending_season_id > 0) {
-        (void)snprintf(season, sizeof(season), "#%lld", (long long)state->pending_season_id);
-    }
     char message[1024];
     (void)snprintf(message, sizeof(message),
                    "Team: %.100s\nCurrency: %.3s\nPeriod: %.10s to %.10s\nCategory: %.100s\n"
-                   "Planned: %.63s\nSeason: %.31s\nNotes: %.400s\n\nConfirm to save the plan.",
+                   "Planned: %.63s\nNotes: %.400s\n\nConfirm to save the plan.",
                    state->active_team.name, state->active_team.currency, state->pending_start,
-                   state->pending_end, state->pending_category, state->pending_amount, season,
+                   state->pending_end, state->pending_category, state->pending_amount,
                    state->pending_notes);
     apl_tui_dialog_open_confirm(&state->dialog, "Review budget plan", message);
     state->dialog.focus = 1;
@@ -2426,7 +2396,7 @@ static void draw_team_detail(shell_state *const state)
     (void)snprintf(line, sizeof(line), "  Reporting currency: %s",
                    state->detail.currency[0] != '\0' ? state->detail.currency : "not chosen");
     apl_tui_frame_draw_line(body, row++, line);
-    apl_tui_frame_draw_line(body, row++, "  Money: press $ (or the Money tab)");
+    apl_tui_frame_draw_line(body, row++, "  Money: press f (or the Money tab)");
 }
 
 static void draw_season_list(shell_state *const state)
@@ -2827,13 +2797,50 @@ static void draw_history_list(shell_state *const state)
     }
 }
 
-static void build_money_filter_bar(const shell_state *const state, char *const out,
-                                   const size_t out_size)
+static void append_filter_button(char *const out, const size_t out_size, unsigned *const cursor,
+                                 unsigned starts[4], unsigned ends[4], const unsigned index,
+                                 const char *const label)
 {
-    (void)snprintf(out, out_size, "Date:%s  Kind:%s  Category:%s",
-                   money_date_filter_name(state->money_date_preset),
-                   money_filter_kind_name(state->money_kind_filter),
+    starts[index] = *cursor;
+    (void)apl_tui_text_append(out, out_size - *cursor, label);
+    *cursor = (unsigned)strlen(out);
+    ends[index] = *cursor;
+    (void)apl_tui_text_append(out, out_size - *cursor, "  ");
+    *cursor = (unsigned)strlen(out);
+}
+
+static void build_money_filter_bar(const shell_state *const state, char *const out,
+                                   const size_t out_size, unsigned starts[4], unsigned ends[4])
+{
+    out[0] = '\0';
+    unsigned cursor = 0;
+    char label[160];
+    (void)snprintf(label, sizeof(label), "Date:%s",
+                   money_date_filter_name(state->money_date_preset));
+    append_filter_button(out, out_size, &cursor, starts, ends, 0, label);
+    (void)snprintf(label, sizeof(label), "Kind:%s",
+                   money_filter_kind_name(state->money_kind_filter));
+    append_filter_button(out, out_size, &cursor, starts, ends, 1, label);
+    (void)snprintf(label, sizeof(label), "Category:%s",
                    state->money_category_filter[0] != '\0' ? state->money_category_filter : "all");
+    append_filter_button(out, out_size, &cursor, starts, ends, 2, label);
+    append_filter_button(out, out_size, &cursor, starts, ends, 3, "Clear");
+}
+
+static void build_budget_filter_bar(const shell_state *const state, char *const out,
+                                    const size_t out_size, unsigned starts[4], unsigned ends[4])
+{
+    out[0] = '\0';
+    unsigned cursor = 0;
+    char label[160];
+    (void)snprintf(label, sizeof(label), "Date:%s",
+                   money_date_filter_name(state->budget_date_preset));
+    append_filter_button(out, out_size, &cursor, starts, ends, 0, label);
+    (void)snprintf(label, sizeof(label), "Category:%s",
+                   state->budget_category_filter[0] != '\0' ? state->budget_category_filter
+                                                            : "all");
+    append_filter_button(out, out_size, &cursor, starts, ends, 1, label);
+    append_filter_button(out, out_size, &cursor, starts, ends, 2, "Clear");
 }
 
 static void draw_money_list(shell_state *const state)
@@ -2865,7 +2872,9 @@ static void draw_money_list(shell_state *const state)
     apl_tui_frame_draw_line(body, 0, header);
 
     char filters[320];
-    build_money_filter_bar(state, filters, sizeof(filters));
+    unsigned starts[4] = {};
+    unsigned ends[4] = {};
+    build_money_filter_bar(state, filters, sizeof(filters), starts, ends);
     apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_BODY);
     apl_tui_frame_draw_line(body, 1, filters);
     apl_tui_theme_reset(body);
@@ -2882,6 +2891,13 @@ static void draw_money_list(shell_state *const state)
         return;
     }
 
+    char header_line[256];
+    (void)snprintf(header_line, sizeof(header_line), "  %-10.10s %-15.15s %18s %-16.16s %s", "Date",
+                   "Kind", "Amount", "Category", "Description");
+    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_MUTED);
+    apl_tui_frame_draw_line(body, 2, header_line);
+    apl_tui_theme_reset(body);
+
     const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
     const size_t visible = apl_tui_list_visible_count(&state->list);
     for (size_t offset = 0; offset < visible && offset + 3 < rows; ++offset) {
@@ -2892,9 +2908,9 @@ static void draw_money_list(shell_state *const state)
         (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
         char line[512];
         const int written =
-            snprintf(line, sizeof(line), "%c %s  %-15s %s  %-16s %.120s", focused ? '>' : ' ',
-                     entry->entry_date, apl_ledger_kind_label(entry->kind), amount_text,
-                     entry->category, entry->description);
+            snprintf(line, sizeof(line), "%c %-10.10s %-15.15s %18s %-16.16s %.120s",
+                     focused ? '>' : ' ', entry->entry_date, apl_ledger_kind_label(entry->kind),
+                     amount_text, entry->category, entry->description);
         if (written > 0 && (size_t)written < sizeof(line) && entry->corrects_entry_id > 0) {
             (void)snprintf(line + written, sizeof(line) - (size_t)written, "  [corrects #%lld]",
                            (long long)entry->corrects_entry_id);
@@ -2995,14 +3011,25 @@ static void draw_budget_list(shell_state *const state)
         money_date_filter_name(state->budget_date_preset),
         state->budget_category_filter[0] != '\0' ? state->budget_category_filter : "all");
     apl_tui_frame_draw_line(body, 0, header);
-    apl_tui_frame_draw_line(
-        body, 1, "Planned and actual are separate. Missing plans/actuals are shown explicitly.");
+    char filters[320];
+    unsigned starts[4] = {};
+    unsigned ends[4] = {};
+    build_budget_filter_bar(state, filters, sizeof(filters), starts, ends);
+    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_BODY);
+    apl_tui_frame_draw_line(body, 1, filters);
+    apl_tui_theme_reset(body);
 
     if (state->budget_row_count == 0) {
         apl_tui_frame_draw_line(body, 3,
                                 "No budget plans or matching expenses. Press n to create a plan.");
         return;
     }
+    char header_line[256];
+    (void)snprintf(header_line, sizeof(header_line), "  %-23.23s %-16.16s %14s %14s %s", "Period",
+                   "Category", "Planned", "Actual", "Variance");
+    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_MUTED);
+    apl_tui_frame_draw_line(body, 2, header_line);
+    apl_tui_theme_reset(body);
     const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
     const size_t visible = apl_tui_list_visible_count(&state->list);
     for (size_t offset = 0; offset < visible && offset + 3 < rows; ++offset) {
@@ -3036,10 +3063,11 @@ static void draw_budget_list(shell_state *const state)
         const char *const period =
             row->start_date[0] != '\0' ? row->start_date : "(no plan period)";
         const char *const period_end = row->end_date[0] != '\0' ? row->end_date : "?";
+        char period_text[32];
+        (void)snprintf(period_text, sizeof(period_text), "%s..%s", period, period_end);
         char line[512];
-        (void)snprintf(line, sizeof(line), "%c %s..%s  %-18s  plan %s  actual %s  %s",
-                       focused ? '>' : ' ', period, period_end, row->category, planned, actual,
-                       variance);
+        (void)snprintf(line, sizeof(line), "%c %-23.23s %-16.16s %14s %14s %.80s",
+                       focused ? '>' : ' ', period_text, row->category, planned, actual, variance);
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)(offset + 3), line);
@@ -3076,7 +3104,7 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_TEAM_LIST:
         return "n new | Enter open | s switch | a archived";
     case SHELL_SCREEN_TEAM_DETAIL:
-        return "e edit | x archive | o seasons | c cars | p people | $ money | s switch";
+        return "e edit | x archive | o seasons | c cars | p people | f money | s switch";
     case SHELL_SCREEN_SEASON_LIST:
         return "n new | Enter open | a archived | Esc team";
     case SHELL_SCREEN_SEASON_DETAIL:
@@ -3161,6 +3189,17 @@ static int draw_dialog_block(struct ncplane *const plane, const int row, const i
     return current - row;
 }
 
+static void draw_dialog_message_line(struct ncplane *const overlay, const int row,
+                                     const unsigned cols, const char *const message)
+{
+    if (overlay == nullptr || message == nullptr || cols <= 5) {
+        return;
+    }
+    char line[APL_TUI_DIALOG_MESSAGE_MAX];
+    (void)snprintf(line, sizeof(line), "%.*s", (int)(cols - 5), message);
+    apl_tui_frame_draw_text(overlay, row, 2, line);
+}
+
 static void draw_dialog(shell_state *const state)
 {
     struct ncplane *const overlay = apl_tui_frame_overlay(&state->frame);
@@ -3185,7 +3224,7 @@ static void draw_dialog(shell_state *const state)
     apl_tui_frame_draw_text(overlay, 1, 2, state->dialog.title);
     apl_tui_theme_apply(&state->theme, overlay, APL_TUI_ROLE_DIALOG);
     if (state->dialog.kind == APL_TUI_DIALOG_FORM || state->dialog.kind == APL_TUI_DIALOG_CHOICE) {
-        apl_tui_frame_draw_text(overlay, 2, 2, state->dialog.message);
+        draw_dialog_message_line(overlay, 2, cols, state->dialog.message);
     }
 
     const int button_row = (int)rows - 2;
@@ -4205,7 +4244,37 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         row_offset = 3;
     }
     if (state->section == APL_TUI_SECTION_MONEY) {
-        if (row < 3 || state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+        if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+            return;
+        }
+        if (row == 1) {
+            unsigned starts[4] = {};
+            unsigned ends[4] = {};
+            char filters[320];
+            const bool budgets = state->screen == SHELL_SCREEN_BUDGET_LIST;
+            if (budgets) {
+                build_budget_filter_bar(state, filters, sizeof(filters), starts, ends);
+            } else {
+                build_money_filter_bar(state, filters, sizeof(filters), starts, ends);
+            }
+            const unsigned column = (unsigned)(input->x - (int)layout->body.x);
+            const uint32_t ledger_keys[] = {'d', 'g', 'F', 'C'};
+            const uint32_t budget_keys[] = {'d', 'F', 'C'};
+            const unsigned button_count = budgets ? 3 : 4;
+            for (unsigned button = 0; button < button_count; ++button) {
+                if (column >= starts[button] && column < ends[button] + 2) {
+                    const uint32_t key = budgets ? budget_keys[button] : ledger_keys[button];
+                    if (budgets) {
+                        handle_budget_list_input(state, key);
+                    } else {
+                        handle_money_list_input(state, key);
+                    }
+                    return;
+                }
+            }
+            return;
+        }
+        if (row < 3) {
             return;
         }
         row_offset = 3;
@@ -4663,11 +4732,7 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
             set_status(state, "Budget plan unchanged.");
             return;
         }
-        if (!store_budget_values(state, &error)) {
-            apl_tui_dialog_set_field_error(&state->dialog, budget_form_error_field(&error),
-                                           apl_error_message(&error));
-            return;
-        }
+        store_budget_values(state);
         open_budget_review_dialog(state);
         return;
     }
@@ -4740,12 +4805,7 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
         (void)apl_tui_dialog_set_field_value(&state->dialog, 1, state->pending_end);
         (void)apl_tui_dialog_set_field_value(&state->dialog, 2, state->pending_category);
         (void)apl_tui_dialog_set_field_value(&state->dialog, 3, state->pending_amount);
-        if (state->pending_season_id > 0) {
-            char season[32];
-            (void)snprintf(season, sizeof(season), "%lld", (long long)state->pending_season_id);
-            (void)apl_tui_dialog_set_field_value(&state->dialog, 4, season);
-        }
-        (void)apl_tui_dialog_set_field_value(&state->dialog, 5, state->pending_notes);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 4, state->pending_notes);
         apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
         return;
     }
@@ -4991,6 +5051,8 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
         }
         return;
     }
+    case 'f':
+    case 'F':
     case '$': {
         set_section(state, APL_TUI_SECTION_MONEY);
         return;
@@ -5485,10 +5547,9 @@ static void open_money_filter_dialog(shell_state *const state)
 {
     const bool budgets = state->screen == SHELL_SCREEN_BUDGET_LIST;
     apl_tui_dialog_open_form(&state->dialog, "Filter by category",
-                             "Leave blank to include every category. Labels are compared "
-                             "case-insensitively ignoring extra whitespace.");
+                             "Blank includes every category.");
     (void)apl_tui_dialog_add_field(
-        &state->dialog, "Category",
+        &state->dialog, "Category (blank = all)",
         budgets ? state->budget_category_filter : state->money_category_filter, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_FILTER;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
@@ -5602,11 +5663,13 @@ static void handle_money_list_input(shell_state *const state, const uint32_t id)
         open_money_filter_dialog(state);
         return;
     case 'C':
+        state->money_date_preset = 0;
+        state->money_kind_filter = 0;
         state->money_category_filter[0] = '\0';
         if (load_ledger(state, 0, &error) != APL_OK) {
             show_error_dialog(state, &error);
         } else {
-            set_status(state, "Category filter cleared.");
+            set_status(state, "Money filters cleared.");
         }
         return;
     case 'q':
@@ -5698,11 +5761,12 @@ static void handle_budget_list_input(shell_state *const state, const uint32_t id
         open_money_filter_dialog(state);
         return;
     case 'C':
+        state->budget_date_preset = 0;
         state->budget_category_filter[0] = '\0';
         if (load_budget_report(state, &error) != APL_OK) {
             show_error_dialog(state, &error);
         } else {
-            set_status(state, "Report category filter cleared.");
+            set_status(state, "Report filters cleared.");
         }
         return;
     case NCKEY_ESC:
