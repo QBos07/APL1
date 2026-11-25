@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "core/error.h"
+#include "domain/record.h"
 
 /*
  * Team identity and validation (work items 2.5/2.7).
@@ -22,7 +23,7 @@ constexpr size_t APL_TEAM_NAME_MAX = 128;
 constexpr size_t APL_TEAM_NOTES_MAX = 1024;
 
 /** Maximum stored timestamp length, including the terminating NUL. */
-constexpr size_t APL_TEAM_TIMESTAMP_MAX = 32;
+constexpr size_t APL_TEAM_TIMESTAMP_MAX = APL_RECORD_TIMESTAMP_MAX;
 
 /** A persisted team row. Text fields are NUL-terminated and owned by the
  *  value; optional text is an empty string, never a null pointer. */
@@ -30,11 +31,7 @@ typedef struct apl_team {
     int64_t id;
     char name[APL_TEAM_NAME_MAX];
     char notes[APL_TEAM_NOTES_MAX];
-    bool archived;
-    char created_at[APL_TEAM_TIMESTAMP_MAX];
-    char updated_at[APL_TEAM_TIMESTAMP_MAX];
-    /** Empty when the team is not archived. */
-    char archived_at[APL_TEAM_TIMESTAMP_MAX];
+    apl_record_meta meta;
 } apl_team;
 
 /** Trim surrounding whitespace from a user-entered team name into `out`.

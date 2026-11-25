@@ -195,7 +195,7 @@ apl_status apl_season_service_archive(const apl_app *const app, const int64_t te
     }
     apl_season existing = {};
     status = apl_season_repository_get(&app->db, team_id, id, &existing, error);
-    if (status == APL_OK && existing.archived) {
+    if (status == APL_OK && existing.meta.archived) {
         *out_season = existing;
         return apl_use_case_commit(&transaction, "cannot archive season", error);
     }

@@ -28,10 +28,10 @@ Test(team_repository, create_stores_normalized_team_without_seeding_others)
     cr_assert_gt(team.id, 0);
     cr_assert_str_eq(team.name, "Ferrari");
     cr_assert_str_eq(team.notes, "Maranello");
-    cr_assert_not(team.archived);
-    cr_assert_neq(team.created_at[0], '\0');
-    cr_assert_neq(team.updated_at[0], '\0');
-    cr_assert_str_eq(team.archived_at, "");
+    cr_assert_not(team.meta.archived);
+    cr_assert_neq(team.meta.created_at[0], '\0');
+    cr_assert_neq(team.meta.updated_at[0], '\0');
+    cr_assert_str_eq(team.meta.archived_at, "");
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }
@@ -90,8 +90,8 @@ Test(team_repository, update_preserves_id_and_changes_profile)
     cr_assert_eq(updated.id, created.id);
     cr_assert_str_eq(updated.name, "Scuderia Ferrari");
     cr_assert_str_eq(updated.notes, "new notes");
-    cr_assert_str_eq(updated.created_at, created.created_at);
-    cr_assert_not(updated.archived);
+    cr_assert_str_eq(updated.meta.created_at, created.meta.created_at);
+    cr_assert_not(updated.meta.archived);
 
     apl_team fetched = {};
     cr_assert_eq(apl_team_repository_get(&db.connection, created.id, &fetched, &err), APL_OK);
@@ -126,15 +126,15 @@ Test(team_repository, archive_marks_team_and_preserves_timestamp_on_repeat)
 
     apl_team archived = {};
     cr_assert_eq(apl_team_repository_archive(&db.connection, created.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
-    cr_assert_neq(archived.archived_at[0], '\0');
+    cr_assert(archived.meta.archived);
+    cr_assert_neq(archived.meta.archived_at[0], '\0');
     char first_archive[APL_TEAM_TIMESTAMP_MAX];
-    (void)snprintf(first_archive, sizeof(first_archive), "%s", archived.archived_at);
+    (void)snprintf(first_archive, sizeof(first_archive), "%s", archived.meta.archived_at);
 
     apl_team archived_again = {};
     cr_assert_eq(apl_team_repository_archive(&db.connection, created.id, &archived_again, &err),
                  APL_OK);
-    cr_assert_str_eq(archived_again.archived_at, first_archive);
+    cr_assert_str_eq(archived_again.meta.archived_at, first_archive);
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }
@@ -165,7 +165,7 @@ Test(team_repository, list_filters_archived_and_orders_active_before_archived)
     cr_assert_eq(all_count, 2);
     cr_assert_str_eq(all[0].name, "Alpha");
     cr_assert_str_eq(all[1].name, "Zebra");
-    cr_assert(all[1].archived);
+    cr_assert(all[1].meta.archived);
     apl_team_repository_free_list(all);
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);

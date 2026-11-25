@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "core/error.h"
+#include "domain/record.h"
 
 /*
  * User-maintained reference records (Phase 3).
@@ -20,7 +21,7 @@ constexpr size_t APL_REFERENCE_LABEL_MAX = 128;
 constexpr size_t APL_REFERENCE_SHORT_MAX = 64;
 constexpr size_t APL_REFERENCE_NOTES_MAX = 1024;
 constexpr size_t APL_REFERENCE_DATE_MAX = 11;
-constexpr size_t APL_REFERENCE_TIMESTAMP_MAX = 32;
+constexpr size_t APL_REFERENCE_TIMESTAMP_MAX = APL_RECORD_TIMESTAMP_MAX;
 constexpr size_t APL_ACTIVITY_ACTION_MAX = 64;
 constexpr size_t APL_ACTIVITY_ENTITY_MAX = 64;
 constexpr size_t APL_ACTIVITY_SUMMARY_MAX = 512;
@@ -35,10 +36,7 @@ typedef struct apl_season {
     char start_date[APL_REFERENCE_DATE_MAX];
     char end_date[APL_REFERENCE_DATE_MAX];
     char notes[APL_REFERENCE_NOTES_MAX];
-    bool archived;
-    char created_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char updated_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char archived_at[APL_REFERENCE_TIMESTAMP_MAX];
+    apl_record_meta meta;
 } apl_season;
 
 /** A shared driver identity. Team affiliation belongs to memberships. */
@@ -47,10 +45,7 @@ typedef struct apl_driver {
     char name[APL_REFERENCE_LABEL_MAX];
     char short_name[APL_REFERENCE_SHORT_MAX];
     char notes[APL_REFERENCE_NOTES_MAX];
-    bool archived;
-    char created_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char updated_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char archived_at[APL_REFERENCE_TIMESTAMP_MAX];
+    apl_record_meta meta;
 } apl_driver;
 
 /** One dated driver/team membership period. An empty end date means current. */
@@ -62,8 +57,7 @@ typedef struct apl_membership {
     char end_date[APL_REFERENCE_DATE_MAX];
     char role[APL_REFERENCE_SHORT_MAX];
     char notes[APL_REFERENCE_NOTES_MAX];
-    char created_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char updated_at[APL_REFERENCE_TIMESTAMP_MAX];
+    apl_record_meta meta;
 } apl_membership;
 
 /** A team-owned car/chassis reference record. */
@@ -73,10 +67,7 @@ typedef struct apl_car {
     char label[APL_REFERENCE_LABEL_MAX];
     char chassis[APL_REFERENCE_SHORT_MAX];
     char notes[APL_REFERENCE_NOTES_MAX];
-    bool archived;
-    char created_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char updated_at[APL_REFERENCE_TIMESTAMP_MAX];
-    char archived_at[APL_REFERENCE_TIMESTAMP_MAX];
+    apl_record_meta meta;
 } apl_car;
 
 /** Normalize a required, trimmed label/name. */

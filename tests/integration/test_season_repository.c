@@ -41,7 +41,7 @@ Test(season_repository, create_list_get_update_and_archive)
     cr_assert_str_eq(created.start_date, "2026-01-01");
     cr_assert_str_eq(created.end_date, "2026-12-31");
     cr_assert_str_eq(created.notes, "Main season");
-    cr_assert_not(created.archived);
+    cr_assert_not(created.meta.archived);
 
     apl_season fetched = {};
     cr_assert_eq(apl_season_repository_get(&db.connection, team.id, created.id, &fetched, &err),
@@ -56,14 +56,14 @@ Test(season_repository, create_list_get_update_and_archive)
     cr_assert_str_eq(updated.label, "2026 season");
     cr_assert_str_eq(updated.start_date, "");
     cr_assert_str_eq(updated.end_date, "");
-    cr_assert_str_eq(updated.created_at, created.created_at);
+    cr_assert_str_eq(updated.meta.created_at, created.meta.created_at);
 
     apl_season archived = {};
     cr_assert_eq(
         apl_season_repository_archive(&db.connection, team.id, created.id, &archived, &err),
         APL_OK);
-    cr_assert(archived.archived);
-    cr_assert_neq(archived.archived_at[0], '\0');
+    cr_assert(archived.meta.archived);
+    cr_assert_neq(archived.meta.archived_at[0], '\0');
 
     apl_season *active = nullptr;
     size_t active_count = 1;
@@ -78,7 +78,7 @@ Test(season_repository, create_list_get_update_and_archive)
     cr_assert_eq(apl_season_repository_list(&db.connection, team.id, true, &all, &all_count, &err),
                  APL_OK);
     cr_assert_eq(all_count, 1);
-    cr_assert(all[0].archived);
+    cr_assert(all[0].meta.archived);
     apl_season_repository_free_list(all);
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);

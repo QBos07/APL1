@@ -160,7 +160,7 @@ Test(team_service, archiving_active_team_falls_back_and_keeps_row)
 
     apl_team archived = {};
     cr_assert_eq(apl_team_service_archive(&app, ferrari.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
+    cr_assert(archived.meta.archived);
     cr_assert_str_eq(archived.notes, "history");
 
     apl_team active = {};
@@ -171,7 +171,7 @@ Test(team_service, archiving_active_team_falls_back_and_keeps_row)
 
     apl_team fetched = {};
     cr_assert_eq(apl_team_service_get(&app, ferrari.id, &fetched, &err), APL_OK);
-    cr_assert(fetched.archived);
+    cr_assert(fetched.meta.archived);
     cr_assert_str_eq(fetched.name, "Ferrari");
 
     close_test_app(&app, dir, &err);
@@ -289,7 +289,7 @@ Test(team_service, list_can_include_archived_teams)
     cr_assert_eq(apl_team_service_list(&app, true, &all, &all_count, &err), APL_OK);
     cr_assert_eq(all_count, 2);
     cr_assert_str_eq(all[1].name, "Ferrari");
-    cr_assert(all[1].archived);
+    cr_assert(all[1].meta.archived);
     apl_team_service_free_list(all);
 
     close_test_app(&app, dir, &err);
@@ -346,7 +346,7 @@ Test(team_service, repeated_archive_is_idempotent_and_keeps_fallback)
     apl_team archived = {};
     cr_assert_eq(apl_team_service_archive(&app, first.id, &archived, &err), APL_OK);
     cr_assert_eq(apl_team_service_archive(&app, first.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
+    cr_assert(archived.meta.archived);
 
     apl_team active = {};
     apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;

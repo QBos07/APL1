@@ -109,7 +109,7 @@ Test(team_audit, create_rename_notes_noop_and_archive_are_recorded_once)
     cr_assert_str_eq(changes[0].new_value, "New notes");
     apl_activity_repository_free_changes(changes);
 
-    const char *const updated_before = renamed.updated_at;
+    const char *const updated_before = renamed.meta.updated_at;
     char updated_copy[APL_TEAM_TIMESTAMP_MAX];
     (void)snprintf(updated_copy, sizeof(updated_copy), "%s", updated_before);
     apl_team noop = {};
@@ -117,7 +117,7 @@ Test(team_audit, create_rename_notes_noop_and_archive_are_recorded_once)
         apl_team_service_update(&app, first.id, "Scuderia Ferrari", "New notes", &noop, &err),
         APL_OK);
     cr_assert_eq(activity_count(&app, &err), 3);
-    cr_assert_str_eq(noop.updated_at, updated_copy);
+    cr_assert_str_eq(noop.meta.updated_at, updated_copy);
 
     apl_team second = {};
     cr_assert_eq(apl_team_service_create(&app, "McLaren", "", &second, &err), APL_OK);
@@ -125,7 +125,7 @@ Test(team_audit, create_rename_notes_noop_and_archive_are_recorded_once)
 
     apl_team archived = {};
     cr_assert_eq(apl_team_service_archive(&app, first.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
+    cr_assert(archived.meta.archived);
     const size_t after_archive = activity_count(&app, &err);
     cr_assert_eq(after_archive, 5);
     event = latest_event(&app, &err);
@@ -142,7 +142,7 @@ Test(team_audit, create_rename_notes_noop_and_archive_are_recorded_once)
 
     apl_team archived_again = {};
     cr_assert_eq(apl_team_service_archive(&app, first.id, &archived_again, &err), APL_OK);
-    cr_assert_str_eq(archived_again.archived_at, archived.archived_at);
+    cr_assert_str_eq(archived_again.meta.archived_at, archived.meta.archived_at);
     cr_assert_eq(activity_count(&app, &err), after_archive);
 
     close_test_app(&app, dir, &err);
@@ -206,7 +206,7 @@ Test(team_audit, audit_failure_rolls_back_archive_and_active_team_fallback)
 
     apl_team stored = {};
     cr_assert_eq(apl_team_service_get(&app, first.id, &stored, &err), APL_OK);
-    cr_assert_not(stored.archived);
+    cr_assert_not(stored.meta.archived);
 
     apl_team active = {};
     apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;

@@ -14,10 +14,10 @@ static void read_team(sqlite3_stmt *const statement, apl_team *const team)
     team->id = sqlite3_column_int64(statement, 0);
     apl_db_copy_column_text(statement, 1, team->name, sizeof(team->name));
     apl_db_copy_column_text(statement, 2, team->notes, sizeof(team->notes));
-    team->archived = sqlite3_column_int(statement, 3) != 0;
-    apl_db_copy_column_text(statement, 4, team->created_at, sizeof(team->created_at));
-    apl_db_copy_column_text(statement, 5, team->updated_at, sizeof(team->updated_at));
-    apl_db_copy_column_text(statement, 6, team->archived_at, sizeof(team->archived_at));
+    team->meta.archived = sqlite3_column_int(statement, 3) != 0;
+    apl_db_copy_column_text(statement, 4, team->meta.created_at, sizeof(team->meta.created_at));
+    apl_db_copy_column_text(statement, 5, team->meta.updated_at, sizeof(team->meta.updated_at));
+    apl_db_copy_column_text(statement, 6, team->meta.archived_at, sizeof(team->meta.archived_at));
 }
 
 /** Translate a failed team write, including unique-name conflicts. */

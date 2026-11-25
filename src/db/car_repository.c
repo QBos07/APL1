@@ -16,10 +16,10 @@ static void read_car(sqlite3_stmt *const statement, apl_car *const car)
     apl_db_copy_column_text(statement, 2, car->label, sizeof(car->label));
     apl_db_copy_column_text(statement, 3, car->chassis, sizeof(car->chassis));
     apl_db_copy_column_text(statement, 4, car->notes, sizeof(car->notes));
-    car->archived = sqlite3_column_int(statement, 5) != 0;
-    apl_db_copy_column_text(statement, 6, car->created_at, sizeof(car->created_at));
-    apl_db_copy_column_text(statement, 7, car->updated_at, sizeof(car->updated_at));
-    apl_db_copy_column_text(statement, 8, car->archived_at, sizeof(car->archived_at));
+    car->meta.archived = sqlite3_column_int(statement, 5) != 0;
+    apl_db_copy_column_text(statement, 6, car->meta.created_at, sizeof(car->meta.created_at));
+    apl_db_copy_column_text(statement, 7, car->meta.updated_at, sizeof(car->meta.updated_at));
+    apl_db_copy_column_text(statement, 8, car->meta.archived_at, sizeof(car->meta.archived_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, const char *const label,

@@ -56,7 +56,7 @@ Test(team_isolation, writes_to_one_team_do_not_change_another)
     cr_assert_eq(blue_after_update.id, blue_before.id);
     cr_assert_str_eq(blue_after_update.name, "Blue Team");
     cr_assert_str_eq(blue_after_update.notes, "blue notes");
-    cr_assert_eq(blue_after_update.archived, blue_before.archived);
+    cr_assert_eq(blue_after_update.meta.archived, blue_before.meta.archived);
 
     /* Archiving red leaves blue active and independent. */
     cr_assert_eq(apl_team_service_set_active(&app, blue.id, &err), APL_OK);
@@ -67,7 +67,7 @@ Test(team_isolation, writes_to_one_team_do_not_change_another)
     cr_assert_eq(apl_team_service_get(&app, blue.id, &blue_after_archive, &err), APL_OK);
     cr_assert_str_eq(blue_after_archive.name, "Blue Team");
     cr_assert_str_eq(blue_after_archive.notes, "blue notes");
-    cr_assert_not(blue_after_archive.archived);
+    cr_assert_not(blue_after_archive.meta.archived);
 
     apl_team active = {};
     apl_active_team_status active_status = APL_ACTIVE_TEAM_NONE;
@@ -90,14 +90,14 @@ Test(team_isolation, writes_to_one_team_do_not_change_another)
     cr_assert_eq(all_count, 2);
     cr_assert_str_eq(all[0].name, "Blue Team");
     cr_assert_str_eq(all[1].name, "Red Team Renamed");
-    cr_assert(all[1].archived);
+    cr_assert(all[1].meta.archived);
     apl_team_service_free_list(all);
 
     /* The last remaining active team is protected from archive. */
     apl_team last_archive = {};
     cr_assert_eq(apl_team_service_archive(&app, blue.id, &last_archive, &err), APL_ERR_CONFLICT);
     cr_assert_eq(apl_team_service_get(&app, blue.id, &blue_after_archive, &err), APL_OK);
-    cr_assert_not(blue_after_archive.archived);
+    cr_assert_not(blue_after_archive.meta.archived);
     cr_assert_eq(apl_team_service_active(&app, &active, &active_status, &err), APL_OK);
     cr_assert_eq(active.id, blue.id);
 

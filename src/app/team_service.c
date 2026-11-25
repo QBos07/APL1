@@ -207,8 +207,8 @@ static apl_status find_oldest_active_team(const apl_db_connection *const connect
 
     const apl_team *best = nullptr;
     for (size_t index = 0; index < count; ++index) {
-        if (best == nullptr || strcmp(teams[index].created_at, best->created_at) < 0 ||
-            (strcmp(teams[index].created_at, best->created_at) == 0 &&
+        if (best == nullptr || strcmp(teams[index].meta.created_at, best->meta.created_at) < 0 ||
+            (strcmp(teams[index].meta.created_at, best->meta.created_at) == 0 &&
              teams[index].id < best->id)) {
             best = &teams[index];
         }
@@ -237,7 +237,7 @@ apl_status apl_team_service_archive(const apl_app *const app, const int64_t id,
 
     apl_team existing = {};
     status = apl_team_repository_get(&app->db, id, &existing, error);
-    if (status == APL_OK && existing.archived) {
+    if (status == APL_OK && existing.meta.archived) {
         /* Archive is idempotent: do not write a second misleading activity
          * event or change the original archived_at timestamp. */
         *out_team = existing;
@@ -318,7 +318,7 @@ apl_status apl_team_service_active(const apl_app *const app, apl_team *const out
     }
 
     status = apl_team_repository_get(&app->db, team_id, out_team, error);
-    if (status == APL_OK && !out_team->archived) {
+    if (status == APL_OK && !out_team->meta.archived) {
         *out_status = APL_ACTIVE_TEAM_ACTIVE;
         return APL_OK;
     }

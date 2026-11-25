@@ -166,7 +166,7 @@ Test(membership_service, verifies_references_dates_and_archived_driver_eligibili
 
     apl_driver archived = {};
     cr_assert_eq(apl_driver_service_archive(&app, driver.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
+    cr_assert(archived.meta.archived);
 
     apl_membership current_for_archived = {};
     cr_assert_eq(apl_membership_service_create(&app, team.id, driver.id, "2026-01-01", "", "", "",

@@ -50,8 +50,8 @@ Test(car_repository, create_update_archive_and_optional_fields)
     apl_car archived = {};
     cr_assert_eq(apl_car_repository_archive(&db.connection, team.id, created.id, &archived, &err),
                  APL_OK);
-    cr_assert(archived.archived);
-    cr_assert_neq(archived.archived_at[0], '\0');
+    cr_assert(archived.meta.archived);
+    cr_assert_neq(archived.meta.archived_at[0], '\0');
 
     size_t count = 1;
     apl_car *cars = nullptr;
@@ -63,7 +63,7 @@ Test(car_repository, create_update_archive_and_optional_fields)
     cr_assert_eq(apl_car_repository_list(&db.connection, team.id, true, &cars, &count, &err),
                  APL_OK);
     cr_assert_eq(count, 1);
-    cr_assert(cars[0].archived);
+    cr_assert(cars[0].meta.archived);
     apl_car_repository_free_list(cars);
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);

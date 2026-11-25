@@ -47,7 +47,7 @@ Test(driver_repository, duplicate_names_remain_distinct_and_archive_round_trips)
 
     apl_driver archived = {};
     cr_assert_eq(apl_driver_repository_archive(&db.connection, first.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
+    cr_assert(archived.meta.archived);
 
     size_t count = 1;
     apl_driver *drivers = nullptr;

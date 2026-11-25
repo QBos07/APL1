@@ -242,7 +242,7 @@ static size_t non_archived_count(const shell_state *const state)
 {
     size_t count = 0;
     for (size_t index = 0; index < state->team_count; ++index) {
-        if (!state->teams[index].archived) {
+        if (!state->teams[index].meta.archived) {
             ++count;
         }
     }
@@ -251,7 +251,7 @@ static size_t non_archived_count(const shell_state *const state)
 
 static bool can_archive_team(const shell_state *const state, const apl_team *const team)
 {
-    return team != nullptr && !team->archived && non_archived_count(state) > 1;
+    return team != nullptr && !team->meta.archived && non_archived_count(state) > 1;
 }
 
 /** Form field index for a business validation message. */
@@ -1183,9 +1183,9 @@ static void build_team_picker_dialog(shell_state *const state)
             active_status_has_team(state->active_status) && team->id == state->active_team.id;
         char label[APL_TUI_DIALOG_OPTION_LABEL_MAX];
         (void)snprintf(label, sizeof(label), "%s%s", team->name,
-                       team->archived ? " [archived]" : "");
+                       team->meta.archived ? " [archived]" : "");
         const unsigned option =
-            apl_tui_dialog_add_option(&state->dialog, label, !team->archived, active);
+            apl_tui_dialog_add_option(&state->dialog, label, !team->meta.archived, active);
         if (active && option != UINT_MAX) {
             active_option = option;
         }
@@ -1252,7 +1252,7 @@ static void finish_team_picker(shell_state *const state, const apl_tui_dialog_re
         const bool already_active =
             active_status_has_team(state->active_status) && state->active_team.id == team.id;
         close_shell_dialog(state);
-        if (team.archived) {
+        if (team.meta.archived) {
             set_status_warning(state, "Archived teams cannot be active.");
             return;
         }
@@ -1374,7 +1374,7 @@ static void open_driver_choice(shell_state *const state, apl_driver *const drive
                            (long long)drivers[index].id);
         }
         const unsigned option =
-            apl_tui_dialog_add_option(&state->dialog, label, !drivers[index].archived, false);
+            apl_tui_dialog_add_option(&state->dialog, label, !drivers[index].meta.archived, false);
         if (option != UINT_MAX) {
             state->driver_choice_ids[state->driver_choice_count++] = drivers[index].id;
         }
@@ -1706,7 +1706,7 @@ static void draw_team_list(shell_state *const state)
 
         char line[APL_TEAM_NAME_MAX + APL_TEAM_NOTES_MAX + 32];
         (void)snprintf(line, sizeof(line), "%c%c %s%s%s%s", focused ? '>' : ' ', active ? '*' : ' ',
-                       team->name, team->archived ? " [archived]" : "",
+                       team->name, team->meta.archived ? " [archived]" : "",
                        team->notes[0] != '\0' ? "  -  " : "", team->notes);
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
@@ -1728,7 +1728,7 @@ static void draw_team_detail(shell_state *const state)
     (void)snprintf(line, sizeof(line), "Name: %s", state->detail.name);
     apl_tui_frame_draw_line(body, row++, line);
     (void)snprintf(line, sizeof(line), "Status: %s",
-                   state->detail.archived ? "Archived" : "Active");
+                   state->detail.meta.archived ? "Archived" : "Active");
     apl_tui_frame_draw_line(body, row++, line);
 
     apl_tui_frame_draw_line(body, row++, "Notes:");
@@ -1738,12 +1738,12 @@ static void draw_team_detail(shell_state *const state)
     row += (note_rows > 0) ? (int)note_rows : 1;
 
     ++row;
-    (void)snprintf(line, sizeof(line), "Created: %s", state->detail.created_at);
+    (void)snprintf(line, sizeof(line), "Created: %s", state->detail.meta.created_at);
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Updated: %s", state->detail.updated_at);
+    (void)snprintf(line, sizeof(line), "Updated: %s", state->detail.meta.updated_at);
     apl_tui_frame_draw_line(body, row++, line);
-    if (state->detail.archived) {
-        (void)snprintf(line, sizeof(line), "Archived: %s", state->detail.archived_at);
+    if (state->detail.meta.archived) {
+        (void)snprintf(line, sizeof(line), "Archived: %s", state->detail.meta.archived_at);
         apl_tui_frame_draw_line(body, row++, line);
     }
 
@@ -1789,7 +1789,7 @@ static void draw_season_list(shell_state *const state)
         char line[APL_REFERENCE_LABEL_MAX + APL_REFERENCE_NOTES_MAX + 96];
         (void)snprintf(line, sizeof(line), "%c%c %s%s%s%s%.200s", focused ? '>' : ' ',
                        selected ? '*' : ' ', season->label, dates,
-                       season->archived ? " [archived]" : "",
+                       season->meta.archived ? " [archived]" : "",
                        season->notes[0] != '\0' ? "  -  " : "", season->notes);
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
@@ -1810,7 +1810,7 @@ static void draw_season_detail(shell_state *const state)
     char line[APL_REFERENCE_LABEL_MAX + 96];
     (void)snprintf(line, sizeof(line), "Label: %s", season->label);
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Status: %s", season->archived ? "Archived" : "Active");
+    (void)snprintf(line, sizeof(line), "Status: %s", season->meta.archived ? "Archived" : "Active");
     apl_tui_frame_draw_line(body, row++, line);
     (void)snprintf(line, sizeof(line), "Start date: %s",
                    season->start_date[0] != '\0' ? season->start_date : "not recorded");
@@ -1824,12 +1824,12 @@ static void draw_season_detail(shell_state *const state)
                                    season->notes[0] != '\0' ? season->notes : "not recorded");
     row += (int)(note_rows > 0 ? note_rows : 1);
     ++row;
-    (void)snprintf(line, sizeof(line), "Created: %s", season->created_at);
+    (void)snprintf(line, sizeof(line), "Created: %s", season->meta.created_at);
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Updated: %s", season->updated_at);
+    (void)snprintf(line, sizeof(line), "Updated: %s", season->meta.updated_at);
     apl_tui_frame_draw_line(body, row++, line);
-    if (season->archived) {
-        (void)snprintf(line, sizeof(line), "Archived: %s", season->archived_at);
+    if (season->meta.archived) {
+        (void)snprintf(line, sizeof(line), "Archived: %s", season->meta.archived_at);
         apl_tui_frame_draw_line(body, row++, line);
     }
     ++row;
@@ -1865,7 +1865,7 @@ static void draw_car_list(shell_state *const state)
         (void)snprintf(line, sizeof(line), "%c %s%s%s%s", focused ? '>' : ' ', car->label,
                        car->chassis[0] != '\0' ? "  chassis: " : "",
                        car->chassis[0] != '\0' ? car->chassis : "",
-                       car->archived ? " [archived]" : "");
+                       car->meta.archived ? " [archived]" : "");
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)offset, line);
@@ -1888,7 +1888,7 @@ static void draw_car_detail(shell_state *const state)
     (void)snprintf(line, sizeof(line), "Chassis: %s",
                    car->chassis[0] != '\0' ? car->chassis : "not recorded");
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Status: %s", car->archived ? "Archived" : "Active");
+    (void)snprintf(line, sizeof(line), "Status: %s", car->meta.archived ? "Archived" : "Active");
     apl_tui_frame_draw_line(body, row++, line);
     apl_tui_frame_draw_line(body, row++, "Notes:");
     const unsigned note_rows =
@@ -1896,12 +1896,12 @@ static void draw_car_detail(shell_state *const state)
                                    car->notes[0] != '\0' ? car->notes : "not recorded");
     row += (int)(note_rows > 0 ? note_rows : 1);
     ++row;
-    (void)snprintf(line, sizeof(line), "Created: %s", car->created_at);
+    (void)snprintf(line, sizeof(line), "Created: %s", car->meta.created_at);
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Updated: %s", car->updated_at);
+    (void)snprintf(line, sizeof(line), "Updated: %s", car->meta.updated_at);
     apl_tui_frame_draw_line(body, row++, line);
-    if (car->archived) {
-        (void)snprintf(line, sizeof(line), "Archived: %s", car->archived_at);
+    if (car->meta.archived) {
+        (void)snprintf(line, sizeof(line), "Archived: %s", car->meta.archived_at);
         apl_tui_frame_draw_line(body, row++, line);
     }
     ++row;
@@ -1957,10 +1957,11 @@ static void draw_people_list(shell_state *const state)
         if (driver->short_name[0] != '\0') {
             (void)snprintf(line, sizeof(line), "%c %.80s (%.40s)  [%s]%s", focused ? '>' : ' ',
                            driver->name, driver->short_name, membership_state,
-                           driver->archived ? " [archived]" : "");
+                           driver->meta.archived ? " [archived]" : "");
         } else {
             (void)snprintf(line, sizeof(line), "%c %.100s  [%s]%s", focused ? '>' : ' ',
-                           driver->name, membership_state, driver->archived ? " [archived]" : "");
+                           driver->name, membership_state,
+                           driver->meta.archived ? " [archived]" : "");
         }
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
@@ -1984,7 +1985,7 @@ static void draw_person_detail(shell_state *const state)
     (void)snprintf(line, sizeof(line), "Short name: %s",
                    driver->short_name[0] != '\0' ? driver->short_name : "not recorded");
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Status: %s", driver->archived ? "Archived" : "Active");
+    (void)snprintf(line, sizeof(line), "Status: %s", driver->meta.archived ? "Archived" : "Active");
     apl_tui_frame_draw_line(body, row++, line);
     apl_tui_frame_draw_line(body, row++, "Notes:");
     const unsigned note_rows =
@@ -2018,9 +2019,9 @@ static void draw_person_detail(shell_state *const state)
         }
     }
     ++row;
-    (void)snprintf(line, sizeof(line), "Created: %s", driver->created_at);
+    (void)snprintf(line, sizeof(line), "Created: %s", driver->meta.created_at);
     apl_tui_frame_draw_line(body, row++, line);
-    (void)snprintf(line, sizeof(line), "Updated: %s", driver->updated_at);
+    (void)snprintf(line, sizeof(line), "Updated: %s", driver->meta.updated_at);
     apl_tui_frame_draw_line(body, row++, line);
     ++row;
     apl_tui_frame_draw_line(body, row++, "m add membership   d end current membership");
@@ -2897,7 +2898,7 @@ static void execute_command_line(shell_state *const state)
             show_info_dialog(state, "Team not found", message);
             return;
         }
-        if (chosen.archived) {
+        if (chosen.meta.archived) {
             set_status_warning(state, "Archived team '%s' cannot be active.", chosen.name);
             show_info_dialog(state, "Archived team",
                              "Archived teams cannot be the active workspace.");
@@ -3823,7 +3824,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
         return;
     case 'e':
     case 'E':
-        if (state->detail.archived) {
+        if (state->detail.meta.archived) {
             set_status_warning(state, "Archived teams cannot be edited in this phase.");
         } else {
             open_edit_form(state);
@@ -3863,7 +3864,7 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
     }
     case 'x':
     case 'X':
-        if (state->detail.archived) {
+        if (state->detail.meta.archived) {
             set_status_warning(state, "This team is already archived.");
         } else if (!can_archive_team(state, &state->detail)) {
             set_status(state,
@@ -3997,7 +3998,7 @@ static void handle_season_detail_input(shell_state *const state, const uint32_t 
     }
     case 'e':
     case 'E':
-        if (state->season_detail.archived) {
+        if (state->season_detail.meta.archived) {
             set_status_warning(state, "Archived seasons are read-only in this view.");
         } else {
             open_season_dialog(state, true, state->season_detail.label,
@@ -4007,7 +4008,7 @@ static void handle_season_detail_input(shell_state *const state, const uint32_t 
         return;
     case 'x':
     case 'X':
-        if (state->season_detail.archived) {
+        if (state->season_detail.meta.archived) {
             set_status_warning(state, "This season is already archived.");
         } else {
             state->pending = SHELL_PENDING_ARCHIVE_SEASON;
@@ -4092,7 +4093,7 @@ static void handle_car_detail_input(shell_state *const state, const uint32_t id)
     }
     case 'e':
     case 'E':
-        if (state->car_detail.archived) {
+        if (state->car_detail.meta.archived) {
             set_status_warning(state, "Archived cars are read-only in this view.");
         } else {
             open_car_dialog(state, true, state->car_detail.label, state->car_detail.chassis,
@@ -4101,7 +4102,7 @@ static void handle_car_detail_input(shell_state *const state, const uint32_t id)
         return;
     case 'x':
     case 'X':
-        if (state->car_detail.archived) {
+        if (state->car_detail.meta.archived) {
             set_status_warning(state, "This car is already archived.");
         } else {
             state->pending = SHELL_PENDING_ARCHIVE_CAR;
@@ -4216,7 +4217,7 @@ static void handle_person_detail_input(shell_state *const state, const uint32_t 
     }
     case 'e':
     case 'E':
-        if (state->driver_detail.archived) {
+        if (state->driver_detail.meta.archived) {
             set_status_warning(state, "Archived drivers are read-only in this view.");
         } else {
             open_driver_dialog(state, true, state->driver_detail.name,
@@ -4225,7 +4226,7 @@ static void handle_person_detail_input(shell_state *const state, const uint32_t 
         return;
     case 'x':
     case 'X':
-        if (state->driver_detail.archived) {
+        if (state->driver_detail.meta.archived) {
             set_status_warning(state, "This driver is already archived.");
         } else {
             state->pending = SHELL_PENDING_ARCHIVE_DRIVER;

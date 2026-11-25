@@ -22,7 +22,7 @@ static apl_status verify_references(const apl_app *const app, const int64_t team
     if (status != APL_OK) {
         return status;
     }
-    if (team.archived) {
+    if (team.meta.archived) {
         apl_error_set(error, APL_ERR_NOT_FOUND, "archived teams cannot receive new memberships");
         return APL_ERR_NOT_FOUND;
     }
@@ -32,7 +32,7 @@ static apl_status verify_references(const apl_app *const app, const int64_t team
     if (status != APL_OK) {
         return status;
     }
-    if (require_current_eligible && driver.archived) {
+    if (require_current_eligible && driver.meta.archived) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
                       "archived drivers cannot start a new current membership");
         return APL_ERR_INVALID_ARGUMENT;

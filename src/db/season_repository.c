@@ -27,10 +27,11 @@ static void read_season(sqlite3_stmt *const statement, apl_season *const season)
     apl_db_copy_column_text(statement, 3, season->start_date, sizeof(season->start_date));
     apl_db_copy_column_text(statement, 4, season->end_date, sizeof(season->end_date));
     apl_db_copy_column_text(statement, 5, season->notes, sizeof(season->notes));
-    season->archived = sqlite3_column_int(statement, 6) != 0;
-    apl_db_copy_column_text(statement, 7, season->created_at, sizeof(season->created_at));
-    apl_db_copy_column_text(statement, 8, season->updated_at, sizeof(season->updated_at));
-    apl_db_copy_column_text(statement, 9, season->archived_at, sizeof(season->archived_at));
+    season->meta.archived = sqlite3_column_int(statement, 6) != 0;
+    apl_db_copy_column_text(statement, 7, season->meta.created_at, sizeof(season->meta.created_at));
+    apl_db_copy_column_text(statement, 8, season->meta.updated_at, sizeof(season->meta.updated_at));
+    apl_db_copy_column_text(statement, 9, season->meta.archived_at,
+                            sizeof(season->meta.archived_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, const char *const label,

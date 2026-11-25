@@ -14,10 +14,11 @@ static void read_driver(sqlite3_stmt *const statement, apl_driver *const driver)
     apl_db_copy_column_text(statement, 1, driver->name, sizeof(driver->name));
     apl_db_copy_column_text(statement, 2, driver->short_name, sizeof(driver->short_name));
     apl_db_copy_column_text(statement, 3, driver->notes, sizeof(driver->notes));
-    driver->archived = sqlite3_column_int(statement, 4) != 0;
-    apl_db_copy_column_text(statement, 5, driver->created_at, sizeof(driver->created_at));
-    apl_db_copy_column_text(statement, 6, driver->updated_at, sizeof(driver->updated_at));
-    apl_db_copy_column_text(statement, 7, driver->archived_at, sizeof(driver->archived_at));
+    driver->meta.archived = sqlite3_column_int(statement, 4) != 0;
+    apl_db_copy_column_text(statement, 5, driver->meta.created_at, sizeof(driver->meta.created_at));
+    apl_db_copy_column_text(statement, 6, driver->meta.updated_at, sizeof(driver->meta.updated_at));
+    apl_db_copy_column_text(statement, 7, driver->meta.archived_at,
+                            sizeof(driver->meta.archived_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, apl_error *const error)

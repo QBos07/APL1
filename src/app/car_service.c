@@ -169,7 +169,7 @@ apl_status apl_car_service_archive(const apl_app *const app, const int64_t team_
     }
     apl_car existing = {};
     status = apl_car_repository_get(&app->db, team_id, id, &existing, error);
-    if (status == APL_OK && existing.archived) {
+    if (status == APL_OK && existing.meta.archived) {
         *out_car = existing;
         return apl_use_case_commit(&transaction, "cannot archive car", error);
     }

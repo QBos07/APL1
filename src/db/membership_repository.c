@@ -28,8 +28,10 @@ static void read_membership(sqlite3_stmt *const statement, apl_membership *const
     apl_db_copy_column_text(statement, 4, membership->end_date, sizeof(membership->end_date));
     apl_db_copy_column_text(statement, 5, membership->role, sizeof(membership->role));
     apl_db_copy_column_text(statement, 6, membership->notes, sizeof(membership->notes));
-    apl_db_copy_column_text(statement, 7, membership->created_at, sizeof(membership->created_at));
-    apl_db_copy_column_text(statement, 8, membership->updated_at, sizeof(membership->updated_at));
+    apl_db_copy_column_text(statement, 7, membership->meta.created_at,
+                            sizeof(membership->meta.created_at));
+    apl_db_copy_column_text(statement, 8, membership->meta.updated_at,
+                            sizeof(membership->meta.updated_at));
 }
 
 static apl_status write_error(sqlite3 *const handle, apl_error *const error)

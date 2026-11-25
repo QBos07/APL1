@@ -172,7 +172,7 @@ apl_status apl_driver_service_archive(const apl_app *const app, const int64_t id
     }
     apl_driver existing = {};
     status = apl_driver_repository_get(&app->db, id, &existing, error);
-    if (status == APL_OK && existing.archived) {
+    if (status == APL_OK && existing.meta.archived) {
         *out_driver = existing;
         return apl_use_case_commit(&transaction, "cannot archive driver", error);
     }

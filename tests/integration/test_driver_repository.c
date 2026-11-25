@@ -31,11 +31,11 @@ Test(driver_repository, create_get_update_archive_and_duplicate_names)
                  APL_OK);
     cr_assert_eq(updated.id, first.id);
     cr_assert_str_eq(updated.name, "Alex Driver Jr");
-    cr_assert_str_eq(updated.created_at, fetched.created_at);
+    cr_assert_str_eq(updated.meta.created_at, fetched.meta.created_at);
 
     apl_driver archived = {};
     cr_assert_eq(apl_driver_repository_archive(&db.connection, second.id, &archived, &err), APL_OK);
-    cr_assert(archived.archived);
+    cr_assert(archived.meta.archived);
 
     size_t count = 1;
     apl_driver *drivers = nullptr;
