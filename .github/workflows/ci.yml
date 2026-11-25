@@ -74,3 +74,58 @@ jobs:
             ci-build/apl1-tui-smoke.log
           if-no-files-found: ignore
           retention-days: 7
+
+  clang:
+    name: Clang build and tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates \
+            clang \
+            cmake \
+            git \
+            libcriterion-dev \
+            libnotcurses-dev \
+            libsqlite3-dev \
+            pkg-config
+
+      - name: Configure, build, and test
+        run: |
+          cmake -S . -B build-clang -DBUILD_TESTING=ON -DCMAKE_C_COMPILER=clang
+          cmake --build build-clang --parallel
+          ctest --test-dir build-clang --output-on-failure
+
+  sanitizers:
+    name: ASan + UBSan
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            cmake \
+            git \
+            libcriterion-dev \
+            libnotcurses-dev \
+            libsqlite3-dev \
+            pkg-config
+
+      - name: Configure, build, and test
+        run: |
+          cmake -S . -B build-sanitize -DBUILD_TESTING=ON \
+            -DENABLE_ASAN=ON -DENABLE_UBSAN=ON
+          cmake --build build-sanitize --parallel
+          ctest --test-dir build-sanitize --output-on-failure
