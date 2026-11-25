@@ -71,6 +71,7 @@ if(BUILD_TESTING)
         tests/unit/test_reference.c
         tests/unit/test_team.c
         tests/unit/test_text.c
+        tests/unit/test_util.c
         tests/integration/test_test_support.c
         tests/integration/test_activity_repository.c
         tests/integration/test_car_repository.c

@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdlib.h>
 
+#include "core/util.h"
 #include "db/sqlite_util.h"
 
 #define MEMBERSHIP_COLUMNS                                                                         \
@@ -312,16 +313,14 @@ static apl_status collect_memberships(sqlite3 *const handle, sqlite3_stmt *const
             break;
         }
         if (count == capacity) {
-            const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
             typeof(memberships) const grown =
-                realloc(memberships, grown_capacity * sizeof(*memberships));
+                apl_grow_array(memberships, &capacity, 8, sizeof(*memberships));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate membership list");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             memberships = grown;
-            capacity = grown_capacity;
         }
         read_membership(statement, &memberships[count]);
         ++count;

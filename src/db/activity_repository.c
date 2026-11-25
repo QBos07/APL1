@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdlib.h>
 
+#include "core/util.h"
 #include "db/sqlite_util.h"
 
 #define EVENT_COLUMNS "id, team_id, occurred_at, action, entity_type, entity_id, summary"
@@ -264,15 +265,13 @@ apl_status apl_activity_repository_list(const apl_db_connection *const connectio
             break;
         }
         if (count == capacity) {
-            const size_t grown_capacity = (capacity == 0) ? 16 : capacity * 2;
-            typeof(events) const grown = realloc(events, grown_capacity * sizeof(*events));
+            typeof(events) const grown = apl_grow_array(events, &capacity, 16, sizeof(*events));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate activity list");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             events = grown;
-            capacity = grown_capacity;
         }
         read_event(statement, &events[count]);
         ++count;
@@ -329,15 +328,13 @@ apl_status apl_activity_repository_list_changes(const apl_db_connection *const c
             break;
         }
         if (count == capacity) {
-            const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            typeof(changes) const grown = realloc(changes, grown_capacity * sizeof(*changes));
+            typeof(changes) const grown = apl_grow_array(changes, &capacity, 8, sizeof(*changes));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate activity changes");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             changes = grown;
-            capacity = grown_capacity;
         }
         apl_activity_change *const change = &changes[count];
         *change = (apl_activity_change){};

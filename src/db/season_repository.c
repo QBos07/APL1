@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdlib.h>
 
+#include "core/util.h"
 #include "db/sqlite_util.h"
 
 #define SEASON_COLUMNS                                                                             \
@@ -296,15 +297,13 @@ apl_status apl_season_repository_list(const apl_db_connection *const connection,
             break;
         }
         if (count == capacity) {
-            const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            typeof(seasons) const grown = realloc(seasons, grown_capacity * sizeof(*seasons));
+            typeof(seasons) const grown = apl_grow_array(seasons, &capacity, 8, sizeof(*seasons));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate season list");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             seasons = grown;
-            capacity = grown_capacity;
         }
         read_season(statement, &seasons[count]);
         ++count;

@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdlib.h>
 
+#include "core/util.h"
 #include "db/sqlite_util.h"
 
 #define DRIVER_COLUMNS "id, name, short_name, notes, archived, created_at, updated_at, archived_at"
@@ -229,15 +230,13 @@ static apl_status collect_drivers(sqlite3 *const handle, sqlite3_stmt *const sta
             break;
         }
         if (count == capacity) {
-            const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            typeof(drivers) const grown = realloc(drivers, grown_capacity * sizeof(*drivers));
+            typeof(drivers) const grown = apl_grow_array(drivers, &capacity, 8, sizeof(*drivers));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate driver list");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             drivers = grown;
-            capacity = grown_capacity;
         }
         read_driver(statement, &drivers[count]);
         ++count;

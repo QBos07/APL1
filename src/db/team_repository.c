@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdlib.h>
 
+#include "core/util.h"
 #include "db/sqlite_util.h"
 
 #define TEAM_COLUMNS "id, name, notes, archived, created_at, updated_at, archived_at"
@@ -272,20 +273,13 @@ apl_status apl_team_repository_list(const apl_db_connection *const connection,
         }
 
         if (count == capacity) {
-            const size_t new_capacity = (capacity == 0) ? 8 : capacity * 2;
-            if (new_capacity < capacity) {
-                apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "team list is too large");
-                status = APL_ERR_OUT_OF_MEMORY;
-                break;
-            }
-            typeof(teams) const grown = realloc(teams, new_capacity * sizeof(*teams));
+            typeof(teams) const grown = apl_grow_array(teams, &capacity, 8, sizeof(*teams));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate team list");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             teams = grown;
-            capacity = new_capacity;
         }
 
         read_team(statement, &teams[count]);

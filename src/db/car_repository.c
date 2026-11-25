@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 #include <stdlib.h>
 
+#include "core/util.h"
 #include "db/sqlite_util.h"
 
 #define CAR_COLUMNS                                                                                \
@@ -272,15 +273,13 @@ apl_status apl_car_repository_list(const apl_db_connection *const connection, co
             break;
         }
         if (count == capacity) {
-            const size_t grown_capacity = (capacity == 0) ? 8 : capacity * 2;
-            typeof(cars) const grown = realloc(cars, grown_capacity * sizeof(*cars));
+            typeof(cars) const grown = apl_grow_array(cars, &capacity, 8, sizeof(*cars));
             if (grown == nullptr) {
                 apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate car list");
                 status = APL_ERR_OUT_OF_MEMORY;
                 break;
             }
             cars = grown;
-            capacity = grown_capacity;
         }
         read_car(statement, &cars[count]);
         ++count;
