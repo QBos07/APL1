@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <notcurses/notcurses.h>
 #include <stdarg.h>
+#include <stdckdint.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,13 +11,17 @@
 #include <time.h>
 
 #include "app/activity_service.h"
+#include "app/budget_service.h"
 #include "app/car_service.h"
 #include "app/driver_service.h"
+#include "app/ledger_service.h"
 #include "app/membership_service.h"
 #include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
 #include "core/util.h"
+#include "domain/ledger.h"
+#include "domain/money.h"
 #include "domain/record.h"
 #include "tui/action.h"
 #include "tui/command.h"
@@ -42,6 +47,9 @@ typedef enum shell_screen {
     SHELL_SCREEN_PEOPLE_LIST,
     SHELL_SCREEN_PERSON_DETAIL,
     SHELL_SCREEN_HISTORY_LIST,
+    SHELL_SCREEN_MONEY_LIST,
+    SHELL_SCREEN_MONEY_DETAIL,
+    SHELL_SCREEN_BUDGET_LIST,
     SHELL_SCREEN_PLACEHOLDER,
 } shell_screen;
 
@@ -68,11 +76,18 @@ typedef enum shell_dialog_context {
     SHELL_DIALOG_CONTEXT_MEMBERSHIP_END,
     SHELL_DIALOG_CONTEXT_DRIVER_PICKER,
     SHELL_DIALOG_CONTEXT_ACTIVITY_DETAIL,
+    SHELL_DIALOG_CONTEXT_MONEY_CURRENCY,
+    SHELL_DIALOG_CONTEXT_MONEY_ENTRY,
+    SHELL_DIALOG_CONTEXT_MONEY_REVIEW,
+    SHELL_DIALOG_CONTEXT_MONEY_CORRECT,
+    SHELL_DIALOG_CONTEXT_MONEY_CORRECT_REVIEW,
+    SHELL_DIALOG_CONTEXT_MONEY_FILTER,
+    SHELL_DIALOG_CONTEXT_BUDGET_FORM,
+    SHELL_DIALOG_CONTEXT_BUDGET_REVIEW,
 } shell_dialog_context;
 
 constexpr int APL_TUI_SCROLL_STEP = 3;
 constexpr int64_t APL_TUI_DOUBLE_CLICK_MS = 500;
-constexpr size_t APL_TUI_HISTORY_FILTERS = 5;
 
 typedef struct shell_state {
     const apl_app *app;
@@ -89,6 +104,13 @@ typedef struct shell_state {
     size_t membership_count;
     apl_activity_event *events;
     size_t event_count;
+    apl_ledger_entry *entries;
+    size_t entry_count;
+    apl_ledger_entry entry_detail;
+    apl_budget_report_row *budget_rows;
+    size_t budget_row_count;
+    apl_activity_event *entry_events;
+    size_t entry_event_count;
     int64_t dialog_team_id;
     int64_t dialog_record_id;
     int64_t dialog_driver_id;
@@ -139,10 +161,22 @@ typedef struct shell_state {
     bool picker_include_archived;
     bool team_focus;
     bool quit;
+    unsigned money_date_preset;
+    unsigned money_kind_filter;
+    unsigned budget_date_preset;
+    apl_ledger_kind pending_ledger_kind;
+    int64_t pending_season_id;
+    char money_category_filter[APL_LEDGER_CATEGORY_MAX];
+    char budget_category_filter[APL_LEDGER_CATEGORY_MAX];
+    char pending_amount[64];
+    char pending_date[APL_REFERENCE_DATE_MAX];
+    char pending_category[APL_LEDGER_CATEGORY_MAX];
+    char pending_description[APL_LEDGER_DESCRIPTION_MAX];
     char pending_start[APL_TUI_COMMAND_WORD_MAX];
     char pending_end[APL_TUI_COMMAND_WORD_MAX];
     char pending_role[APL_TUI_COMMAND_WORD_MAX];
     char pending_notes[APL_TUI_COMMAND_WORD_MAX];
+    char pending_currency[APL_MONEY_CURRENCY_MAX];
 } shell_state;
 
 static void handle_dialog_input(shell_state *const state, const ncinput *const input);
@@ -154,6 +188,12 @@ static void open_current_list_record(shell_state *const state);
 static void handle_people_list_input(shell_state *const state, const uint32_t id);
 static void handle_person_detail_input(shell_state *const state, const uint32_t id);
 static void handle_history_input(shell_state *const state, const uint32_t id);
+static void handle_money_list_input(shell_state *const state, const uint32_t id);
+static void handle_money_detail_input(shell_state *const state, const uint32_t id);
+static void handle_budget_list_input(shell_state *const state, const uint32_t id);
+static bool text_is_numeric(const char *text);
+static void open_selected_money_entry(shell_state *const state);
+static void open_selected_budget(shell_state *const state);
 static void handle_input(shell_state *const state, const ncinput *const input);
 
 static void set_status_level(shell_state *const state, const apl_tui_status_level level,
@@ -323,6 +363,43 @@ static unsigned reference_form_error_field(const shell_dialog_context context,
     }
 }
 
+static unsigned money_form_error_field(const apl_error *const error)
+{
+    switch (apl_error_field_id(error)) {
+    case APL_FIELD_DATE:
+        return 1;
+    case APL_FIELD_CATEGORY:
+        return 2;
+    case APL_FIELD_DESCRIPTION:
+        return 3;
+    case APL_FIELD_AMOUNT:
+    case APL_FIELD_CURRENCY:
+    default:
+        return 0;
+    }
+}
+
+static unsigned budget_form_error_field(const apl_error *const error)
+{
+    switch (apl_error_field_id(error)) {
+    case APL_FIELD_START_DATE:
+    case APL_FIELD_PERIOD:
+        return 0;
+    case APL_FIELD_END_DATE:
+        return 1;
+    case APL_FIELD_CATEGORY:
+        return 2;
+    case APL_FIELD_AMOUNT:
+        return 3;
+    case APL_FIELD_SEASON:
+        return 4;
+    case APL_FIELD_NOTES:
+        return 5;
+    default:
+        return 0;
+    }
+}
+
 static apl_status refresh_active(shell_state *const state, apl_error *const error)
 {
     const apl_status status =
@@ -430,6 +507,15 @@ static void free_reference_lists(shell_state *const state)
     apl_activity_service_free_events(state->events);
     state->events = nullptr;
     state->event_count = 0;
+    apl_ledger_service_free_list(state->entries);
+    state->entries = nullptr;
+    state->entry_count = 0;
+    apl_budget_service_free_report(state->budget_rows);
+    state->budget_rows = nullptr;
+    state->budget_row_count = 0;
+    apl_activity_service_free_events(state->entry_events);
+    state->entry_events = nullptr;
+    state->entry_event_count = 0;
 }
 
 static apl_status load_seasons(shell_state *const state, const int64_t preferred_id,
@@ -547,8 +633,8 @@ static apl_status load_driver_memberships(shell_state *const state, const int64_
 static const char *history_entity_filter_name(const unsigned index)
 {
     static const apl_record_kind KINDS[] = {
-        APL_RECORD_NONE,   APL_RECORD_TEAM,       APL_RECORD_SEASON,
-        APL_RECORD_DRIVER, APL_RECORD_MEMBERSHIP, APL_RECORD_CAR,
+        APL_RECORD_NONE,       APL_RECORD_TEAM, APL_RECORD_SEASON,       APL_RECORD_DRIVER,
+        APL_RECORD_MEMBERSHIP, APL_RECORD_CAR,  APL_RECORD_LEDGER_ENTRY, APL_RECORD_BUDGET_PLAN,
     };
     return (index < APL_COUNT_OF(KINDS)) ? apl_record_kind_code(KINDS[index]) : "";
 }
@@ -572,8 +658,23 @@ static const char *history_action_filter_name(const unsigned index)
         "membership_added",
         "membership_updated",
         "membership_ended",
+        "ledger_opening_balance",
+        "ledger_income",
+        "ledger_expense",
+        "ledger_corrected",
+        "budget_created",
+        "budget_updated",
     };
     return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "";
+}
+
+static unsigned history_entity_filter_count(void)
+{
+    unsigned count = 0;
+    while (history_entity_filter_name(count)[0] != '\0') {
+        ++count;
+    }
+    return count;
 }
 
 static unsigned history_action_filter_count(void)
@@ -627,6 +728,156 @@ static apl_status load_history(shell_state *const state, apl_error *const error)
     state->events = events;
     state->event_count = count;
     apl_tui_list_set_count(&state->list, count);
+    return APL_OK;
+}
+
+static apl_ledger_kind money_filter_kind(const unsigned index)
+{
+    switch (index) {
+    case 1:
+        return APL_LEDGER_KIND_OPENING_BALANCE;
+    case 2:
+        return APL_LEDGER_KIND_INCOME;
+    case 3:
+        return APL_LEDGER_KIND_EXPENSE;
+    case 4:
+        return APL_LEDGER_KIND_REVERSAL;
+    case 5:
+        return APL_LEDGER_KIND_ADJUSTMENT;
+    default:
+        return APL_LEDGER_KIND_NONE;
+    }
+}
+
+static const char *money_filter_kind_name(const unsigned index)
+{
+    return (index == 0) ? "all" : apl_ledger_kind_code(money_filter_kind(index));
+}
+
+static const char *money_date_filter_name(const unsigned preset)
+{
+    switch (preset) {
+    case 1:
+        return "30d";
+    case 2:
+        return "90d";
+    case 3:
+        return "365d";
+    default:
+        return "all";
+    }
+}
+
+static void money_date_from(const unsigned preset, char *const out, const size_t out_size)
+{
+    out[0] = '\0';
+    if (preset == 0) {
+        return;
+    }
+    const int days = (preset == 1) ? 30 : ((preset == 2) ? 90 : 365);
+    apl_reference_date_today_minus_days(days, out, out_size);
+}
+
+static void money_cycle_date_filter(unsigned *const preset)
+{
+    *preset = (*preset + 1U) % 4U;
+}
+
+static size_t find_ledger_index(const shell_state *const state, const int64_t id)
+{
+    for (size_t index = 0; index < state->entry_count; ++index) {
+        if (state->entries[index].id == id) {
+            return index;
+        }
+    }
+    return SIZE_MAX;
+}
+
+static apl_status load_ledger(shell_state *const state, const int64_t preferred_id,
+                              apl_error *const error)
+{
+    int64_t keep_id = preferred_id;
+    if (keep_id == 0 && state->entry_count > 0 && state->list.selected < state->entry_count) {
+        keep_id = state->entries[state->list.selected].id;
+    }
+    apl_ledger_entry *entries = nullptr;
+    size_t count = 0;
+    const int64_t team_id = active_team_id(state);
+    apl_status status = APL_OK;
+    if (team_id > 0) {
+        apl_ledger_filter filter = {.team_id = team_id,
+                                    .kind = money_filter_kind(state->money_kind_filter)};
+        money_date_from(state->money_date_preset, filter.from_date, sizeof(filter.from_date));
+        (void)snprintf(filter.category_key, sizeof(filter.category_key), "%s",
+                       state->money_category_filter);
+        status = apl_ledger_service_list(state->app, &filter, &entries, &count, error);
+    }
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_ledger_service_free_list(state->entries);
+    state->entries = entries;
+    state->entry_count = count;
+    apl_tui_list_set_count(&state->list, count);
+    if (keep_id != 0) {
+        const size_t index = find_ledger_index(state, keep_id);
+        if (index != SIZE_MAX) {
+            apl_tui_list_select(&state->list, index);
+        }
+    }
+    return APL_OK;
+}
+
+static apl_status load_budget_report(shell_state *const state, apl_error *const error)
+{
+    apl_budget_report_row *rows = nullptr;
+    size_t count = 0;
+    const int64_t team_id = active_team_id(state);
+    apl_status status = APL_OK;
+    if (team_id > 0) {
+        char from[APL_REFERENCE_DATE_MAX];
+        money_date_from(state->budget_date_preset, from, sizeof(from));
+        status = apl_budget_service_report(state->app, team_id, from, "",
+                                           state->budget_category_filter, &rows, &count, error);
+    }
+    if (status != APL_OK) {
+        return status;
+    }
+    apl_budget_service_free_report(state->budget_rows);
+    state->budget_rows = rows;
+    state->budget_row_count = count;
+    apl_tui_list_set_count(&state->list, count);
+    return APL_OK;
+}
+
+static apl_status load_entry_activity(shell_state *const state, const int64_t entry_id,
+                                      apl_error *const error)
+{
+    apl_activity_service_free_events(state->entry_events);
+    state->entry_events = nullptr;
+    state->entry_event_count = 0;
+    const int64_t team_id = active_team_id(state);
+    if (team_id <= 0) {
+        return APL_OK;
+    }
+    apl_activity_filter filter = {.team_id = team_id};
+    (void)snprintf(filter.entity_type, sizeof(filter.entity_type), "%s",
+                   apl_record_kind_code(APL_RECORD_LEDGER_ENTRY));
+    apl_activity_event *events = nullptr;
+    size_t count = 0;
+    const apl_status status =
+        apl_activity_service_list(state->app, &filter, &events, &count, error);
+    if (status != APL_OK) {
+        return status;
+    }
+    size_t kept = 0;
+    for (size_t index = 0; index < count; ++index) {
+        if (events[index].entity_id == entry_id) {
+            events[kept++] = events[index];
+        }
+    }
+    state->entry_events = events;
+    state->entry_event_count = kept;
     return APL_OK;
 }
 
@@ -1156,6 +1407,382 @@ static bool perform_membership_end(shell_state *const state, const char *const e
     return true;
 }
 
+static void open_money_currency_dialog(shell_state *const state)
+{
+    if (active_team_id(state) == 0) {
+        set_status_warning(state, "Select an active team before choosing a reporting currency.");
+        return;
+    }
+    apl_tui_dialog_open_form(
+        &state->dialog, "Reporting currency",
+        "One currency is used for every money record in this team. v1 does not convert "
+        "currencies. The code cannot change after money records exist.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Currency", state->active_team.currency, true);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_CURRENCY;
+    state->dialog_team_id = state->active_team.id;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Enter a three-letter currency code such as EUR; Esc writes nothing.");
+}
+
+static void open_money_entry_dialog(shell_state *const state, const apl_ledger_kind kind)
+{
+    if (active_team_id(state) == 0) {
+        set_status_warning(state, "Select an active team before recording money.");
+        return;
+    }
+    if (state->active_team.currency[0] == '\0') {
+        set_status_warning(state, "Set the team's reporting currency first (press u).");
+        return;
+    }
+    const char *const title =
+        (kind == APL_LEDGER_KIND_OPENING_BALANCE)
+            ? "Record opening balance"
+            : ((kind == APL_LEDGER_KIND_INCOME) ? "Record income" : "Record expense");
+    char message[320];
+    (void)snprintf(message, sizeof(message), "Team: %s   Currency: %s. All fields are required. %s",
+                   state->active_team.name, state->active_team.currency,
+                   (kind == APL_LEDGER_KIND_OPENING_BALANCE)
+                       ? "The opening amount may be positive, zero, or negative."
+                       : "Enter a positive amount; the sign is applied automatically.");
+    apl_tui_dialog_open_form(&state->dialog, title, message);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Amount", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Date", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Category", "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Description", "", true);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_ENTRY;
+    state->pending_ledger_kind = kind;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter reviews before saving; Esc writes nothing.");
+}
+
+static void store_money_entry_values(shell_state *const state)
+{
+    const apl_tui_dialog_field *const amount = apl_tui_dialog_field_at(&state->dialog, 0);
+    const apl_tui_dialog_field *const date = apl_tui_dialog_field_at(&state->dialog, 1);
+    const apl_tui_dialog_field *const category = apl_tui_dialog_field_at(&state->dialog, 2);
+    const apl_tui_dialog_field *const description = apl_tui_dialog_field_at(&state->dialog, 3);
+    (void)snprintf(state->pending_amount, sizeof(state->pending_amount), "%.63s",
+                   amount != nullptr ? amount->value : "");
+    (void)snprintf(state->pending_date, sizeof(state->pending_date), "%.10s",
+                   date != nullptr ? date->value : "");
+    (void)snprintf(state->pending_category, sizeof(state->pending_category), "%.127s",
+                   category != nullptr ? category->value : "");
+    (void)snprintf(state->pending_description, sizeof(state->pending_description), "%.511s",
+                   description != nullptr ? description->value : "");
+}
+
+static void open_money_review_dialog(shell_state *const state)
+{
+    const char *const kind = apl_ledger_kind_label(state->pending_ledger_kind);
+    char message[1024];
+    (void)snprintf(message, sizeof(message),
+                   "Team: %s\nCurrency: %s\nKind: %s\nAmount: %s\nDate: %s\nCategory: %s\n"
+                   "Description: %s\n\nConfirm to save. Nothing is written before confirmation.",
+                   state->active_team.name, state->active_team.currency, kind,
+                   state->pending_amount, state->pending_date, state->pending_category,
+                   state->pending_description);
+    apl_tui_dialog_open_confirm(&state->dialog, "Review money entry", message);
+    state->dialog.focus = 1;
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_REVIEW;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Confirm saves; Esc cancels without writing.");
+}
+
+static void open_money_correct_dialog(shell_state *const state, const apl_ledger_entry *const entry,
+                                      const char *const replacement_amount, const char *const date,
+                                      const char *const category, const char *const reason)
+{
+    if (entry == nullptr || !apl_ledger_kind_is_postable(entry->kind)) {
+        set_status_warning(state, "Only opening balances, income, and expenses can be corrected.");
+        return;
+    }
+    char amount_text[64];
+    (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
+    char message[512];
+    (void)snprintf(message, sizeof(message),
+                   "Original #%lld: %s %s on %s, category '%s'. Leave the replacement amount "
+                   "blank for a full reversal.",
+                   (long long)entry->id, apl_ledger_kind_label(entry->kind), amount_text,
+                   entry->entry_date, entry->category);
+    apl_tui_dialog_open_form(&state->dialog, "Correct money entry", message);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Replacement amount", replacement_amount, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Date", date, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Category", category, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Reason/description", reason, true);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_CORRECT;
+    state->dialog_record_id = entry->id;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state,
+               "The original entry is kept. Enter reviews the reversal; Esc writes nothing.");
+}
+
+static void store_money_correction_values(shell_state *const state)
+{
+    const apl_tui_dialog_field *const amount = apl_tui_dialog_field_at(&state->dialog, 0);
+    const apl_tui_dialog_field *const date = apl_tui_dialog_field_at(&state->dialog, 1);
+    const apl_tui_dialog_field *const category = apl_tui_dialog_field_at(&state->dialog, 2);
+    const apl_tui_dialog_field *const reason = apl_tui_dialog_field_at(&state->dialog, 3);
+    (void)snprintf(state->pending_amount, sizeof(state->pending_amount), "%.63s",
+                   amount != nullptr ? amount->value : "");
+    (void)snprintf(state->pending_date, sizeof(state->pending_date), "%.10s",
+                   date != nullptr ? date->value : "");
+    (void)snprintf(state->pending_category, sizeof(state->pending_category), "%.127s",
+                   category != nullptr ? category->value : "");
+    (void)snprintf(state->pending_description, sizeof(state->pending_description), "%.511s",
+                   reason != nullptr ? reason->value : "");
+}
+
+static void open_money_correction_review(shell_state *const state)
+{
+    const size_t index = find_ledger_index(state, state->dialog_record_id);
+    const apl_ledger_entry *const original =
+        (index != SIZE_MAX) ? &state->entries[index] : &state->entry_detail;
+    char original_amount[64];
+    (void)apl_money_format(&original->amount, original_amount, sizeof(original_amount));
+    char balance_text[160] = "not available";
+    apl_error totals_error;
+    apl_error_init(&totals_error);
+    apl_ledger_totals totals = {};
+    if (apl_ledger_service_totals(state->app, active_team_id(state), "", "", "", &totals,
+                                  &totals_error) == APL_OK) {
+        int64_t projected = totals.balance.minor_units;
+        int64_t reversal = 0;
+        if (!ckd_sub(&reversal, 0, original->amount.minor_units) &&
+            !ckd_add(&projected, projected, reversal)) {
+            const bool has_replacement = state->pending_amount[0] != '\0';
+            apl_money replacement = {};
+            if (has_replacement &&
+                apl_money_parse(state->pending_amount, state->active_team.currency, &replacement,
+                                &totals_error) == APL_OK) {
+                if (original->classification == APL_LEDGER_KIND_EXPENSE) {
+                    replacement.minor_units = -replacement.minor_units;
+                }
+                (void)ckd_add(&projected, projected, replacement.minor_units);
+            }
+            apl_money projected_money = {.minor_units = projected};
+            (void)snprintf(projected_money.currency, sizeof(projected_money.currency), "%s",
+                           state->active_team.currency);
+            char projected_text[64];
+            char balance_before[64];
+            (void)apl_money_format(&projected_money, projected_text, sizeof(projected_text));
+            (void)apl_money_format(&totals.balance, balance_before, sizeof(balance_before));
+            (void)snprintf(balance_text, sizeof(balance_text), "%s (was %s)", projected_text,
+                           balance_before);
+        }
+    }
+    char message[1024];
+    (void)snprintf(
+        message, sizeof(message),
+        "Original: %.63s #%lld\nReplacement: %.63s\nDate: %.10s\nCategory: %.100s\n"
+        "Reason: %.300s\nBalance after correction: %.159s\n\nConfirm to append the "
+        "correction entries.",
+        original_amount, (long long)original->id,
+        state->pending_amount[0] != '\0' ? state->pending_amount : "(none: reversal only)",
+        state->pending_date, state->pending_category, state->pending_description, balance_text);
+    apl_tui_dialog_open_confirm(&state->dialog, "Review correction", message);
+    state->dialog.focus = 1;
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_CORRECT_REVIEW;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Confirm appends the correction; Esc cancels without writing.");
+}
+
+static bool perform_money_post(shell_state *const state, apl_error *const error)
+{
+    apl_ledger_entry created = {};
+    apl_status status = APL_OK;
+    switch (state->pending_ledger_kind) {
+    case APL_LEDGER_KIND_OPENING_BALANCE:
+        status = apl_ledger_service_post_opening(
+            state->app, active_team_id(state), state->pending_amount, state->pending_date,
+            state->pending_category, state->pending_description, &created, error);
+        break;
+    case APL_LEDGER_KIND_INCOME:
+        status = apl_ledger_service_post_income(
+            state->app, active_team_id(state), state->pending_amount, state->pending_date,
+            state->pending_category, state->pending_description, &created, error);
+        break;
+    case APL_LEDGER_KIND_EXPENSE:
+        status = apl_ledger_service_post_expense(
+            state->app, active_team_id(state), state->pending_amount, state->pending_date,
+            state->pending_category, state->pending_description, &created, error);
+        break;
+    default:
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "unknown money entry kind");
+        return false;
+    }
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save money entry", error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_MONEY;
+    state->entry_detail = created;
+    if (load_ledger(state, created.id, error) != APL_OK ||
+        load_entry_activity(state, created.id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->screen = SHELL_SCREEN_MONEY_DETAIL;
+    sync_status_context(state);
+    char amount_text[64];
+    (void)apl_money_format(&created.amount, amount_text, sizeof(amount_text));
+    set_status_success(state, "Saved %s %s.", apl_ledger_kind_label(created.kind), amount_text);
+    return true;
+}
+
+static bool perform_money_correction(shell_state *const state, apl_error *const error)
+{
+    apl_ledger_entry reversal = {};
+    apl_ledger_entry replacement = {};
+    const apl_status status = apl_ledger_service_correct(
+        state->app, active_team_id(state), state->dialog_record_id, state->pending_amount,
+        state->pending_date, state->pending_category, state->pending_description, &reversal,
+        &replacement, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot correct money entry", error);
+        return false;
+    }
+    const int64_t show_id = replacement.id > 0 ? replacement.id : reversal.id;
+    state->entry_detail = replacement.id > 0 ? replacement : reversal;
+    if (load_ledger(state, show_id, error) != APL_OK ||
+        load_entry_activity(state, show_id, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_MONEY;
+    state->screen = SHELL_SCREEN_MONEY_DETAIL;
+    sync_status_context(state);
+    set_status_success(state, "Correction saved. Original entry #%lld remains unchanged.",
+                       (long long)reversal.corrects_entry_id);
+    return true;
+}
+
+static void open_budget_form(shell_state *const state, const bool edit)
+{
+    if (active_team_id(state) == 0) {
+        set_status_warning(state, "Select an active team before planning a budget.");
+        return;
+    }
+    if (state->active_team.currency[0] == '\0') {
+        set_status_warning(state, "Set the team's reporting currency before planning a budget.");
+        return;
+    }
+    const apl_budget_report_row *const row = (state->list.selected < state->budget_row_count)
+                                                 ? &state->budget_rows[state->list.selected]
+                                                 : nullptr;
+    const bool has_plan = edit && row != nullptr && row->plan_id > 0;
+    char start[APL_REFERENCE_DATE_MAX] = "";
+    char end[APL_REFERENCE_DATE_MAX] = "";
+    char category[APL_LEDGER_CATEGORY_MAX] = "";
+    char amount[64] = "";
+    char season[32] = "";
+    char notes[APL_REFERENCE_NOTES_MAX] = "";
+    if (has_plan) {
+        (void)snprintf(start, sizeof(start), "%s", row->start_date);
+        (void)snprintf(end, sizeof(end), "%s", row->end_date);
+        (void)snprintf(category, sizeof(category), "%s", row->category);
+        (void)snprintf(amount, sizeof(amount), "%lld.%02lld",
+                       (long long)(row->planned.minor_units / 100),
+                       (long long)(row->planned.minor_units % 100));
+        if (row->season_id > 0) {
+            (void)snprintf(season, sizeof(season), "%lld", (long long)row->season_id);
+        }
+        (void)snprintf(notes, sizeof(notes), "%s", row->notes);
+    } else if (row != nullptr) {
+        (void)snprintf(category, sizeof(category), "%s", row->category);
+    }
+    char message[320];
+    (void)snprintf(message, sizeof(message),
+                   "Team: %s   Currency: %s. Period, category, and a non-negative planned amount "
+                   "are required. Plans never count as spending.",
+                   state->active_team.name, state->active_team.currency);
+    apl_tui_dialog_open_form(&state->dialog, has_plan ? "Edit budget plan" : "Create budget plan",
+                             message);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start date", start, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "End date", end, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Category", category, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Planned amount", amount, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Season ID", season, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes", notes, false);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_BUDGET_FORM;
+    state->dialog_record_id = has_plan ? row->plan_id : 0;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Tab moves fields. Enter reviews the plan; Esc writes nothing.");
+}
+
+static bool store_budget_values(shell_state *const state, apl_error *const error)
+{
+    const apl_tui_dialog_field *const start = apl_tui_dialog_field_at(&state->dialog, 0);
+    const apl_tui_dialog_field *const end = apl_tui_dialog_field_at(&state->dialog, 1);
+    const apl_tui_dialog_field *const category = apl_tui_dialog_field_at(&state->dialog, 2);
+    const apl_tui_dialog_field *const amount = apl_tui_dialog_field_at(&state->dialog, 3);
+    const apl_tui_dialog_field *const season = apl_tui_dialog_field_at(&state->dialog, 4);
+    const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 5);
+    (void)snprintf(state->pending_start, sizeof(state->pending_start), "%.10s",
+                   start != nullptr ? start->value : "");
+    (void)snprintf(state->pending_end, sizeof(state->pending_end), "%.10s",
+                   end != nullptr ? end->value : "");
+    (void)snprintf(state->pending_category, sizeof(state->pending_category), "%.127s",
+                   category != nullptr ? category->value : "");
+    (void)snprintf(state->pending_amount, sizeof(state->pending_amount), "%.63s",
+                   amount != nullptr ? amount->value : "");
+    (void)snprintf(state->pending_notes, sizeof(state->pending_notes), "%.1023s",
+                   notes != nullptr ? notes->value : "");
+    state->pending_season_id = 0;
+    if (season != nullptr && season->value[0] != '\0') {
+        if (!text_is_numeric(season->value)) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "season ID must be a number or left blank");
+            apl_error_set_field(error, APL_FIELD_SEASON);
+            return false;
+        }
+        state->pending_season_id = strtoll(season->value, nullptr, 10);
+    }
+    return true;
+}
+
+static void open_budget_review_dialog(shell_state *const state)
+{
+    char season[32] = "(none)";
+    if (state->pending_season_id > 0) {
+        (void)snprintf(season, sizeof(season), "#%lld", (long long)state->pending_season_id);
+    }
+    char message[1024];
+    (void)snprintf(message, sizeof(message),
+                   "Team: %.100s\nCurrency: %.3s\nPeriod: %.10s to %.10s\nCategory: %.100s\n"
+                   "Planned: %.63s\nSeason: %.31s\nNotes: %.400s\n\nConfirm to save the plan.",
+                   state->active_team.name, state->active_team.currency, state->pending_start,
+                   state->pending_end, state->pending_category, state->pending_amount, season,
+                   state->pending_notes);
+    apl_tui_dialog_open_confirm(&state->dialog, "Review budget plan", message);
+    state->dialog.focus = 1;
+    state->dialog_context = SHELL_DIALOG_CONTEXT_BUDGET_REVIEW;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Confirm saves the plan; Esc cancels without writing.");
+}
+
+static bool perform_budget_save(shell_state *const state, apl_error *const error)
+{
+    apl_budget_plan saved = {};
+    const apl_status status =
+        apl_budget_service_save(state->app, active_team_id(state), state->pending_start,
+                                state->pending_end, state->pending_amount, state->pending_category,
+                                state->pending_season_id, state->pending_notes, &saved, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save budget plan", error);
+        return false;
+    }
+    state->section = APL_TUI_SECTION_MONEY;
+    state->screen = SHELL_SCREEN_BUDGET_LIST;
+    if (load_budget_report(state, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return false;
+    }
+    sync_status_context(state);
+    set_status_success(state, "Budget plan for %s saved. Plans do not change the balance.",
+                       saved.category);
+    return true;
+}
+
 static void free_picker_teams(shell_state *const state)
 {
     apl_team_service_free_list(state->picker_teams);
@@ -1412,6 +2039,12 @@ static void set_section(shell_state *const state, const apl_tui_section section)
             show_error_dialog(state, &error);
         }
         break;
+    case APL_TUI_SECTION_MONEY:
+        state->screen = SHELL_SCREEN_MONEY_LIST;
+        if (load_ledger(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
+        break;
     default:
         state->screen = SHELL_SCREEN_PLACEHOLDER;
         break;
@@ -1466,6 +2099,24 @@ static void handle_menu_action(shell_state *const state, const apl_tui_menu_acti
         } else {
             sync_status_context(state);
             set_status(state, "Cars/chassis for the active team.");
+        }
+        return;
+    }
+    case APL_TUI_MENU_ACTION_OPEN_MONEY: {
+        set_section(state, APL_TUI_SECTION_MONEY);
+        set_status(state, "Money ledger for the active team.");
+        return;
+    }
+    case APL_TUI_MENU_ACTION_OPEN_BUDGETS: {
+        apl_error error;
+        apl_error_init(&error);
+        state->section = APL_TUI_SECTION_MONEY;
+        state->screen = SHELL_SCREEN_BUDGET_LIST;
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            sync_status_context(state);
+            set_status(state, "Budget report: planned versus recorded actual spending.");
         }
         return;
     }
@@ -1752,7 +2403,10 @@ static void draw_team_detail(shell_state *const state)
     apl_tui_frame_draw_line(body, row++, "  People: press p");
     apl_tui_frame_draw_line(body, row++, "  Seasons/periods: press o");
     apl_tui_frame_draw_line(body, row++, "  Cars/chassis: press c");
-    apl_tui_frame_draw_line(body, row++, "  Money: not implemented in this phase");
+    (void)snprintf(line, sizeof(line), "  Reporting currency: %s",
+                   state->detail.currency[0] != '\0' ? state->detail.currency : "not chosen");
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_draw_line(body, row++, "  Money: press $ (or the Money tab)");
 }
 
 static void draw_season_list(shell_state *const state)
@@ -2030,7 +2684,8 @@ static void draw_person_detail(shell_state *const state)
 
 static const char *history_entity_filter_short_name(const unsigned index)
 {
-    static const char *const NAMES[] = {"all", "team", "season", "driver", "member", "car"};
+    static const char *const NAMES[] = {"all",    "team", "season", "driver",
+                                        "member", "car",  "money",  "budget"};
     return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "all";
 }
 
@@ -2054,6 +2709,12 @@ static const char *history_action_filter_short_name(const unsigned index)
         "member:added",
         "member:updated",
         "member:ended",
+        "money:opening",
+        "money:income",
+        "money:expense",
+        "money:corrected",
+        "budget:created",
+        "budget:updated",
     };
     return (index < APL_COUNT_OF(NAMES)) ? NAMES[index] : "all";
 }
@@ -2146,6 +2807,226 @@ static void draw_history_list(shell_state *const state)
     }
 }
 
+static void build_money_filter_bar(const shell_state *const state, char *const out,
+                                   const size_t out_size)
+{
+    (void)snprintf(out, out_size, "Date:%s  Kind:%s  Category:%s",
+                   money_date_filter_name(state->money_date_preset),
+                   money_filter_kind_name(state->money_kind_filter),
+                   state->money_category_filter[0] != '\0' ? state->money_category_filter : "all");
+}
+
+static void draw_money_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    if (active_team_id(state) == 0) {
+        apl_tui_frame_draw_line(
+            body, 0,
+            "No active team. Select one, or press A in People for an explicit all-teams "
+            "view.");
+        return;
+    }
+    char balance_text[64] = "";
+    apl_error error;
+    apl_error_init(&error);
+    apl_ledger_totals totals = {};
+    if (apl_ledger_service_totals(state->app, active_team_id(state), "", "", "", &totals, &error) ==
+        APL_OK) {
+        (void)apl_money_format(&totals.balance, balance_text, sizeof(balance_text));
+    }
+    char header[256];
+    (void)snprintf(
+        header, sizeof(header), "Money: %s   Currency: %s   Balance: %s", state->active_team.name,
+        state->active_team.currency[0] != '\0' ? state->active_team.currency : "(not chosen)",
+        balance_text[0] != '\0' ? balance_text : "not available");
+    apl_tui_frame_draw_line(body, 0, header);
+
+    char filters[320];
+    build_money_filter_bar(state, filters, sizeof(filters));
+    apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_BODY);
+    apl_tui_frame_draw_line(body, 1, filters);
+    apl_tui_theme_reset(body);
+
+    if (state->active_team.currency[0] == '\0') {
+        apl_tui_frame_draw_line(body, 3,
+                                "No reporting currency chosen. Press u to set one before "
+                                "recording money.");
+        return;
+    }
+    if (state->entry_count == 0) {
+        apl_tui_frame_draw_line(
+            body, 3, "No ledger entries match. i income, x expense, o opening balance, b budgets.");
+        return;
+    }
+
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset + 3 < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_ledger_entry *const entry = &state->entries[index];
+        const bool focused = index == state->list.selected;
+        char amount_text[64];
+        (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
+        char line[512];
+        const int written =
+            snprintf(line, sizeof(line), "%c %s  %-15s %s  %-16s %.120s", focused ? '>' : ' ',
+                     entry->entry_date, apl_ledger_kind_label(entry->kind), amount_text,
+                     entry->category, entry->description);
+        if (written > 0 && (size_t)written < sizeof(line) && entry->corrects_entry_id > 0) {
+            (void)snprintf(line + written, sizeof(line) - (size_t)written, "  [corrects #%lld]",
+                           (long long)entry->corrects_entry_id);
+        }
+        apl_tui_theme_apply(&state->theme, body,
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+        apl_tui_frame_draw_line(body, (int)(offset + 3), line);
+        apl_tui_theme_reset(body);
+    }
+}
+
+static void draw_money_detail(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    const unsigned cols = apl_tui_frame_layout(&state->frame)->body.cols;
+    const apl_ledger_entry *const entry = &state->entry_detail;
+    int row = 0;
+    char line[512];
+    char amount_text[64];
+    (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
+    (void)snprintf(line, sizeof(line), "Amount: %s", amount_text);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Kind: %s (%s)", apl_ledger_kind_label(entry->kind),
+                   apl_ledger_kind_label(entry->classification));
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Date: %s", entry->entry_date);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Category: %s", entry->category);
+    apl_tui_frame_draw_line(body, row++, line);
+    (void)snprintf(line, sizeof(line), "Team: %s   Currency: %s", state->active_team.name,
+                   state->active_team.currency);
+    apl_tui_frame_draw_line(body, row++, line);
+    apl_tui_frame_draw_line(body, row++, "Description:");
+    const unsigned note_rows =
+        apl_tui_frame_draw_wrapped(body, row, 2, cols > 2 ? cols - 2 : cols, entry->description);
+    row += (int)(note_rows > 0 ? note_rows : 1);
+    ++row;
+    (void)snprintf(line, sizeof(line), "Created: %s", entry->created_at);
+    apl_tui_frame_draw_line(body, row++, line);
+    if (entry->corrects_entry_id > 0) {
+        (void)snprintf(line, sizeof(line), "Corrects entry #%lld",
+                       (long long)entry->corrects_entry_id);
+        apl_tui_frame_draw_line(body, row++, line);
+    }
+    for (size_t index = 0; index < state->entry_count; ++index) {
+        if (state->entries[index].corrects_entry_id == entry->id) {
+            char linked_amount[64];
+            (void)apl_money_format(&state->entries[index].amount, linked_amount,
+                                   sizeof(linked_amount));
+            (void)snprintf(line, sizeof(line), "Correction: #%lld %s %s on %s",
+                           (long long)state->entries[index].id,
+                           apl_ledger_kind_label(state->entries[index].kind), linked_amount,
+                           state->entries[index].entry_date);
+            apl_tui_frame_draw_line(body, row++, line);
+        }
+    }
+    ++row;
+    apl_tui_frame_draw_line(body, row++, "Activity:");
+    if (state->entry_event_count == 0) {
+        apl_tui_frame_draw_line(body, row++, "  No activity recorded for this entry.");
+    } else {
+        for (size_t index = 0; index < state->entry_event_count; ++index) {
+            if (row >= (int)apl_tui_frame_layout(&state->frame)->body.rows - 2) {
+                break;
+            }
+            const apl_activity_event *const event = &state->entry_events[index];
+            (void)snprintf(line, sizeof(line), "  %.16s %.200s", event->occurred_at,
+                           event->summary);
+            apl_tui_frame_draw_line(body, row++, line);
+        }
+    }
+    ++row;
+    if (apl_ledger_kind_is_postable(entry->kind)) {
+        apl_tui_frame_draw_line(body, row++, "c correct   Esc back to ledger");
+    } else {
+        apl_tui_frame_draw_line(body, row++, "Corrections cannot be corrected again. Esc back.");
+    }
+}
+
+static void draw_budget_list(shell_state *const state)
+{
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    if (body == nullptr) {
+        return;
+    }
+    if (active_team_id(state) == 0) {
+        apl_tui_frame_draw_line(body, 0, "No active team. Select one before browsing budgets.");
+        return;
+    }
+    char header[512];
+    (void)snprintf(
+        header, sizeof(header), "Budget report: %s   Currency: %s   Date:%s   Category:%s",
+        state->active_team.name,
+        state->active_team.currency[0] != '\0' ? state->active_team.currency : "(not chosen)",
+        money_date_filter_name(state->budget_date_preset),
+        state->budget_category_filter[0] != '\0' ? state->budget_category_filter : "all");
+    apl_tui_frame_draw_line(body, 0, header);
+    apl_tui_frame_draw_line(
+        body, 1, "Planned and actual are separate. Missing plans/actuals are shown explicitly.");
+
+    if (state->budget_row_count == 0) {
+        apl_tui_frame_draw_line(body, 3,
+                                "No budget plans or matching expenses. Press n to create a plan.");
+        return;
+    }
+    const unsigned rows = apl_tui_frame_layout(&state->frame)->body.rows;
+    const size_t visible = apl_tui_list_visible_count(&state->list);
+    for (size_t offset = 0; offset < visible && offset + 3 < rows; ++offset) {
+        const size_t index = state->list.offset + offset;
+        const apl_budget_report_row *const row = &state->budget_rows[index];
+        const bool focused = index == state->list.selected;
+        char planned[64] = "no plan";
+        char actual[64] = "no actual";
+        char variance[80] = "";
+        if (row->has_plan) {
+            (void)apl_money_format(&row->planned, planned, sizeof(planned));
+        }
+        if (row->has_actual) {
+            (void)apl_money_format(&row->actual, actual, sizeof(actual));
+        }
+        if (row->has_plan && row->has_actual) {
+            if (row->over_plan) {
+                char over[64];
+                (void)apl_money_format(&row->variance, over, sizeof(over));
+                (void)snprintf(variance, sizeof(variance), "OVER PLAN (%s)", over);
+            } else {
+                char remaining[64];
+                (void)apl_money_format(&row->variance, remaining, sizeof(remaining));
+                (void)snprintf(variance, sizeof(variance), "remaining %.63s", remaining);
+            }
+        } else if (row->has_plan) {
+            (void)snprintf(variance, sizeof(variance), "no actual recorded");
+        } else {
+            (void)snprintf(variance, sizeof(variance), "unplanned actual");
+        }
+        const char *const period =
+            row->start_date[0] != '\0' ? row->start_date : "(no plan period)";
+        const char *const period_end = row->end_date[0] != '\0' ? row->end_date : "?";
+        char line[512];
+        (void)snprintf(line, sizeof(line), "%c %s..%s  %-18s  plan %s  actual %s  %s",
+                       focused ? '>' : ' ', period, period_end, row->category, planned, actual,
+                       variance);
+        apl_tui_theme_apply(&state->theme, body,
+                            focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
+        apl_tui_frame_draw_line(body, (int)(offset + 3), line);
+        apl_tui_theme_reset(body);
+    }
+}
+
 static const char *context_key_hint(const shell_state *const state)
 {
     if (state->section == APL_TUI_SECTION_PEOPLE) {
@@ -2156,6 +3037,16 @@ static const char *context_key_hint(const shell_state *const state)
     if (state->section == APL_TUI_SECTION_HISTORY) {
         return "a scope | f entity | g action | d dates | c clear | Enter detail";
     }
+    if (state->section == APL_TUI_SECTION_MONEY) {
+        if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+            return "c correct | Esc ledger";
+        }
+        if (state->screen == SHELL_SCREEN_BUDGET_LIST) {
+            return "n plan | Enter edit | d dates | F category | C clear | Esc ledger";
+        }
+        return "i income | x expense | o opening | u currency | b budgets | d dates | g kind | "
+               "F category";
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return ", . views | : commands | m menu | q quit";
     }
@@ -2165,7 +3056,7 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_TEAM_LIST:
         return "n new | Enter open | s switch | a archived";
     case SHELL_SCREEN_TEAM_DETAIL:
-        return "e edit | x archive | o seasons | c cars | p people | s switch";
+        return "e edit | x archive | o seasons | c cars | p people | $ money | s switch";
     case SHELL_SCREEN_SEASON_LIST:
         return "n new | Enter open | a archived | Esc team";
     case SHELL_SCREEN_SEASON_DETAIL:
@@ -2178,6 +3069,9 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_PEOPLE_LIST:
     case SHELL_SCREEN_PERSON_DETAIL:
     case SHELL_SCREEN_HISTORY_LIST:
+    case SHELL_SCREEN_MONEY_LIST:
+    case SHELL_SCREEN_MONEY_DETAIL:
+    case SHELL_SCREEN_BUDGET_LIST:
         break;
     }
     return ", . views | : commands | m menu | q quit";
@@ -2389,6 +3283,14 @@ static void draw_screen(shell_state *const state)
         }
     } else if (state->section == APL_TUI_SECTION_HISTORY) {
         draw_history_list(state);
+    } else if (state->section == APL_TUI_SECTION_MONEY) {
+        if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+            draw_money_detail(state);
+        } else if (state->screen == SHELL_SCREEN_BUDGET_LIST) {
+            draw_budget_list(state);
+        } else {
+            draw_money_list(state);
+        }
     } else if (state->section != APL_TUI_SECTION_TEAMS) {
         draw_placeholder(state);
     } else {
@@ -2418,6 +3320,9 @@ static void draw_screen(shell_state *const state)
         case SHELL_SCREEN_PEOPLE_LIST:
         case SHELL_SCREEN_PERSON_DETAIL:
         case SHELL_SCREEN_HISTORY_LIST:
+        case SHELL_SCREEN_MONEY_LIST:
+        case SHELL_SCREEN_MONEY_DETAIL:
+        case SHELL_SCREEN_BUDGET_LIST:
             draw_placeholder(state);
             break;
         }
@@ -3245,6 +4150,9 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         count = state->driver_count;
     } else if (state->section == APL_TUI_SECTION_HISTORY) {
         count = state->event_count;
+    } else if (state->section == APL_TUI_SECTION_MONEY) {
+        count = (state->screen == SHELL_SCREEN_BUDGET_LIST) ? state->budget_row_count
+                                                            : state->entry_count;
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         count = state->season_count;
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -3276,6 +4184,12 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         }
         row_offset = 3;
     }
+    if (state->section == APL_TUI_SECTION_MONEY) {
+        if (row < 3 || state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+            return;
+        }
+        row_offset = 3;
+    }
     const size_t index = state->list.offset + row - row_offset;
     if (index >= count) {
         return;
@@ -3293,6 +4207,9 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
         record_id = state->drivers[index].id;
     } else if (state->section == APL_TUI_SECTION_HISTORY) {
         record_id = state->events[index].id;
+    } else if (state->section == APL_TUI_SECTION_MONEY) {
+        record_id = (state->screen == SHELL_SCREEN_BUDGET_LIST) ? (int64_t)index + 1
+                                                                : state->entries[index].id;
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         record_id = state->seasons[index].id;
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -3485,6 +4402,12 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
         }
         return;
     }
+    if (state->section == APL_TUI_SECTION_MONEY) {
+        if (state->screen == SHELL_SCREEN_MONEY_LIST || state->screen == SHELL_SCREEN_BUDGET_LIST) {
+            handle_list_mouse(state, input);
+        }
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return;
     }
@@ -3618,6 +4541,195 @@ static void handle_dialog_input(shell_state *const state, const ncinput *const i
         return;
     }
 
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_CURRENCY) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Currency change cancelled.");
+            return;
+        }
+        const apl_tui_dialog_field *const field = apl_tui_dialog_field_at(&state->dialog, 0);
+        apl_team updated = {};
+        const apl_status status =
+            apl_team_service_set_currency(state->app, state->dialog_team_id,
+                                          field != nullptr ? field->value : "", &updated, &error);
+        if (status != APL_OK) {
+            set_status_from_error(state, "Cannot set currency", &error);
+            apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
+            return;
+        }
+        if (state->detail.id == updated.id) {
+            state->detail = updated;
+        }
+        close_shell_dialog(state);
+        if (refresh_active(state, &error) != APL_OK ||
+            refresh_teams(state, updated.id, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        if (state->section == APL_TUI_SECTION_MONEY) {
+            const apl_status reload = (state->screen == SHELL_SCREEN_BUDGET_LIST)
+                                          ? load_budget_report(state, &error)
+                                          : load_ledger(state, 0, &error);
+            if (reload != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+        }
+        set_status_success(state, "Reporting currency is now %s.", updated.currency);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_ENTRY) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Cancelled without writing.");
+            return;
+        }
+        store_money_entry_values(state);
+        open_money_review_dialog(state);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_CORRECT) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Correction cancelled.");
+            return;
+        }
+        store_money_correction_values(state);
+        open_money_correction_review(state);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_FILTER) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Filter unchanged.");
+            return;
+        }
+        const apl_tui_dialog_field *const field = apl_tui_dialog_field_at(&state->dialog, 0);
+        char key[APL_LEDGER_CATEGORY_MAX] = "";
+        if (field != nullptr && field->value[0] != '\0') {
+            char label[APL_LEDGER_CATEGORY_MAX];
+            if (apl_ledger_category_normalize(field->value, label, sizeof(label), key, sizeof(key),
+                                              &error) != APL_OK) {
+                apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
+                return;
+            }
+        }
+        const bool budgets = state->screen == SHELL_SCREEN_BUDGET_LIST;
+        if (budgets) {
+            (void)snprintf(state->budget_category_filter, sizeof(state->budget_category_filter),
+                           "%s", key);
+        } else {
+            (void)snprintf(state->money_category_filter, sizeof(state->money_category_filter), "%s",
+                           key);
+        }
+        close_shell_dialog(state);
+        const apl_status reload =
+            budgets ? load_budget_report(state, &error) : load_ledger(state, 0, &error);
+        if (reload != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        set_status(state, key[0] != '\0' ? "Category filter: %s." : "Category filter cleared.",
+                   key);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_BUDGET_FORM) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Budget plan unchanged.");
+            return;
+        }
+        if (!store_budget_values(state, &error)) {
+            apl_tui_dialog_set_field_error(&state->dialog, budget_form_error_field(&error),
+                                           apl_error_message(&error));
+            return;
+        }
+        open_budget_review_dialog(state);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_REVIEW) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Cancelled without writing.");
+            return;
+        }
+        const bool saved = perform_money_post(state, &error);
+        if (saved) {
+            close_shell_dialog(state);
+            return;
+        }
+        const unsigned field = money_form_error_field(&error);
+        close_shell_dialog(state);
+        open_money_entry_dialog(state, state->pending_ledger_kind);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 0, state->pending_amount);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 1, state->pending_date);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 2, state->pending_category);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 3, state->pending_description);
+        apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_CORRECT_REVIEW) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Correction cancelled.");
+            return;
+        }
+        const bool saved = perform_money_correction(state, &error);
+        if (saved) {
+            close_shell_dialog(state);
+            return;
+        }
+        const unsigned field = money_form_error_field(&error);
+        const size_t index = find_ledger_index(state, state->dialog_record_id);
+        const apl_ledger_entry *const original =
+            (index != SIZE_MAX) ? &state->entries[index] : &state->entry_detail;
+        if (original->id == 0) {
+            close_shell_dialog(state);
+            show_error_dialog(state, &error);
+            return;
+        }
+        close_shell_dialog(state);
+        open_money_correct_dialog(state, original, state->pending_amount, state->pending_date,
+                                  state->pending_category, state->pending_description);
+        apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_BUDGET_REVIEW) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Budget plan cancelled.");
+            return;
+        }
+        const bool saved = perform_budget_save(state, &error);
+        if (saved) {
+            close_shell_dialog(state);
+            return;
+        }
+        const unsigned field = budget_form_error_field(&error);
+        const bool edit = state->dialog_record_id > 0;
+        close_shell_dialog(state);
+        open_budget_form(state, edit);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 0, state->pending_start);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 1, state->pending_end);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 2, state->pending_category);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 3, state->pending_amount);
+        if (state->pending_season_id > 0) {
+            char season[32];
+            (void)snprintf(season, sizeof(season), "%lld", (long long)state->pending_season_id);
+            (void)apl_tui_dialog_set_field_value(&state->dialog, 4, season);
+        }
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 5, state->pending_notes);
+        apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
+        return;
+    }
+
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_TEAM_CREATE ||
         state->dialog_context == SHELL_DIALOG_CONTEXT_TEAM_EDIT) {
         const shell_dialog_context context = state->dialog_context;
@@ -3743,6 +4855,15 @@ static void open_current_list_record(shell_state *const state)
         open_selected_person(state);
     } else if (state->section == APL_TUI_SECTION_HISTORY) {
         handle_history_input(state, NCKEY_ENTER);
+    } else if (state->section == APL_TUI_SECTION_MONEY) {
+        if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+            return;
+        }
+        if (state->screen == SHELL_SCREEN_BUDGET_LIST) {
+            open_selected_budget(state);
+        } else {
+            open_selected_money_entry(state);
+        }
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         open_selected_season(state);
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -3848,6 +4969,10 @@ static void handle_detail_input(shell_state *const state, const uint32_t id)
         } else {
             set_status(state, "Seasons/periods. n create, a include archived, Enter open.");
         }
+        return;
+    }
+    case '$': {
+        set_section(state, APL_TUI_SECTION_MONEY);
         return;
     }
     case 'c':
@@ -4275,7 +5400,8 @@ static void handle_history_input(shell_state *const state, const uint32_t id)
         return;
     case 'f':
     case 'F':
-        state->history_entity_filter = (state->history_entity_filter + 1) % APL_TUI_HISTORY_FILTERS;
+        state->history_entity_filter =
+            (state->history_entity_filter + 1) % history_entity_filter_count();
         reload_history_with_status(state, "Entity filter changed.");
         return;
     case 'g':
@@ -4332,6 +5458,247 @@ static void handle_history_input(shell_state *const state, const uint32_t id)
         state->dialog_context = SHELL_DIALOG_CONTEXT_ACTIVITY_DETAIL;
         apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         return;
+    }
+}
+
+static void open_money_filter_dialog(shell_state *const state)
+{
+    const bool budgets = state->screen == SHELL_SCREEN_BUDGET_LIST;
+    apl_tui_dialog_open_form(&state->dialog, "Filter by category",
+                             "Leave blank to include every category. Labels are compared "
+                             "case-insensitively ignoring extra whitespace.");
+    (void)apl_tui_dialog_add_field(
+        &state->dialog, "Category",
+        budgets ? state->budget_category_filter : state->money_category_filter, false);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_FILTER;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    set_status(state, "Enter applies the filter; Esc leaves it unchanged.");
+}
+
+static void open_selected_money_entry(shell_state *const state)
+{
+    if (state->entry_count == 0 || state->list.selected >= state->entry_count) {
+        return;
+    }
+    apl_error error;
+    apl_error_init(&error);
+    const int64_t id = state->entries[state->list.selected].id;
+    if (apl_ledger_service_get(state->app, active_team_id(state), id, &state->entry_detail,
+                               &error) != APL_OK ||
+        load_entry_activity(state, id, &error) != APL_OK) {
+        show_error_dialog(state, &error);
+        return;
+    }
+    state->section = APL_TUI_SECTION_MONEY;
+    state->screen = SHELL_SCREEN_MONEY_DETAIL;
+    sync_status_context(state);
+    set_status(state, "c correct, Esc back. Posted entries cannot be edited or deleted silently.");
+}
+
+static void open_selected_budget(shell_state *const state)
+{
+    if (state->budget_row_count == 0 || state->list.selected >= state->budget_row_count) {
+        open_budget_form(state, false);
+        return;
+    }
+    open_budget_form(state, true);
+}
+
+static void handle_money_list_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+    switch (id) {
+    case NCKEY_UP:
+        apl_tui_list_move(&state->list, -1);
+        return;
+    case NCKEY_DOWN:
+        apl_tui_list_move(&state->list, 1);
+        return;
+    case NCKEY_PGUP:
+        apl_tui_list_page(&state->list, -1);
+        return;
+    case NCKEY_PGDOWN:
+        apl_tui_list_page(&state->list, 1);
+        return;
+    case NCKEY_HOME:
+        apl_tui_list_home(&state->list);
+        return;
+    case NCKEY_END:
+        apl_tui_list_end(&state->list);
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id)) {
+        open_selected_money_entry(state);
+        return;
+    }
+    switch (id) {
+    case 'i':
+    case 'I':
+        open_money_entry_dialog(state, APL_LEDGER_KIND_INCOME);
+        return;
+    case 'x':
+    case 'X':
+        open_money_entry_dialog(state, APL_LEDGER_KIND_EXPENSE);
+        return;
+    case 'o':
+    case 'O':
+        open_money_entry_dialog(state, APL_LEDGER_KIND_OPENING_BALANCE);
+        return;
+    case 'u':
+    case 'U':
+        open_money_currency_dialog(state);
+        return;
+    case 'b':
+    case 'B':
+        state->screen = SHELL_SCREEN_BUDGET_LIST;
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Budget report. n creates/edits a plan; Esc returns to the ledger.");
+        }
+        return;
+    case 'd':
+    case 'D':
+        money_cycle_date_filter(&state->money_date_preset);
+        if (load_ledger(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Date filter: %s.", money_date_filter_name(state->money_date_preset));
+        }
+        return;
+    case 'g':
+    case 'G':
+        state->money_kind_filter = (state->money_kind_filter + 1U) % 6U;
+        if (load_ledger(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Kind filter: %s.", money_filter_kind_name(state->money_kind_filter));
+        }
+        return;
+    case 'F':
+        open_money_filter_dialog(state);
+        return;
+    case 'C':
+        state->money_category_filter[0] = '\0';
+        if (load_ledger(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Category filter cleared.");
+        }
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
+    }
+}
+
+static void handle_money_detail_input(shell_state *const state, const uint32_t id)
+{
+    switch (id) {
+    case NCKEY_UP:
+    case NCKEY_DOWN: {
+        apl_tui_list_move(&state->list, id == NCKEY_UP ? -1 : 1);
+        open_selected_money_entry(state);
+        return;
+    }
+    case 'c':
+    case 'C':
+        open_money_correct_dialog(state, &state->entry_detail, "", state->entry_detail.entry_date,
+                                  state->entry_detail.category, "");
+        return;
+    case NCKEY_ESC:
+        state->screen = SHELL_SCREEN_MONEY_LIST;
+        set_status(state, "Ledger entries for the active team.");
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
+    }
+}
+
+static void handle_budget_list_input(shell_state *const state, const uint32_t id)
+{
+    apl_error error;
+    apl_error_init(&error);
+    switch (id) {
+    case NCKEY_UP:
+        apl_tui_list_move(&state->list, -1);
+        return;
+    case NCKEY_DOWN:
+        apl_tui_list_move(&state->list, 1);
+        return;
+    case NCKEY_PGUP:
+        apl_tui_list_page(&state->list, -1);
+        return;
+    case NCKEY_PGDOWN:
+        apl_tui_list_page(&state->list, 1);
+        return;
+    case NCKEY_HOME:
+        apl_tui_list_home(&state->list);
+        return;
+    case NCKEY_END:
+        apl_tui_list_end(&state->list);
+        return;
+    default:
+        break;
+    }
+    if (is_enter_key(id)) {
+        open_selected_budget(state);
+        return;
+    }
+    switch (id) {
+    case 'n':
+    case 'N':
+        open_budget_form(state, false);
+        return;
+    case 'u':
+    case 'U':
+        open_money_currency_dialog(state);
+        return;
+    case 'd':
+    case 'D':
+        money_cycle_date_filter(&state->budget_date_preset);
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Report date filter: %s.",
+                       money_date_filter_name(state->budget_date_preset));
+        }
+        return;
+    case 'F':
+        open_money_filter_dialog(state);
+        return;
+    case 'C':
+        state->budget_category_filter[0] = '\0';
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Report category filter cleared.");
+        }
+        return;
+    case NCKEY_ESC:
+        state->screen = SHELL_SCREEN_MONEY_LIST;
+        if (load_ledger(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Money ledger for the active team.");
+        }
+        return;
+    case 'q':
+    case 'Q':
+        state->quit = true;
+        return;
+    default:
+        break;
     }
 }
 
@@ -4557,6 +5924,16 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         handle_history_input(state, id);
         return;
     }
+    if (state->section == APL_TUI_SECTION_MONEY) {
+        if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
+            handle_money_detail_input(state, id);
+        } else if (state->screen == SHELL_SCREEN_BUDGET_LIST) {
+            handle_budget_list_input(state, id);
+        } else {
+            handle_money_list_input(state, id);
+        }
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         if (id == 'q' || id == 'Q') {
             state->quit = true;
@@ -4594,6 +5971,9 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     case SHELL_SCREEN_PEOPLE_LIST:
     case SHELL_SCREEN_PERSON_DETAIL:
     case SHELL_SCREEN_HISTORY_LIST:
+    case SHELL_SCREEN_MONEY_LIST:
+    case SHELL_SCREEN_MONEY_DETAIL:
+    case SHELL_SCREEN_BUDGET_LIST:
         if (id == 'q' || id == 'Q') {
             state->quit = true;
         }
@@ -4706,7 +6086,9 @@ apl_status apl_tui_shell_run(const apl_tui *const tui, const apl_app *const app,
             }
             unsigned list_rows =
                 (layout->body.rows > 1) ? layout->body.rows - 1 : layout->body.rows;
-            if (state.section == APL_TUI_SECTION_HISTORY) {
+            if (state.section == APL_TUI_SECTION_HISTORY ||
+                (state.section == APL_TUI_SECTION_MONEY &&
+                 state.screen != SHELL_SCREEN_MONEY_DETAIL)) {
                 list_rows = (layout->body.rows > 4) ? layout->body.rows - 4 : 0;
             }
             apl_tui_list_set_viewport_rows(&state.list, list_rows);

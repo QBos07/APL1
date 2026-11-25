@@ -561,8 +561,8 @@ class Smoke:
                 ).fetchone()[0]
         except sqlite3.Error as error:
             self.fail(f"database is not a usable migrated apl1 database: {error}")
-        if version != 8:
-            self.fail(f"database schema version is {version}, expected 8")
+        if version != 11:
+            self.fail(f"database schema version is {version}, expected 11")
 
         with sqlite3.connect(self.database_path) as connection:
             teams = connection.execute(
@@ -584,6 +584,15 @@ class Smoke:
             memberships = connection.execute(
                 "SELECT start_date, end_date, role FROM team_driver_memberships"
             ).fetchall()
+            ledger = connection.execute(
+                "SELECT kind, amount_minor, currency, entry_date, category FROM ledger_entries ORDER BY id"
+            ).fetchall()
+            budgets = connection.execute(
+                "SELECT category, amount_minor, currency, start_date, end_date FROM budget_plans ORDER BY id"
+            ).fetchall()
+            team_currency = connection.execute(
+                "SELECT currency FROM teams WHERE name = 'Ferrari'"
+            ).fetchone()
             activity = connection.execute(
                 "SELECT action FROM activity_events ORDER BY id"
             ).fetchall()
@@ -595,6 +604,17 @@ class Smoke:
             self.fail(f"unexpected car rows after smoke run: {cars!r}")
         if memberships != [("2026-01-01", None, "Race seat")]:
             self.fail(f"unexpected membership rows after smoke run: {memberships!r}")
+        if team_currency != ("EUR",):
+            self.fail(f"unexpected team currency after smoke run: {team_currency!r}")
+        if ledger != [
+            ("opening_balance", 100000, "EUR", "2026-01-01", "Opening"),
+            ("expense", -25000, "EUR", "2026-01-05", "Tyres"),
+            ("reversal", 25000, "EUR", "2026-01-05", "Tyres"),
+            ("adjustment", -20000, "EUR", "2026-01-05", "Tyres"),
+        ]:
+            self.fail(f"unexpected ledger rows after smoke run: {ledger!r}")
+        if budgets != [("Tyres", 30000, "EUR", "2026-01-01", "2026-01-31")]:
+            self.fail(f"unexpected budget rows after smoke run: {budgets!r}")
         expected_activity = [
             ("team_created",),
             ("team_created",),
@@ -603,6 +623,11 @@ class Smoke:
             ("membership_added",),
             ("season_created",),
             ("car_created",),
+            ("team_currency_updated",),
+            ("ledger_opening_balance",),
+            ("ledger_expense",),
+            ("budget_created",),
+            ("ledger_corrected",),
         ]
         if activity != expected_activity:
             self.fail(f"unexpected activity rows after smoke run: {activity!r}")
@@ -764,14 +789,14 @@ class Smoke:
         self.type_text(":")
         self.type_text("view money")
         self.send_keys("Escape")
-        if "Money is not implemented in this phase." in self.visible_text():
+        if "Money: Ferrari" in self.visible_text():
             self.fail("cancelling a command still changed the view")
         self.log("command cancel left the current view unchanged")
 
         self.type_text(":")
         self.type_text("view money")
         self.send_keys("Return")
-        self.wait_for_content("command view switch", ("Money is not implemented in this phase.",))
+        self.wait_for_content("command view switch", ("Money: Ferrari", "No reporting currency chosen"))
         self.type_text(":")
         self.type_text("view t")
         self.wait_for_content("view argument completion", ("view teams",))
@@ -781,7 +806,7 @@ class Smoke:
         self.type_text(":")
         self.type_text("money")
         self.send_keys("Return")
-        self.wait_for_content("direct view shortcut", ("Money is not implemented in this phase.",))
+        self.wait_for_content("direct view shortcut", ("Money: Ferrari", "No reporting currency chosen"))
         self.type_text(":")
         self.type_text("tl")
         self.send_keys("Return")
@@ -883,6 +908,104 @@ class Smoke:
         self.wait_for_content("team detail opened by mouse", ("Name: Ferrari", "Related records"))
         self.send_keys("Escape")
         self.log("season, car, history, and driver-show command routes applied")
+
+        # Phase 4: choose a currency, post an opening balance and expense,
+        # compare a plan with actuals, and correct the expense traceably.
+        self.type_text(":")
+        self.type_text("money")
+        self.send_keys("Return")
+        self.wait_for_content("money view before currency", ("Money: Ferrari", "No reporting currency chosen"))
+        self.send_keys("u")
+        self.wait_for_content("currency form", ("Reporting currency", "Currency:"))
+        self.type_text("EUR")
+        self.send_keys("Return")
+        self.wait_for_content("currency set", ("Currency: EUR",))
+
+        self.send_keys("o")
+        self.wait_for_content("opening form", ("Record opening balance", "Amount:"))
+        self.type_text("1000.00")
+        self.send_keys("Tab")
+        self.type_text("2026-01-01")
+        self.send_keys("Tab")
+        self.type_text("Opening")
+        self.send_keys("Tab")
+        self.type_text("Opening balance")
+        self.send_keys("Return")
+        self.wait_for_content("opening review", ("Review money entry", "EUR", "Opening"))
+        self.send_keys("Return")
+        self.wait_for_database(
+            "opening balance row",
+            lambda: self.database_query("SELECT COUNT(*) FROM ledger_entries;") == (1,),
+        )
+        self.wait_for_content("opening detail", ("Opening balance", "EUR 1000.00"))
+        self.send_keys("Escape")
+
+        self.send_keys("x")
+        self.wait_for_content("expense form", ("Record expense", "Amount:"))
+        self.type_text("250.00")
+        self.send_keys("Tab")
+        self.type_text("2026-01-05")
+        self.send_keys("Tab")
+        self.type_text("Tyres")
+        self.send_keys("Tab")
+        self.type_text("Test tyres")
+        self.send_keys("Return")
+        self.wait_for_content("expense review", ("Review money entry", "EUR -250.00"))
+        self.send_keys("Return")
+        self.wait_for_database(
+            "expense row",
+            lambda: self.database_query("SELECT COUNT(*) FROM ledger_entries;") == (2,),
+        )
+        self.wait_for_content("expense detail", ("Expense", "EUR -250.00"))
+        self.send_keys("Escape")
+
+        self.send_keys("b")
+        self.wait_for_content("budget report", ("Budget report", "No budget plans"))
+        self.send_keys("n")
+        self.wait_for_content("budget form", ("Create budget plan", "Start date:"))
+        self.type_text("2026-01-01")
+        self.send_keys("Tab")
+        self.type_text("2026-01-31")
+        self.send_keys("Tab")
+        self.type_text("Tyres")
+        self.send_keys("Tab")
+        self.type_text("300.00")
+        self.send_keys("Tab", "Tab")
+        self.type_text("January")
+        self.send_keys("Return")
+        self.wait_for_content("budget review", ("Review budget plan", "EUR", "Tyres"))
+        self.send_keys("Return")
+        self.wait_for_database(
+            "budget plan row",
+            lambda: self.database_query("SELECT COUNT(*) FROM budget_plans;") == (1,),
+        )
+        self.wait_for_content("budget comparison", ("Budget report", "Tyres", "EUR 300.00", "EUR 250.00", "remaining"))
+        self.send_keys("Escape")
+
+        self.send_keys("Enter")
+        self.wait_for_content("expense detail for correction", ("Expense", "EUR -250.00"))
+        self.send_keys("c")
+        self.wait_for_content("correction form", ("Correct money entry", "Replacement amount:"))
+        self.type_text("200.00")
+        self.send_keys("Tab", "Tab", "Tab")
+        self.type_text("Corrected tyre price")
+        self.send_keys("Return")
+        self.wait_for_content("correction review", ("Review correction", "200.00"))
+        self.send_keys("Return")
+        self.wait_for_database(
+            "correction rows",
+            lambda: self.database_query("SELECT COUNT(*) FROM ledger_entries;") == (4,),
+        )
+        self.wait_for_content("correction detail", ("Adjustment", "EUR -200.00"))
+        self.send_keys("Escape")
+        self.send_keys("b")
+        self.wait_for_content("corrected budget comparison", ("Budget report", "EUR 200.00", "remaining"))
+        self.send_keys("Escape")
+        self.type_text(":")
+        self.type_text("tl")
+        self.send_keys("Return")
+        self.wait_for_content("return to teams after money", ("Ferrari", "McLaren", "Red Bull"))
+        self.log("currency, opening balance, expense, budget, and correction flows persisted")
 
         self.type_text(":")
         self.type_text("team switch Missing")

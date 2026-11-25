@@ -123,3 +123,20 @@ Test(tui_menu, popup_rect_is_aligned_and_bounded)
     cr_assert_eq(apl_tui_menu_popup_rect(&menu, 4, 20).rows, 3);
     cr_assert_eq(apl_tui_menu_popup_rect(&menu, 3, 20).rows, 0);
 }
+
+Test(tui_menu, records_menu_routes_money_and_budgets)
+{
+    bool money = false;
+    bool budgets = false;
+    for (size_t index = 0; index < apl_tui_menu_item_count(APL_TUI_MENU_RECORDS); ++index) {
+        const apl_tui_menu_item *const item = apl_tui_menu_item_at(APL_TUI_MENU_RECORDS, index);
+        cr_assert_not_null(item);
+        if (item->action == APL_TUI_MENU_ACTION_OPEN_MONEY) {
+            money = item->enabled;
+        } else if (item->action == APL_TUI_MENU_ACTION_OPEN_BUDGETS) {
+            budgets = item->enabled;
+        }
+    }
+    cr_assert(money);
+    cr_assert(budgets);
+}

@@ -22,6 +22,8 @@ static const apl_tui_menu_item RECORDS_ITEMS[] = {
     {"People / drivers", APL_TUI_MENU_ACTION_OPEN_PEOPLE, true},
     {"Seasons / periods", APL_TUI_MENU_ACTION_OPEN_SEASONS, true},
     {"Cars / chassis", APL_TUI_MENU_ACTION_OPEN_CARS, true},
+    {"Money ledger", APL_TUI_MENU_ACTION_OPEN_MONEY, true},
+    {"Budget report", APL_TUI_MENU_ACTION_OPEN_BUDGETS, true},
 };
 
 static const apl_tui_menu_item SETTINGS_ITEMS[] = {

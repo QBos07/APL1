@@ -12,6 +12,7 @@ Test(tui_navigation, labels_and_default_section)
     cr_assert_str_eq(apl_tui_section_label(APL_TUI_SECTION_COUNT), "Unknown");
     cr_assert_eq(apl_tui_section_default(), APL_TUI_SECTION_TEAMS);
     cr_assert(apl_tui_section_implemented(APL_TUI_SECTION_TEAMS));
+    cr_assert(apl_tui_section_implemented(APL_TUI_SECTION_MONEY));
     cr_assert_not(apl_tui_section_implemented(APL_TUI_SECTION_OVERVIEW));
 }
 
