@@ -275,6 +275,18 @@ static const apl_db_migration apl_migrations[] = {
          ");\n"
          "CREATE INDEX idx_project_updates_project_date "
          "ON project_updates(project_id, update_date, id);\n"},
+    /* Version 14: optional project links on actual money transactions (5.5).
+     * The link is nullable and same-team; project actual cost stays a view of
+     * the ledger rather than a second cost record. Existing entries keep no
+     * link and no fabricated cost. */
+    {14, "ALTER TABLE ledger_entries ADD COLUMN project_id INTEGER "
+         "REFERENCES projects(id) ON DELETE SET NULL;\n"
+         "CREATE INDEX idx_ledger_team_project ON ledger_entries(team_id, project_id);\n"
+         "CREATE TRIGGER ledger_project_same_team_insert BEFORE INSERT ON ledger_entries "
+         "WHEN NEW.project_id IS NOT NULL AND NOT EXISTS ("
+         "SELECT 1 FROM projects WHERE projects.id = NEW.project_id "
+         "AND projects.team_id = NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'ledger project must belong to the same team'); END;\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

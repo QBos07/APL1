@@ -17,9 +17,9 @@ without losing referential integrity.
 - [x] Add round-trip and unknown-code tests.
 - [x] Add a `apl_record_ref` (`kind` + `id`) and a routing registry that maps a
       kind to a screen/open action.
-- [ ] Confirm the explicit nullable `transactions.project_id` relationship
-      specified in [5.5](../phase-5/5.5-project-transaction-links.md) before
-      that item's schema change; 5.5 owns the implementation.
+- [x] Confirm the explicit nullable `transactions.project_id` relationship
+      specified in [5.5](../phase-5/5.5-project-transaction-links.md); 5.5
+      owns the implementation.
 - [ ] Decide and implement the explicit replacement-to-transaction relationship
       before Phase 6.7; do not introduce a generic polymorphic link table for
       these known relationships.
@@ -35,7 +35,7 @@ without losing referential integrity.
 - [x] Unknown/missing codes resolve to `APL_RECORD_NONE`.
 - [x] Existing history filters and audit tests still pass.
 - [ ] Phase 8 global history can route a row to its record.
-- [ ] Linked transactions are counted once in feature reports.
+- [x] Linked transactions are counted once in feature reports.
 
 ## Boundaries
 

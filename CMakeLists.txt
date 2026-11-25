@@ -92,6 +92,7 @@ if(BUILD_TESTING)
         tests/integration/test_membership_repository.c
         tests/integration/test_project_repository.c
         tests/integration/test_project_service.c
+        tests/integration/test_project_transaction_links.c
         tests/integration/test_project_update_repository.c
         tests/integration/test_project_update_service.c
         tests/integration/test_reference_services.c

@@ -58,6 +58,7 @@ typedef struct apl_ledger_entry {
     char category_key[APL_LEDGER_CATEGORY_MAX];
     char description[APL_LEDGER_DESCRIPTION_MAX];
     int64_t corrects_entry_id;
+    int64_t project_id; /* 0 means not linked to a development project */
     char created_at[APL_RECORD_TIMESTAMP_MAX];
 } apl_ledger_entry;
 
@@ -79,6 +80,7 @@ typedef struct apl_budget_plan {
 /** Read filters for ledger entries. Empty text/zero fields are unfiltered. */
 typedef struct apl_ledger_filter {
     int64_t team_id;
+    int64_t project_id;
     apl_ledger_kind kind;
     char from_date[APL_REFERENCE_DATE_MAX];
     char to_date[APL_REFERENCE_DATE_MAX];
@@ -101,6 +103,17 @@ typedef struct apl_ledger_totals {
     apl_money expense;
     size_t entry_count;
 } apl_ledger_totals;
+
+/** Ledger-derived actual cost for one project.
+ *
+ * `actual_cost` is the positive net expense of linked entries, including
+ * linked reversals/adjustments. `entry_count` counts every linked ledger row,
+ * not only expenses. There is no independent project cost field.
+ */
+typedef struct apl_project_cost {
+    apl_money actual_cost;
+    size_t entry_count;
+} apl_project_cost;
 
 /** Per-category net expense contribution (negative for spending). */
 typedef struct apl_ledger_category_total {

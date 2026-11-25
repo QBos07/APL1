@@ -37,6 +37,21 @@ apl_status apl_ledger_service_post_expense(const apl_app *app, int64_t team_id,
                                            const char *category, const char *description,
                                            apl_ledger_entry *out_entry, apl_error *error);
 
+/** Post income/expense linked to an active same-team project. The link is
+ *  optional for normal money entries; passing 0 is equivalent to the unlinked
+ *  functions above. */
+apl_status apl_ledger_service_post_income_linked(const apl_app *app, int64_t team_id,
+                                                 const char *amount_text, const char *entry_date,
+                                                 const char *category, const char *description,
+                                                 int64_t project_id, apl_ledger_entry *out_entry,
+                                                 apl_error *error);
+
+apl_status apl_ledger_service_post_expense_linked(const apl_app *app, int64_t team_id,
+                                                  const char *amount_text, const char *entry_date,
+                                                  const char *category, const char *description,
+                                                  int64_t project_id, apl_ledger_entry *out_entry,
+                                                  apl_error *error);
+
 /** Fetch one entry for the team. */
 apl_status apl_ledger_service_get(const apl_app *app, int64_t team_id, int64_t id,
                                   apl_ledger_entry *out_entry, apl_error *error);
@@ -45,6 +60,16 @@ apl_status apl_ledger_service_get(const apl_app *app, int64_t team_id, int64_t i
 apl_status apl_ledger_service_list(const apl_app *app, const apl_ledger_filter *filter,
                                    apl_ledger_entry **out_entries, size_t *out_count,
                                    apl_error *error);
+
+/** List every ledger row linked to one project, newest entered date first. */
+apl_status apl_ledger_service_list_for_project(const apl_app *app, int64_t team_id,
+                                               int64_t project_id, apl_ledger_entry **out_entries,
+                                               size_t *out_count, apl_error *error);
+
+/** Derive a project's positive net actual cost from linked expenses,
+ *  including linked reversals/adjustments. Never adds a second cost record. */
+apl_status apl_ledger_service_project_cost(const apl_app *app, int64_t team_id, int64_t project_id,
+                                           apl_project_cost *out_cost, apl_error *error);
 
 /** Derive the current balance and period income/expense totals.
  *

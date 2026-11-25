@@ -12,7 +12,7 @@
 #define ENTRY_SELECT                                                                               \
     "SELECT e.id, e.team_id, e.amount_minor, e.currency, e.entry_date, e.kind, e.category, "       \
     "e.category_key, e.description, e.corrects_entry_id, e.created_at, "                           \
-    "COALESCE(original.kind, e.kind) "                                                             \
+    "COALESCE(original.kind, e.kind), e.project_id "                                               \
     "FROM ledger_entries e LEFT JOIN ledger_entries original ON original.id = e.corrects_entry_id "
 
 static void read_entry(sqlite3_stmt *const statement, apl_ledger_entry *const entry)
@@ -32,6 +32,8 @@ static void read_entry(sqlite3_stmt *const statement, apl_ledger_entry *const en
     apl_db_copy_column_text(statement, 10, entry->created_at, sizeof(entry->created_at));
     entry->classification =
         apl_ledger_kind_from_code((const char *)sqlite3_column_text(statement, 11));
+    entry->project_id =
+        sqlite3_column_type(statement, 12) == SQLITE_NULL ? 0 : sqlite3_column_int64(statement, 12);
 }
 
 static apl_status prepare(sqlite3 *const handle, const char *const sql, sqlite3_stmt **const out,
@@ -90,8 +92,8 @@ apl_status apl_ledger_repository_create(const apl_db_connection *const connectio
     apl_status status =
         prepare(handle,
                 "INSERT INTO ledger_entries (team_id, amount_minor, currency, entry_date, kind, "
-                "category, category_key, description, corrects_entry_id, created_at) VALUES "
-                "(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, "
+                "category, category_key, description, corrects_entry_id, project_id, created_at) "
+                "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, "
                 "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) RETURNING id;",
                 &statement, error);
     if (status != APL_OK) {
@@ -125,6 +127,13 @@ apl_status apl_ledger_repository_create(const apl_db_connection *const connectio
             bind_status = sqlite3_bind_int64(statement, 9, entry->corrects_entry_id);
         } else {
             bind_status = sqlite3_bind_null(statement, 9);
+        }
+    }
+    if (bind_status == SQLITE_OK) {
+        if (entry->project_id > 0) {
+            bind_status = sqlite3_bind_int64(statement, 10, entry->project_id);
+        } else {
+            bind_status = sqlite3_bind_null(statement, 10);
         }
     }
     if (bind_status != SQLITE_OK) {
@@ -214,6 +223,7 @@ apl_status apl_ledger_repository_list(const apl_db_connection *const connection,
                                              "AND (?3 = '' OR e.entry_date <= ?3) "
                                              "AND (?4 = '' OR e.category_key = ?4) "
                                              "AND (?5 = '' OR e.kind = ?5) "
+                                             "AND (?6 = 0 OR e.project_id = ?6) "
                                              "ORDER BY e.entry_date DESC, e.id DESC;",
                                 &statement, error);
     if (status != APL_OK) {
@@ -233,6 +243,9 @@ apl_status apl_ledger_repository_list(const apl_db_connection *const connection,
     }
     if (bind_status == SQLITE_OK) {
         bind_status = sqlite3_bind_text(statement, 5, kind_code, -1, SQLITE_TRANSIENT);
+    }
+    if (bind_status == SQLITE_OK) {
+        bind_status = sqlite3_bind_int64(statement, 6, filter->project_id);
     }
     if (bind_status != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot bind ledger filters: %s",

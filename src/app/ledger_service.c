@@ -8,6 +8,7 @@
 #include "app/audit.h"
 #include "app/use_case.h"
 #include "db/ledger_repository.h"
+#include "db/project_repository.h"
 #include "db/team_repository.h"
 #include "db/transaction.h"
 #include "domain/record.h"
@@ -30,6 +31,35 @@ static apl_status load_team(const apl_app *const app, const int64_t team_id,
                       out_team->name);
         apl_error_set_field(error, APL_FIELD_CURRENCY);
         return APL_ERR_INVALID_ARGUMENT;
+    }
+    return APL_OK;
+}
+
+static apl_status validate_project_link(const apl_app *const app, const int64_t team_id,
+                                        const int64_t project_id, apl_error *const error)
+{
+    if (project_id < 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "a project link must be a positive ID or empty");
+        apl_error_set_field(error, APL_FIELD_PROJECT);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    if (project_id == 0) {
+        return APL_OK;
+    }
+    apl_project project = {};
+    const apl_status status =
+        apl_project_repository_get(&app->db, team_id, project_id, &project, error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_PROJECT);
+        return status;
+    }
+    if (project.meta.archived) {
+        apl_error_set(error, APL_ERR_CONFLICT,
+                      "archived projects cannot receive new linked transactions; choose an "
+                      "active project");
+        apl_error_set_field(error, APL_FIELD_PROJECT);
+        return APL_ERR_CONFLICT;
     }
     return APL_OK;
 }
@@ -60,8 +90,8 @@ static apl_status validate_entry_fields(const char *const entry_date, const char
 static apl_status post_entry(const apl_app *const app, const int64_t team_id,
                              const apl_ledger_kind kind, const char *const amount_text,
                              const char *const entry_date, const char *const category,
-                             const char *const description, apl_ledger_entry *const out_entry,
-                             apl_error *const error)
+                             const char *const description, const int64_t project_id,
+                             apl_ledger_entry *const out_entry, apl_error *const error)
 {
     if (app == nullptr || out_entry == nullptr || team_id <= 0 || amount_text == nullptr ||
         !apl_ledger_kind_is_postable(kind)) {
@@ -74,6 +104,10 @@ static apl_status post_entry(const apl_app *const app, const int64_t team_id,
     apl_status status = load_team(app, team_id, &team, error);
     if (status != APL_OK) {
         return status;
+    }
+    status = validate_project_link(app, team_id, project_id, error);
+    if (status != APL_OK) {
+        return apl_use_case_with_context(status, "cannot post money entry", error);
     }
 
     apl_money amount = {};
@@ -127,6 +161,7 @@ static apl_status post_entry(const apl_app *const app, const int64_t team_id,
 
     apl_ledger_entry entry = {};
     entry.team_id = team_id;
+    entry.project_id = project_id;
     entry.amount = amount;
     entry.kind = kind;
     entry.classification = kind;
@@ -175,7 +210,7 @@ apl_status apl_ledger_service_post_opening(const apl_app *const app, const int64
                                            apl_error *const error)
 {
     return post_entry(app, team_id, APL_LEDGER_KIND_OPENING_BALANCE, amount_text, entry_date,
-                      category, description, out_entry, error);
+                      category, description, 0, out_entry, error);
 }
 
 apl_status apl_ledger_service_post_income(const apl_app *const app, const int64_t team_id,
@@ -185,7 +220,7 @@ apl_status apl_ledger_service_post_income(const apl_app *const app, const int64_
                                           apl_ledger_entry *const out_entry, apl_error *const error)
 {
     return post_entry(app, team_id, APL_LEDGER_KIND_INCOME, amount_text, entry_date, category,
-                      description, out_entry, error);
+                      description, 0, out_entry, error);
 }
 
 apl_status apl_ledger_service_post_expense(const apl_app *const app, const int64_t team_id,
@@ -196,7 +231,25 @@ apl_status apl_ledger_service_post_expense(const apl_app *const app, const int64
                                            apl_error *const error)
 {
     return post_entry(app, team_id, APL_LEDGER_KIND_EXPENSE, amount_text, entry_date, category,
-                      description, out_entry, error);
+                      description, 0, out_entry, error);
+}
+
+apl_status apl_ledger_service_post_income_linked(
+    const apl_app *const app, const int64_t team_id, const char *const amount_text,
+    const char *const entry_date, const char *const category, const char *const description,
+    const int64_t project_id, apl_ledger_entry *const out_entry, apl_error *const error)
+{
+    return post_entry(app, team_id, APL_LEDGER_KIND_INCOME, amount_text, entry_date, category,
+                      description, project_id, out_entry, error);
+}
+
+apl_status apl_ledger_service_post_expense_linked(
+    const apl_app *const app, const int64_t team_id, const char *const amount_text,
+    const char *const entry_date, const char *const category, const char *const description,
+    const int64_t project_id, apl_ledger_entry *const out_entry, apl_error *const error)
+{
+    return post_entry(app, team_id, APL_LEDGER_KIND_EXPENSE, amount_text, entry_date, category,
+                      description, project_id, out_entry, error);
 }
 
 apl_status apl_ledger_service_get(const apl_app *const app, const int64_t team_id, const int64_t id,
@@ -222,6 +275,74 @@ apl_status apl_ledger_service_list(const apl_app *const app, const apl_ledger_fi
     return apl_use_case_with_context(
         apl_ledger_repository_list(&app->db, filter, out_entries, out_count, error),
         "cannot list ledger entries", error);
+}
+
+apl_status apl_ledger_service_list_for_project(const apl_app *const app, const int64_t team_id,
+                                               const int64_t project_id,
+                                               apl_ledger_entry **const out_entries,
+                                               size_t *const out_count, apl_error *const error)
+{
+    if (app == nullptr || out_entries == nullptr || out_count == nullptr || team_id <= 0 ||
+        project_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "project ledger list arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    const apl_ledger_filter filter = {.team_id = team_id, .project_id = project_id};
+    return apl_ledger_service_list(app, &filter, out_entries, out_count, error);
+}
+
+apl_status apl_ledger_service_project_cost(const apl_app *const app, const int64_t team_id,
+                                           const int64_t project_id,
+                                           apl_project_cost *const out_cost, apl_error *const error)
+{
+    if (app == nullptr || out_cost == nullptr || team_id <= 0 || project_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "project cost arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    *out_cost = (apl_project_cost){};
+
+    apl_team team = {};
+    apl_status status = apl_team_repository_get(&app->db, team_id, &team, error);
+    if (status != APL_OK) {
+        return apl_use_case_with_context(status, "cannot calculate project cost", error);
+    }
+    (void)snprintf(out_cost->actual_cost.currency, sizeof(out_cost->actual_cost.currency), "%s",
+                   team.currency);
+
+    apl_ledger_entry *entries = nullptr;
+    size_t count = 0;
+    status = apl_ledger_service_list_for_project(app, team_id, project_id, &entries, &count, error);
+    if (status != APL_OK) {
+        return apl_use_case_with_context(status, "cannot calculate project cost", error);
+    }
+    out_cost->entry_count = count;
+    for (size_t index = 0; index < count; ++index) {
+        const apl_ledger_entry *const entry = &entries[index];
+        if (entry->classification != APL_LEDGER_KIND_EXPENSE) {
+            continue;
+        }
+        if (entry->amount.minor_units == INT64_MIN) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "the project actual-cost total is too large");
+            status = APL_ERR_INVALID_ARGUMENT;
+            break;
+        }
+        if (out_cost->actual_cost.currency[0] == '\0') {
+            (void)snprintf(out_cost->actual_cost.currency, sizeof(out_cost->actual_cost.currency),
+                           "%s", entry->amount.currency);
+        }
+        apl_money cost = entry->amount;
+        cost.minor_units = -cost.minor_units;
+        status = apl_money_add(&out_cost->actual_cost, &cost, &out_cost->actual_cost, error);
+        if (status != APL_OK) {
+            break;
+        }
+    }
+    apl_ledger_repository_free_list(entries);
+    if (status != APL_OK) {
+        return apl_use_case_with_context(status, "cannot calculate project cost", error);
+    }
+    return APL_OK;
 }
 
 apl_status apl_ledger_service_totals(const apl_app *const app, const int64_t team_id,
@@ -421,6 +542,7 @@ apl_ledger_service_correct(const apl_app *const app, const int64_t team_id,
 
     apl_ledger_entry reversal = {};
     reversal.team_id = team_id;
+    reversal.project_id = original.project_id;
     reversal.amount = original.amount;
     reversal.amount.minor_units = -original.amount.minor_units;
     reversal.kind = APL_LEDGER_KIND_REVERSAL;
@@ -440,6 +562,7 @@ apl_ledger_service_correct(const apl_app *const app, const int64_t team_id,
     bool replacement_created = false;
     if (status == APL_OK && has_replacement) {
         replacement_entry.team_id = team_id;
+        replacement_entry.project_id = original.project_id;
         replacement_entry.amount = replacement;
         replacement_entry.kind = APL_LEDGER_KIND_ADJUSTMENT;
         replacement_entry.classification = original.classification;
