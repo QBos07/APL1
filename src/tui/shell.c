@@ -2756,12 +2756,37 @@ static void build_history_filter_bar(const shell_state *const state, char *const
     append_history_filter_button(out, out_size, &cursor, starts, ends, 4, "Clear");
 }
 
+/** Fit text into `width` display columns, adding an ASCII ellipsis when needed. */
+static void fit_text_with_ellipsis(char *const out, const size_t out_size, const char *const text,
+                                   const size_t width)
+{
+    if (out == nullptr || out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+    if (text == nullptr || width == 0) {
+        return;
+    }
+    const size_t copy_limit = (width < out_size) ? width : out_size - 1;
+    (void)snprintf(out, out_size, "%s", text);
+    if (strlen(out) <= copy_limit) {
+        return;
+    }
+    if (copy_limit <= 3) {
+        (void)apl_tui_text_truncate_utf8(out, copy_limit);
+        return;
+    }
+    (void)apl_tui_text_truncate_utf8(out, copy_limit - 3);
+    (void)apl_tui_text_append(out, out_size, "...");
+}
+
 static void draw_history_list(shell_state *const state)
 {
     struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
     if (body == nullptr) {
         return;
     }
+    const unsigned cols = apl_tui_frame_layout(&state->frame)->body.cols;
     const char *const scope = state->history_all_teams ? "all teams" : "active team";
     char header[256];
     (void)snprintf(header, sizeof(header), "History: %s (%zu events)", scope, state->event_count);
@@ -2780,6 +2805,9 @@ static void draw_history_list(shell_state *const state)
         apl_tui_frame_draw_line(body, 3, "No activity matches the current filters.");
         return;
     }
+    constexpr size_t ACTION_WIDTH = 22;
+    constexpr size_t PREFIX_WIDTH = 1 + 1 + 16 + 2 + ACTION_WIDTH + 1;
+    const size_t summary_width = (cols > PREFIX_WIDTH) ? cols - PREFIX_WIDTH : 0;
     const size_t visible = apl_tui_list_visible_count(&state->list);
     for (size_t offset = 0; offset < visible && offset + 3 < rows - 1; ++offset) {
         const size_t index = state->list.offset + offset;
@@ -2787,9 +2815,13 @@ static void draw_history_list(shell_state *const state)
         const bool focused = index == state->list.selected;
         char stamp[17];
         (void)snprintf(stamp, sizeof(stamp), "%.16s", event->occurred_at);
+        char action[ACTION_WIDTH + 1];
+        fit_text_with_ellipsis(action, sizeof(action), event->action, ACTION_WIDTH);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        fit_text_with_ellipsis(summary, sizeof(summary), event->summary, summary_width);
         char line[APL_ACTIVITY_SUMMARY_MAX + 160];
-        (void)snprintf(line, sizeof(line), "%c %s  %-16s %s", focused ? '>' : ' ', stamp,
-                       event->action, event->summary);
+        (void)snprintf(line, sizeof(line), "%c %s  %-*s %s", focused ? '>' : ' ', stamp,
+                       (int)ACTION_WIDTH, action, summary);
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)(offset + 3), line);
