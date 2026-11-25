@@ -7,12 +7,12 @@
 
 - [x] Add `CMakePresets.json` for Debug, Release, and ASan+UBSan presets.
 - [x] Add CI jobs for a Clang build and an ASan+UBSan build.
-- [ ] Add scenario fixtures that create a team, ledger, project, part, event,
-      and history graph for Phase 9 end-to-end tests.
-- [ ] Add controller tests from ARCH-07 so shell behavior is covered without a
+- [x] Add a reusable scenario fixture for the implemented team/ledger/budget
+      graph; extend it with projects, parts, and events when those phases land.
+- [x] Add controller tests from ARCH-07 so shell behavior is covered without a
       terminal.
-- [ ] Review database operational settings: `busy_timeout`, WAL, synchronous
-      mode, and backup/restore guidance.
+- [x] Configure database operational settings: a 5-second `busy_timeout`, WAL,
+      and `synchronous = NORMAL`, with integration coverage.
 - [ ] Add a repeatable corruption/locked-database error-path test where
       practical.
 

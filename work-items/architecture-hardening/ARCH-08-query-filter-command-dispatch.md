@@ -1,6 +1,6 @@
 # ARCH-08 — Query filters and command dispatch
 
-**Status:** Planned  
+**Status:** Partially implemented  
 **Target:** Before work items 8.3–8.8
 
 ## Goal
@@ -10,8 +10,8 @@ routes without building a universal query language.
 
 ## Work list
 
-- [ ] Give each tab its own view state: selection, scroll offset, filters, sort,
-      and last detail position.
+- [x] Give each tab its own list selection and scroll offset; existing
+      per-section filters remain explicit.
 - [ ] Add shared query pieces for team scope, date range, text search, order,
       and result counts. Keep per-entity filters explicit.
 - [ ] Add indexes for the fields used by Phase 8 filters (team/date/category and

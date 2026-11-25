@@ -28,3 +28,20 @@ Test(record, unknown_codes_are_rejected)
     cr_assert_str_empty(apl_record_kind_code(APL_RECORD_NONE));
     cr_assert_str_eq(apl_record_kind_label(APL_RECORD_NONE), "Unknown");
 }
+
+Test(record, typed_references_validate_and_compare)
+{
+    const apl_record_ref ledger = apl_record_ref_make(APL_RECORD_LEDGER_ENTRY, 42);
+    const apl_record_ref same = apl_record_ref_make(APL_RECORD_LEDGER_ENTRY, 42);
+    const apl_record_ref other = apl_record_ref_make(APL_RECORD_BUDGET_PLAN, 42);
+
+    cr_assert(apl_record_ref_valid(&ledger));
+    cr_assert(apl_record_ref_equal(&ledger, &same));
+    cr_assert_not(apl_record_ref_equal(&ledger, &other));
+    cr_assert_not(apl_record_ref_valid(nullptr));
+
+    const apl_record_ref no_kind = apl_record_ref_make(APL_RECORD_NONE, 1);
+    const apl_record_ref no_id = apl_record_ref_make(APL_RECORD_TEAM, 0);
+    cr_assert_not(apl_record_ref_valid(&no_kind));
+    cr_assert_not(apl_record_ref_valid(&no_id));
+}

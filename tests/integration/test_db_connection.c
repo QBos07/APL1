@@ -138,3 +138,38 @@ Test(db_connection, null_or_empty_path_is_rejected)
     cr_assert_null(apl_db_handle(&connection));
     cr_assert_eq(apl_error_code(&err), APL_ERR_INVALID_ARGUMENT);
 }
+
+Test(db_connection, operational_pragmas_are_applied)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    cr_assert_eq(make_test_database(dir, sizeof(dir), path, sizeof(path)), APL_OK);
+
+    apl_error err;
+    apl_error_init(&err);
+    apl_db_connection connection = {};
+    cr_assert_eq(apl_db_open(&connection, path, &err), APL_OK);
+
+    sqlite3_stmt *statement = nullptr;
+    sqlite3 *const handle = apl_db_handle(&connection);
+    cr_assert_eq(sqlite3_prepare_v2(handle, "PRAGMA busy_timeout;", -1, &statement, nullptr),
+                 SQLITE_OK);
+    cr_assert_eq(sqlite3_step(statement), SQLITE_ROW);
+    cr_assert_eq(sqlite3_column_int(statement, 0), 5000);
+    sqlite3_finalize(statement);
+
+    cr_assert_eq(sqlite3_prepare_v2(handle, "PRAGMA journal_mode;", -1, &statement, nullptr),
+                 SQLITE_OK);
+    cr_assert_eq(sqlite3_step(statement), SQLITE_ROW);
+    cr_assert_str_eq((const char *)sqlite3_column_text(statement, 0), "wal");
+    sqlite3_finalize(statement);
+
+    cr_assert_eq(sqlite3_prepare_v2(handle, "PRAGMA synchronous;", -1, &statement, nullptr),
+                 SQLITE_OK);
+    cr_assert_eq(sqlite3_step(statement), SQLITE_ROW);
+    cr_assert_eq(sqlite3_column_int(statement, 0), 1);
+    sqlite3_finalize(statement);
+
+    apl_db_close(&connection);
+    cr_assert_eq(apl_test_remove_temp_dir(dir, &err), APL_OK);
+}

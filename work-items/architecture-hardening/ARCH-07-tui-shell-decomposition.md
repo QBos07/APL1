@@ -1,6 +1,6 @@
 # ARCH-07 — TUI shell decomposition
 
-**Status:** Planned  
+**Status:** Implemented  
 **Target:** Before work item 4.8 (Money screens)
 
 ## Why
@@ -29,12 +29,22 @@ will make review, testing, and regressions worse.
      `screen_events.c`
 5. Leave `shell.c` as the event loop, screen dispatch, and Notcurses bridge.
 
+## Implementation
+
+- `shell.c` now owns the event loop, menu/tab/status/window rendering, command
+  line, mouse routing, and dispatch.
+- Shared state/helpers live in `shell_internal.h`, `shell_common.c`, and
+  `shell_dialogs.c`.
+- Feature screens live in `screen_teams.c`, `screen_people.c`,
+  `screen_references.c`, `screen_history.c`, and `screen_money.c`.
+- Controller helpers are tested headlessly in `tests/tui/test_tui_shell_controller.c`.
+
 ## Acceptance checks
 
-- [ ] `shell.c` no longer contains per-feature draw/load/form blocks.
-- [ ] Controller state transitions are tested without a terminal.
-- [ ] Existing TUI smoke behavior and keyboard/mouse parity remain intact.
-- [ ] Adding one new screen requires touching its own module plus a dispatch
+- [x] `shell.c` no longer contains per-feature draw/load/form blocks.
+- [x] Controller state transitions are tested without a terminal.
+- [x] Existing TUI smoke behavior and keyboard/mouse parity remain intact.
+- [x] Adding one new screen requires touching its own module plus a dispatch
       entry, not the whole shell.
 
 ## Boundaries

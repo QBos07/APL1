@@ -65,6 +65,7 @@ if(BUILD_TESTING)
     )
 
     add_executable(apl1_tests
+        tests/support/scenario.c
         tests/unit/test_error.c
         tests/unit/test_exit_code.c
         tests/unit/test_ledger.c
@@ -90,6 +91,7 @@ if(BUILD_TESTING)
         tests/integration/test_ledger_service.c
         tests/integration/test_membership_repository.c
         tests/integration/test_reference_services.c
+        tests/integration/test_scenario.c
         tests/integration/test_season_repository.c
         tests/integration/test_app_lifecycle.c
         tests/integration/test_cli.c
@@ -130,7 +132,9 @@ if(BUILD_TESTING)
         tests/tui/test_tui_list.c
         tests/tui/test_tui_menu.c
         tests/tui/test_tui_navigation.c
+        tests/tui/test_tui_record_route.c
         tests/tui/test_tui_shell.c
+        tests/tui/test_tui_shell_controller.c
         tests/tui/test_tui_status.c
         tests/tui/test_tui_text.c
         tests/tui/test_tui_theme.c
@@ -141,6 +145,7 @@ if(BUILD_TESTING)
     target_link_libraries(apl1_tui_tests PRIVATE
         apl_tui
         Criterion::Criterion
+        Notcurses::Notcurses
     )
 
     add_test(
@@ -228,10 +233,18 @@ add_library(apl_tui STATIC
     src/tui/list.c
     src/tui/menu.c
     src/tui/navigation.c
+    src/tui/record_route.c
     src/tui/shell.c
     src/tui/status.c
     src/tui/text.c
     src/tui/theme.c
+    src/tui/shell_common.c
+    src/tui/shell_dialogs.c
+    src/tui/screen_teams.c
+    src/tui/screen_people.c
+    src/tui/screen_references.c
+    src/tui/screen_history.c
+    src/tui/screen_money.c
 )
 
 target_include_directories(apl_tui PUBLIC src)

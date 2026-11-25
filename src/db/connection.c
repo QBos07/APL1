@@ -39,6 +39,41 @@ static apl_status enable_foreign_keys(sqlite3 *const handle, apl_error *const er
     return APL_OK;
 }
 
+/** Apply operational settings shared by every application connection.
+ *
+ * A short busy timeout keeps concurrent reads/writes from failing immediately.
+ * WAL improves read/write overlap for the single-user desktop workflow, and
+ * NORMAL synchronous mode keeps commits durable without an fsync per statement.
+ */
+static apl_status apply_operational_settings(sqlite3 *const handle, apl_error *const error)
+{
+    if (sqlite3_busy_timeout(handle, 5000) != SQLITE_OK) {
+        apl_error_set(error, APL_ERR_DB_OPEN, "cannot configure database busy timeout: %s",
+                      sqlite3_errmsg(handle));
+        return APL_ERR_DB_OPEN;
+    }
+
+    char *sqlite_error = nullptr;
+    if (sqlite3_exec(handle, "PRAGMA journal_mode = WAL;", nullptr, nullptr, &sqlite_error) !=
+        SQLITE_OK) {
+        apl_error_set(error, APL_ERR_DB_OPEN, "cannot enable write-ahead logging: %s",
+                      (sqlite_error != nullptr) ? sqlite_error : "unknown error");
+        sqlite3_free(sqlite_error);
+        return APL_ERR_DB_OPEN;
+    }
+    sqlite3_free(sqlite_error);
+
+    if (sqlite3_exec(handle, "PRAGMA synchronous = NORMAL;", nullptr, nullptr, &sqlite_error) !=
+        SQLITE_OK) {
+        apl_error_set(error, APL_ERR_DB_OPEN, "cannot configure synchronous mode: %s",
+                      (sqlite_error != nullptr) ? sqlite_error : "unknown error");
+        sqlite3_free(sqlite_error);
+        return APL_ERR_DB_OPEN;
+    }
+    sqlite3_free(sqlite_error);
+    return APL_OK;
+}
+
 apl_status apl_db_open(apl_db_connection *const connection, const char *const path,
                        apl_error *const error)
 {
@@ -74,6 +109,12 @@ apl_status apl_db_open(apl_db_connection *const connection, const char *const pa
         sqlite3_close(handle);
         connection->handle = nullptr;
         return key_status;
+    }
+    const apl_status operation_status = apply_operational_settings(handle, error);
+    if (operation_status != APL_OK) {
+        sqlite3_close(handle);
+        connection->handle = nullptr;
+        return operation_status;
     }
 
     connection->handle = handle;

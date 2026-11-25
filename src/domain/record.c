@@ -64,3 +64,19 @@ apl_record_kind apl_record_kind_from_code(const char *const code)
     }
     return APL_RECORD_NONE;
 }
+
+apl_record_ref apl_record_ref_make(const apl_record_kind kind, const int64_t id)
+{
+    return (apl_record_ref){.kind = kind, .id = id};
+}
+
+bool apl_record_ref_valid(const apl_record_ref *const ref)
+{
+    return ref != nullptr && ref->kind != APL_RECORD_NONE && ref->id > 0;
+}
+
+bool apl_record_ref_equal(const apl_record_ref *const left, const apl_record_ref *const right)
+{
+    return left != nullptr && right != nullptr && left->kind == right->kind &&
+           left->id == right->id;
+}

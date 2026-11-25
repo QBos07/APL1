@@ -2,6 +2,7 @@
 #define APL_DOMAIN_RECORD_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 /*
  * Stable record-kind identities used by audit and history.
@@ -45,5 +46,22 @@ const char *apl_record_kind_label(apl_record_kind kind);
 
 /** Resolve a stable storage code; unknown/missing codes return APL_RECORD_NONE. */
 apl_record_kind apl_record_kind_from_code(const char *code);
+
+/** Typed reference to one persisted record. Used by audit/history routing so a
+ *  row can identify both its entity kind and stable ID without a polymorphic
+ *  string key. An ID of 0 means no record. */
+typedef struct apl_record_ref {
+    apl_record_kind kind;
+    int64_t id;
+} apl_record_ref;
+
+/** Build a typed reference from a kind and stable ID. */
+apl_record_ref apl_record_ref_make(apl_record_kind kind, int64_t id);
+
+/** True when the reference names a known kind and a positive ID. */
+bool apl_record_ref_valid(const apl_record_ref *ref);
+
+/** True when both references name the same kind and ID. */
+bool apl_record_ref_equal(const apl_record_ref *left, const apl_record_ref *right);
 
 #endif /* APL_DOMAIN_RECORD_H */

@@ -15,8 +15,8 @@ without losing referential integrity.
 - [x] Use the registry when services append audit events.
 - [x] Use the registry for History entity filters.
 - [x] Add round-trip and unknown-code tests.
-- [ ] Add a `apl_record_ref` (`kind` + `id`) and a routing registry that maps a
-      kind to a screen/open action when Phase 8.1 starts.
+- [x] Add a `apl_record_ref` (`kind` + `id`) and a routing registry that maps a
+      kind to a screen/open action.
 - [ ] Decide the cross-feature link model before Phase 5.5/6.7. Prefer explicit
       nullable foreign keys for the known links over a generic polymorphic
       `entity_type/entity_id` table.
