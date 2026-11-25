@@ -23,6 +23,14 @@ apl_status apl_budget_service_save(const apl_app *app, int64_t team_id, const ch
                                    const char *category, int64_t season_id, const char *notes,
                                    apl_budget_plan *out_plan, apl_error *error);
 
+/** Update one known plan by stable ID, including when its period/category
+ *  changes. This never creates a second plan for the edited row. */
+apl_status apl_budget_service_update(const apl_app *app, int64_t team_id, int64_t id,
+                                     const char *start_date, const char *end_date,
+                                     const char *amount_text, const char *category,
+                                     int64_t season_id, const char *notes,
+                                     apl_budget_plan *out_plan, apl_error *error);
+
 /** Fetch one plan for the team. */
 apl_status apl_budget_service_get(const apl_app *app, int64_t team_id, int64_t id,
                                   apl_budget_plan *out_plan, apl_error *error);

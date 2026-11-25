@@ -491,9 +491,15 @@ bool perform_budget_save(shell_state *const state, apl_error *const error)
 {
     apl_budget_plan saved = {};
     const apl_status status =
-        apl_budget_service_save(state->app, active_team_id(state), state->pending_start,
-                                state->pending_end, state->pending_amount, state->pending_category,
-                                state->pending_season_id, state->pending_notes, &saved, error);
+        (state->dialog_record_id > 0)
+            ? apl_budget_service_update(
+                  state->app, active_team_id(state), state->dialog_record_id, state->pending_start,
+                  state->pending_end, state->pending_amount, state->pending_category,
+                  state->pending_season_id, state->pending_notes, &saved, error)
+            : apl_budget_service_save(state->app, active_team_id(state), state->pending_start,
+                                      state->pending_end, state->pending_amount,
+                                      state->pending_category, state->pending_season_id,
+                                      state->pending_notes, &saved, error);
     if (status != APL_OK) {
         set_status_from_error(state, "Cannot save budget plan", error);
         return false;
@@ -895,6 +901,7 @@ void handle_money_list_input(shell_state *const state, const uint32_t id)
     case 'F':
         open_money_filter_dialog(state);
         return;
+    case 'c':
     case 'C':
         state->money_date_preset = 0;
         state->money_kind_filter = 0;
@@ -1010,6 +1017,7 @@ void handle_budget_list_input(shell_state *const state, const uint32_t id)
     case 'F':
         open_money_filter_dialog(state);
         return;
+    case 'c':
     case 'C':
         state->budget_date_preset = 0;
         state->budget_category_filter[0] = '\0';

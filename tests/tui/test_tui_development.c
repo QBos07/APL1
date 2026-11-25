@@ -4,8 +4,10 @@
 #include <criterion/criterion.h>
 
 #include "app/app.h"
+#include "app/car_service.h"
 #include "app/ledger_service.h"
 #include "app/project_service.h"
+#include "app/season_service.h"
 #include "app/team_service.h"
 #include "tui/shell_internal.h"
 #include "test_support.h"
@@ -94,6 +96,10 @@ Test(tui_development, detail_loads_timeline_and_linked_costs_and_returns_from_mo
     cr_assert_eq(state.project_update_count, 1);
     cr_assert_eq(state.project_entry_count, 1);
 
+    handle_project_detail_input(&state, 'b');
+    cr_assert_eq(state.section, APL_TUI_SECTION_MONEY);
+    cr_assert_eq(state.screen, SHELL_SCREEN_BUDGET_LIST);
+
     close_test_app(&app, dir, &err);
 }
 
@@ -133,6 +139,15 @@ Test(tui_development, filters_and_empty_detail_states_stay_explicit)
     cr_assert_str_eq(state.projects[0].title, "Aero");
     cr_assert_str_eq(state.projects[1].title, "Brakes");
 
+    (void)snprintf(state.project_status_filter, sizeof(state.project_status_filter), "open");
+    (void)snprintf(state.project_category_filter, sizeof(state.project_category_filter), "body");
+    cr_assert_eq(load_projects(&state, 0, &err), APL_OK);
+    cr_assert_eq(state.project_count, 1);
+    handle_project_list_input(&state, 'c');
+    cr_assert_str_empty(state.project_status_filter);
+    cr_assert_str_empty(state.project_category_filter);
+    cr_assert_eq(state.project_count, 2);
+
     open_project_detail(&state, paused);
     cr_assert_eq(state.project_update_count, 0);
     cr_assert_eq(state.project_entry_count, 0);
@@ -158,15 +173,21 @@ Test(tui_development, prefilled_create_form_preserves_values_and_cancel_writes_n
     state.active_status = APL_ACTIVE_TEAM_ACTIVE;
     apl_tui_list_init(&state.list, 8);
 
+    apl_season season = {};
+    cr_assert_eq(apl_season_service_create(&app, team.id, "2026", "", "", "", &season, &err),
+                 APL_OK);
+    apl_car car = {};
+    cr_assert_eq(apl_car_service_create(&app, team.id, "SF-26", "", "", &car, &err), APL_OK);
+
     open_project_create_form_prefilled(&state, "Aero", "Body", "Floor", "Open", "2026-05-01",
-                                       "2026-06-01", 7, 9, "notes");
+                                       "2026-06-01", "2026", "SF-26", "notes");
     cr_assert(apl_tui_dialog_active(&state.dialog));
     cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PROJECT_CREATE);
     cr_assert_eq(state.dialog_project_id, 0);
     cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 0)->value, "Aero");
     cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 3)->value, "Open");
-    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 6)->value, "7");
-    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 7)->value, "9");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 6)->value, "2026");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 7)->value, "SF-26");
     cr_assert(apl_tui_dialog_field_at(&state.dialog, 0)->required);
 
     cr_assert_eq(apl_tui_dialog_dismiss(&state.dialog), APL_TUI_DIALOG_DISMISSED);
@@ -176,6 +197,44 @@ Test(tui_development, prefilled_create_form_preserves_values_and_cancel_writes_n
     cr_assert_eq(apl_project_service_list(&app, &filter, &projects, &count, &err), APL_OK);
     cr_assert_eq(count, 0);
     apl_project_service_free_list(projects);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(tui_development, project_form_resolves_season_and_car_labels)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+    apl_season season = {};
+    cr_assert_eq(apl_season_service_create(&app, team.id, "2026", "", "", "", &season, &err),
+                 APL_OK);
+    apl_car car = {};
+    cr_assert_eq(apl_car_service_create(&app, team.id, "SF-26", "", "", &car, &err), APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    apl_tui_list_init(&state.list, 8);
+
+    cr_assert(perform_project_create(&state, "Aero", "Body", "", "Open", "", "", "2026", "SF-26",
+                                     "", &err),
+              "create failed: %s", apl_error_message(&err));
+    cr_assert_eq(state.project_detail.season_id, season.id);
+    cr_assert_eq(state.project_detail.car_id, car.id);
+
+    state.project_detail = (apl_project){};
+    cr_assert_not(perform_project_create(&state, "Missing", "", "", "", "", "", "No Such Season",
+                                         "", "", &err));
+    cr_assert_eq(apl_error_field_id(&err), APL_FIELD_SEASON);
+    cr_assert_str_eq(apl_error_message(&err),
+                     "season 'No Such Season' was not found for this team; leave the field blank "
+                     "or use an existing season");
 
     close_test_app(&app, dir, &err);
 }

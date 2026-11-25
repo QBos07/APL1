@@ -1,8 +1,6 @@
 #include "tui/shell_internal.h"
 
-#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 static void copy_text(char *const out, const size_t out_size, const char *const text)
@@ -378,6 +376,7 @@ void handle_project_list_input(shell_state *const state, const uint32_t id)
                                                                : "Hiding archived projects.");
         }
         return;
+    case 'c':
     case 'C':
         state->project_status_filter[0] = '\0';
         state->project_category_filter[0] = '\0';
@@ -444,6 +443,19 @@ void handle_project_detail_input(shell_state *const state, const uint32_t id)
             apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }
         return;
+    case 'b':
+    case 'B':
+        state->project_return_pending = false;
+        state->section = APL_TUI_SECTION_MONEY;
+        state->screen = SHELL_SCREEN_BUDGET_LIST;
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        sync_status_context(state);
+        set_status(state, "Budget report for the active team; project: %s.",
+                   state->project_detail.title);
+        return;
     case 'q':
     case 'Q':
         state->quit = true;
@@ -470,70 +482,115 @@ void handle_project_detail_input(shell_state *const state, const uint32_t id)
     }
 }
 
-static apl_status parse_optional_id(const char *const text, int64_t *const out,
-                                    const char *const label, const apl_field field,
-                                    apl_error *const error)
+apl_status project_resolve_season(shell_state *const state, const char *const text,
+                                  int64_t *const out, apl_error *const error)
 {
     *out = 0;
-    if (text == nullptr) {
+    char normalized[APL_REFERENCE_LABEL_MAX];
+    apl_status result =
+        apl_reference_optional_normalize(text, "season", normalized, sizeof(normalized), error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_SEASON);
+        return result;
+    }
+    if (normalized[0] == '\0') {
         return APL_OK;
     }
-    const char *cursor = text;
-    while (*cursor != '\0' && (*cursor == ' ' || *cursor == '\t')) {
-        ++cursor;
-    }
-    if (*cursor == '\0') {
-        return APL_OK;
-    }
-    if (!text_is_numeric(cursor)) {
+    const int64_t team_id = active_team_id(state);
+    if (team_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
-                      "%s must be a positive whole number or blank", label);
-        apl_error_set_field(error, field);
+                      "select an active team before linking a season");
+        apl_error_set_field(error, APL_FIELD_SEASON);
         return APL_ERR_INVALID_ARGUMENT;
     }
-    errno = 0;
-    char *end = nullptr;
-    const long long value = strtoll(cursor, &end, 10);
-    if (errno != 0 || end == cursor || *end != '\0' || value <= 0) {
+    apl_season *seasons = nullptr;
+    size_t count = 0;
+    result = apl_season_service_list(state->app, team_id, true, &seasons, &count, error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_SEASON);
+        return result;
+    }
+    for (size_t index = 0; index < count; ++index) {
+        if (apl_tui_text_equal_ci(normalized, seasons[index].label)) {
+            *out = seasons[index].id;
+            break;
+        }
+    }
+    apl_season_service_free_list(seasons);
+    if (*out == 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
-                      "%s must be a positive whole number or blank", label);
-        apl_error_set_field(error, field);
+                      "season '%s' was not found for this team; leave the field blank or use an "
+                      "existing season",
+                      normalized);
+        apl_error_set_field(error, APL_FIELD_SEASON);
         return APL_ERR_INVALID_ARGUMENT;
     }
-    *out = (int64_t)value;
     return APL_OK;
 }
 
-static void format_optional_id(const int64_t id, char *const out, const size_t out_size)
+apl_status project_resolve_car(shell_state *const state, const char *const text, int64_t *const out,
+                               apl_error *const error)
 {
-    if (id > 0) {
-        (void)snprintf(out, out_size, "%lld", (long long)id);
-    } else {
-        out[0] = '\0';
+    *out = 0;
+    char normalized[APL_REFERENCE_LABEL_MAX];
+    apl_status result =
+        apl_reference_optional_normalize(text, "car", normalized, sizeof(normalized), error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_CAR);
+        return result;
     }
+    if (normalized[0] == '\0') {
+        return APL_OK;
+    }
+    const int64_t team_id = active_team_id(state);
+    if (team_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "select an active team before linking a car");
+        apl_error_set_field(error, APL_FIELD_CAR);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    apl_car *cars = nullptr;
+    size_t count = 0;
+    result = apl_car_service_list(state->app, team_id, true, &cars, &count, error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_CAR);
+        return result;
+    }
+    for (size_t index = 0; index < count; ++index) {
+        if (apl_tui_text_equal_ci(normalized, cars[index].label)) {
+            *out = cars[index].id;
+            break;
+        }
+    }
+    apl_car_service_free_list(cars);
+    if (*out == 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "car '%s' was not found for this team; leave the field blank or use an "
+                      "existing car",
+                      normalized);
+        apl_error_set_field(error, APL_FIELD_CAR);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    return APL_OK;
 }
 
 static void open_project_form(shell_state *const state, const bool edit, const char *const title,
                               const char *const category, const char *const description,
                               const char *const status, const char *const target_date,
-                              const char *const actual_date, const int64_t season_id,
-                              const int64_t car_id, const char *const notes)
+                              const char *const actual_date, const char *const season_name,
+                              const char *const car_name, const char *const notes)
 {
     apl_tui_dialog_open_form(
         &state->dialog, edit ? "Edit project" : "Create project",
-        "Title is required. Category/status are free text. Season/car links use same-team IDs.");
-    char season_text[32];
-    char car_text[32];
-    format_optional_id(season_id, season_text, sizeof(season_text));
-    format_optional_id(car_id, car_text, sizeof(car_text));
+        "Title is required. Category/status are free text. Season/car links use same-team names.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Title", title, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Category (optional)", category, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Description (optional)", description, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Status (optional)", status, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Target date (YYYY-MM-DD)", target_date, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Actual date (YYYY-MM-DD)", actual_date, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Season ID (optional)", season_text, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Car ID (optional)", car_text, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Season (optional)", season_name, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Car (optional)", car_name, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context =
         edit ? SHELL_DIALOG_CONTEXT_PROJECT_EDIT : SHELL_DIALOG_CONTEXT_PROJECT_CREATE;
@@ -545,22 +602,29 @@ static void open_project_form(shell_state *const state, const bool edit, const c
 void open_project_dialog(shell_state *const state, const bool edit)
 {
     const apl_project *const project = edit ? &state->project_detail : nullptr;
+    char season[APL_REFERENCE_LABEL_MAX] = "";
+    char car[APL_REFERENCE_LABEL_MAX] = "";
+    if (project != nullptr) {
+        season_label(state, project->season_id, season, sizeof(season));
+        car_label(state, project->car_id, car, sizeof(car));
+    }
     open_project_form(
         state, edit, project != nullptr ? project->title : "",
         project != nullptr ? project->category : "", project != nullptr ? project->description : "",
         project != nullptr ? project->status : "", project != nullptr ? project->target_date : "",
-        project != nullptr ? project->actual_date : "", project != nullptr ? project->season_id : 0,
-        project != nullptr ? project->car_id : 0, project != nullptr ? project->notes : "");
+        project != nullptr ? project->actual_date : "", season, car,
+        project != nullptr ? project->notes : "");
 }
 
 void open_project_create_form_prefilled(shell_state *const state, const char *const title,
                                         const char *const category, const char *const description,
                                         const char *const status, const char *const target_date,
-                                        const char *const actual_date, const int64_t season_id,
-                                        const int64_t car_id, const char *const notes)
+                                        const char *const actual_date,
+                                        const char *const season_name, const char *const car_name,
+                                        const char *const notes)
 {
     open_project_form(state, false, title, category, description, status, target_date, actual_date,
-                      season_id, car_id, notes);
+                      season_name, car_name, notes);
 }
 
 void open_project_update_dialog(shell_state *const state)
@@ -581,12 +645,13 @@ void open_project_filter_dialog(shell_state *const state)
 {
     apl_tui_dialog_open_form(
         &state->dialog, "Filter projects",
-        "Status and category are matched case-insensitively. Season uses its ID.");
-    char season_id[32];
-    format_optional_id(state->project_season_filter, season_id, sizeof(season_id));
+        "Status, season, and category are matched case-insensitively by the names shown in the "
+        "project list.");
+    char season[APL_REFERENCE_LABEL_MAX];
+    season_label(state, state->project_season_filter, season, sizeof(season));
     (void)apl_tui_dialog_add_field(&state->dialog, "Status (optional)",
                                    state->project_status_filter, false);
-    (void)apl_tui_dialog_add_field(&state->dialog, "Season ID (optional)", season_id, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Season (optional)", season, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Category (optional)",
                                    state->project_category_filter, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_PROJECT_FILTER;
@@ -639,15 +704,15 @@ unsigned project_update_form_error_field(const apl_error *const error)
 bool perform_project_create(shell_state *const state, const char *const title,
                             const char *const category, const char *const description,
                             const char *const status, const char *const target_date,
-                            const char *const actual_date, const char *const season_id,
-                            const char *const car_id, const char *const notes,
+                            const char *const actual_date, const char *const season_name,
+                            const char *const car_name, const char *const notes,
                             apl_error *const error)
 {
     int64_t season = 0;
     int64_t car = 0;
-    apl_status result = parse_optional_id(season_id, &season, "season ID", APL_FIELD_SEASON, error);
+    apl_status result = project_resolve_season(state, season_name, &season, error);
     if (result == APL_OK) {
-        result = parse_optional_id(car_id, &car, "car ID", APL_FIELD_CAR, error);
+        result = project_resolve_car(state, car_name, &car, error);
     }
     if (result != APL_OK) {
         set_status_from_error(state, "Cannot create project", error);
@@ -677,15 +742,15 @@ bool perform_project_create(shell_state *const state, const char *const title,
 bool perform_project_update(shell_state *const state, const char *const title,
                             const char *const category, const char *const description,
                             const char *const status, const char *const target_date,
-                            const char *const actual_date, const char *const season_id,
-                            const char *const car_id, const char *const notes,
+                            const char *const actual_date, const char *const season_name,
+                            const char *const car_name, const char *const notes,
                             apl_error *const error)
 {
     int64_t season = 0;
     int64_t car = 0;
-    apl_status result = parse_optional_id(season_id, &season, "season ID", APL_FIELD_SEASON, error);
+    apl_status result = project_resolve_season(state, season_name, &season, error);
     if (result == APL_OK) {
-        result = parse_optional_id(car_id, &car, "car ID", APL_FIELD_CAR, error);
+        result = project_resolve_car(state, car_name, &car, error);
     }
     if (result != APL_OK) {
         set_status_from_error(state, "Cannot save project", error);

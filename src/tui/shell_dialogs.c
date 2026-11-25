@@ -1,38 +1,9 @@
 #include "tui/shell_internal.h"
 
-#include <errno.h>
-#include <stdlib.h>
-
 static const char *dialog_value(const shell_state *const state, const unsigned index)
 {
     const apl_tui_dialog_field *const field = apl_tui_dialog_field_at(&state->dialog, index);
     return field != nullptr ? field->value : "";
-}
-
-static apl_status parse_filter_id(const char *const text, int64_t *const out,
-                                  apl_error *const error)
-{
-    *out = 0;
-    if (text == nullptr || text[0] == '\0') {
-        return APL_OK;
-    }
-    if (!text_is_numeric(text)) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
-                      "season ID must be a positive whole number or blank");
-        apl_error_set_field(error, APL_FIELD_SEASON);
-        return APL_ERR_INVALID_ARGUMENT;
-    }
-    errno = 0;
-    char *end = nullptr;
-    const long long value = strtoll(text, &end, 10);
-    if (errno != 0 || end == text || *end != '\0' || value <= 0) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
-                      "season ID must be a positive whole number or blank");
-        apl_error_set_field(error, APL_FIELD_SEASON);
-        return APL_ERR_INVALID_ARGUMENT;
-    }
-    *out = (int64_t)value;
-    return APL_OK;
 }
 
 void handle_dialog_input(shell_state *const state, const ncinput *const input)
@@ -217,7 +188,7 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             return;
         }
         int64_t season = 0;
-        filter_status = parse_filter_id(dialog_value(state, 1), &season, &error);
+        filter_status = project_resolve_season(state, dialog_value(state, 1), &season, &error);
         if (filter_status != APL_OK) {
             apl_tui_dialog_set_field_error(&state->dialog, 1, apl_error_message(&error));
             return;

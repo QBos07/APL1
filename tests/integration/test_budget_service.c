@@ -242,3 +242,52 @@ Test(budget_service, corrections_reduce_actual_spending)
 
     close_test_app(&app, dir, &err);
 }
+
+Test(budget_service, update_by_id_keeps_the_same_plan_when_scope_changes)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = create_team(&app, "Ferrari", &err);
+
+    apl_budget_plan plan = {};
+    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "200.00",
+                                         "Tyres", 0, "January", &plan, &err),
+                 APL_OK);
+
+    /* Changing the period and category through an explicit edit must update
+     * the selected row, not create a second plan and leave the first behind. */
+    apl_budget_plan moved = {};
+    cr_assert_eq(apl_budget_service_update(&app, team.id, plan.id, "2026-02-01", "2026-02-28",
+                                           "300.00", "Fuel", 0, "February", &moved, &err),
+                 APL_OK, "update failed: %s", apl_error_message(&err));
+    cr_assert_eq(moved.id, plan.id);
+    cr_assert_str_eq(moved.category, "Fuel");
+    cr_assert_eq(moved.amount.minor_units, 30000);
+
+    apl_budget_filter filter = {.team_id = team.id};
+    apl_budget_plan *plans = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_budget_service_list(&app, &filter, &plans, &count, &err), APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_eq(plans[0].id, plan.id);
+    cr_assert_str_eq(plans[0].category, "Fuel");
+    cr_assert_str_eq(plans[0].start_date, "2026-02-01");
+    apl_budget_service_free_list(plans);
+    cr_assert_eq(activity_count(&app, team.id, "budget_created", &err), 1);
+    cr_assert_eq(activity_count(&app, team.id, "budget_updated", &err), 1);
+
+    apl_budget_plan missing = {};
+    cr_assert_eq(apl_budget_service_update(&app, team.id, plan.id + 1000, "2026-03-01",
+                                           "2026-03-31", "10.00", "Tyres", 0, "", &missing, &err),
+                 APL_ERR_NOT_FOUND);
+    count = 1;
+    cr_assert_eq(apl_budget_service_list(&app, &filter, &plans, &count, &err), APL_OK);
+    cr_assert_eq(count, 1);
+    apl_budget_service_free_list(plans);
+
+    close_test_app(&app, dir, &err);
+}

@@ -49,12 +49,16 @@ static bool same_plan(const apl_budget_plan *const left, const apl_budget_plan *
            left->season_id == right->season_id && strcmp(left->notes, right->notes) == 0;
 }
 
-apl_status apl_budget_service_save(const apl_app *const app, const int64_t team_id,
-                                   const char *const start_date, const char *const end_date,
-                                   const char *const amount_text, const char *const category,
-                                   const int64_t season_id, const char *const notes,
-                                   apl_budget_plan *const out_plan, apl_error *const error)
+static apl_status save_plan(const apl_app *const app, const int64_t team_id, const int64_t plan_id,
+                            const char *const start_date, const char *const end_date,
+                            const char *const amount_text, const char *const category,
+                            const int64_t season_id, const char *const notes,
+                            apl_budget_plan *const out_plan, apl_error *const error)
 {
+    if (plan_id < 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "budget plan ID is invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
     if (app == nullptr || out_plan == nullptr || team_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "budget save arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
@@ -125,18 +129,32 @@ apl_status apl_budget_service_save(const apl_app *const app, const int64_t team_
 
     apl_budget_plan existing = {};
     bool found = false;
-    status = apl_budget_repository_find_scope(&app->db, team_id, plan.start_date, plan.end_date,
-                                              plan.category_key, &existing, &found, error);
-    if (status == APL_OK && found) {
-        plan.id = existing.id;
-        if (same_plan(&existing, &plan)) {
-            *out_plan = existing;
-            return apl_use_case_commit(&transaction, "cannot save budget plan", error);
+    if (plan_id > 0) {
+        status = apl_budget_repository_get(&app->db, team_id, plan_id, &existing, error);
+        if (status == APL_OK) {
+            plan.id = plan_id;
+            found = true;
+            if (same_plan(&existing, &plan)) {
+                *out_plan = existing;
+                return apl_use_case_commit(&transaction, "cannot save budget plan", error);
+            }
+            status =
+                apl_budget_repository_update(&app->db, team_id, plan_id, &plan, out_plan, error);
         }
-        status =
-            apl_budget_repository_update(&app->db, team_id, existing.id, &plan, out_plan, error);
-    } else if (status == APL_OK) {
-        status = apl_budget_repository_create(&app->db, &plan, out_plan, error);
+    } else {
+        status = apl_budget_repository_find_scope(&app->db, team_id, plan.start_date, plan.end_date,
+                                                  plan.category_key, &existing, &found, error);
+        if (status == APL_OK && found) {
+            plan.id = existing.id;
+            if (same_plan(&existing, &plan)) {
+                *out_plan = existing;
+                return apl_use_case_commit(&transaction, "cannot save budget plan", error);
+            }
+            status = apl_budget_repository_update(&app->db, team_id, existing.id, &plan, out_plan,
+                                                  error);
+        } else if (status == APL_OK) {
+            status = apl_budget_repository_create(&app->db, &plan, out_plan, error);
+        }
     }
 
     if (status == APL_OK) {
@@ -176,6 +194,31 @@ apl_status apl_budget_service_save(const apl_app *const app, const int64_t team_
         return apl_use_case_rollback(&transaction, status, "cannot save budget plan", error);
     }
     return apl_use_case_commit(&transaction, "cannot save budget plan", error);
+}
+
+apl_status apl_budget_service_save(const apl_app *const app, const int64_t team_id,
+                                   const char *const start_date, const char *const end_date,
+                                   const char *const amount_text, const char *const category,
+                                   const int64_t season_id, const char *const notes,
+                                   apl_budget_plan *const out_plan, apl_error *const error)
+{
+    return save_plan(app, team_id, 0, start_date, end_date, amount_text, category, season_id, notes,
+                     out_plan, error);
+}
+
+apl_status apl_budget_service_update(const apl_app *const app, const int64_t team_id,
+                                     const int64_t id, const char *const start_date,
+                                     const char *const end_date, const char *const amount_text,
+                                     const char *const category, const int64_t season_id,
+                                     const char *const notes, apl_budget_plan *const out_plan,
+                                     apl_error *const error)
+{
+    if (id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "budget update arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    return save_plan(app, team_id, id, start_date, end_date, amount_text, category, season_id,
+                     notes, out_plan, error);
 }
 
 apl_status apl_budget_service_get(const apl_app *const app, const int64_t team_id, const int64_t id,

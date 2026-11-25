@@ -390,21 +390,26 @@ void open_project_dialog(shell_state *state, bool edit);
 void open_project_create_form_prefilled(shell_state *state, const char *title, const char *category,
                                         const char *description, const char *status,
                                         const char *target_date, const char *actual_date,
-                                        int64_t season_id, int64_t car_id, const char *notes);
+                                        const char *season_name, const char *car_name,
+                                        const char *notes);
 void open_project_update_dialog(shell_state *state);
 void open_project_filter_dialog(shell_state *state);
 unsigned project_form_error_field(const apl_error *error);
 unsigned project_update_form_error_field(const apl_error *error);
 bool perform_project_create(shell_state *state, const char *title, const char *category,
                             const char *description, const char *status, const char *target_date,
-                            const char *actual_date, const char *season_id, const char *car_id,
+                            const char *actual_date, const char *season_name, const char *car_name,
                             const char *notes, apl_error *error);
 bool perform_project_update(shell_state *state, const char *title, const char *category,
                             const char *description, const char *status, const char *target_date,
-                            const char *actual_date, const char *season_id, const char *car_id,
+                            const char *actual_date, const char *season_name, const char *car_name,
                             const char *notes, apl_error *error);
 bool perform_project_log_update(shell_state *state, const char *update_date, const char *summary,
                                 const char *status_change, const char *notes, apl_error *error);
 void perform_project_archive(shell_state *state, int64_t id, apl_error *error);
+apl_status project_resolve_season(shell_state *state, const char *text, int64_t *out,
+                                  apl_error *error);
+apl_status project_resolve_car(shell_state *state, const char *text, int64_t *out,
+                               apl_error *error);
 
 #endif /*APL_TUI_SHELL_INTERNAL_H */
