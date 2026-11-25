@@ -318,6 +318,9 @@ apl_status apl_tui_action_from_request(const apl_tui_command_request *const requ
     case APL_TUI_COMMAND_BUDGET_NEW:
         out_action->kind = APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM;
         return APL_OK;
+    case APL_TUI_COMMAND_BUDGET_ARCHIVE:
+        out_action->kind = APL_TUI_ACTION_ARCHIVE_BUDGET_SELECTED;
+        return APL_OK;
     case APL_TUI_COMMAND_HELP:
         out_action->kind = APL_TUI_ACTION_OPEN_HELP;
         join_positionals(request, out_action->value, sizeof(out_action->value));
@@ -410,6 +413,8 @@ const char *apl_tui_action_name(const apl_tui_action_kind kind)
         return "open-budget-list";
     case APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM:
         return "open-budget-create-form";
+    case APL_TUI_ACTION_ARCHIVE_BUDGET_SELECTED:
+        return "archive-budget-selected";
     case APL_TUI_ACTION_OPEN_HELP:
         return "open-help";
     case APL_TUI_ACTION_OPEN_ABOUT:

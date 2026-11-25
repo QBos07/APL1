@@ -1522,6 +1522,40 @@ static void execute_command_line(shell_state *const state)
     case APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM:
         open_budget_form(state, false);
         return;
+    case APL_TUI_ACTION_ARCHIVE_BUDGET_SELECTED:
+        if (state->section != APL_TUI_SECTION_MONEY || state->screen != SHELL_SCREEN_BUDGET_LIST) {
+            state->section = APL_TUI_SECTION_MONEY;
+            state->screen = SHELL_SCREEN_BUDGET_LIST;
+            if (load_budget_report(state, &error) != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+            sync_status_context(state);
+            set_status(state, "Select a budget plan, then run :budget archive again.");
+            return;
+        }
+        if (state->budget_row_count == 0 || state->list.selected >= state->budget_row_count) {
+            set_status_warning(state, "Select a budget plan to archive.");
+            return;
+        }
+        {
+            const apl_budget_report_row *const row = &state->budget_rows[state->list.selected];
+            if (row->plan_id <= 0) {
+                set_status_warning(state, "Only an entered budget plan can be archived.");
+                return;
+            }
+            if (row->archived) {
+                set_status_warning(state, "This budget plan is already archived.");
+                return;
+            }
+            state->pending = SHELL_PENDING_ARCHIVE_BUDGET;
+            state->pending_record_id = row->plan_id;
+            apl_tui_dialog_open_confirm(&state->dialog, "Archive budget plan?",
+                                        "The plan remains readable through history but no longer "
+                                        "counts as a plan in reports. No ledger entry is changed.");
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+        }
+        return;
     case APL_TUI_ACTION_OPEN_HELP: {
         char help[APL_TUI_COMMAND_HELP_MAX];
         const apl_tui_command_spec *spec = nullptr;

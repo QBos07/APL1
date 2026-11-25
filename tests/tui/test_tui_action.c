@@ -233,4 +233,7 @@ Test(tui_action, project_and_budget_commands_map_to_shared_intents)
     request = parse_request("budget new");
     cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
     cr_assert_eq(action.kind, APL_TUI_ACTION_OPEN_BUDGET_CREATE_FORM);
+    request = parse_request("budget archive");
+    cr_assert_eq(apl_tui_action_from_request(&request, &action, &error), APL_OK);
+    cr_assert_eq(action.kind, APL_TUI_ACTION_ARCHIVE_BUDGET_SELECTED);
 }

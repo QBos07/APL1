@@ -103,6 +103,9 @@ static const apl_tui_command_spec COMMANDS[] = {
      APL_TUI_COMMAND_BUDGET_LIST, 0, 0, 0, 0},
     {"budget new", "bn", "budget new", "Open the budget plan form.", nullptr, nullptr,
      APL_TUI_COMMAND_BUDGET_NEW, 0, 0, 0, 0},
+    {"budget archive", "ba", "budget archive",
+     "Archive the selected budget plan after confirmation.", nullptr, nullptr,
+     APL_TUI_COMMAND_BUDGET_ARCHIVE, 0, 0, 0, 0},
     {"help", "h", "help [command ...]", "Show command help.", nullptr, nullptr,
      APL_TUI_COMMAND_HELP, 0, 8, 0, 0},
     {"about", "ab", "about", "Show application information.", nullptr, nullptr,
@@ -636,7 +639,7 @@ void apl_tui_command_registry_help(char *const out, const size_t out_size)
         "Seasons: season list (sl) - season new (sn) - season select (ss)\n"
         "Cars: car list (cl) - car new (cn) - car show (cs)\n"
         "Development: project list/new/show/edit/archive/log (pl/pn/ps/pe/pa/plog)\n"
-        "Budgets: budget list/new (bl/bn)\n"
+        "Budgets: budget list/new/archive (bl/bn/ba)\n"
         "Other: help [command ...] (h) - about (ab) - version (ver) - quit (q)\n"
         "Shortcuts: :teams :people :history :settings\n");
 }

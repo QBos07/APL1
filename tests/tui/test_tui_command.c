@@ -286,6 +286,7 @@ Test(tui_command, project_and_budget_commands_parse)
     cr_assert_eq(apl_tui_command_parse("pl").request.id, APL_TUI_COMMAND_PROJECT_LIST);
     cr_assert_eq(apl_tui_command_parse("budget list").request.id, APL_TUI_COMMAND_BUDGET_LIST);
     cr_assert_eq(apl_tui_command_parse("bn").request.id, APL_TUI_COMMAND_BUDGET_NEW);
+    cr_assert_eq(apl_tui_command_parse("ba").request.id, APL_TUI_COMMAND_BUDGET_ARCHIVE);
 }
 
 Test(tui_command, help_prefix_finds_project_commands)
