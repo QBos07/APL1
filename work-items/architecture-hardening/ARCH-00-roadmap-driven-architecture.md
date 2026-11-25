@@ -19,7 +19,7 @@ explicit triggers.
 | [ARCH-06](ARCH-06-money-and-ledger-model.md) | Money representation and ledger/correction model | Before 4.1 | Partial |
 | [ARCH-07](ARCH-07-tui-shell-decomposition.md) | Split the monolithic shell into screens and a testable controller | Before 4.8 | Planned |
 | [ARCH-08](ARCH-08-query-filter-command-dispatch.md) | Per-view filters, query pieces, command handler table | Before 8.3 | Planned |
-| [ARCH-09](ARCH-09-testing-operations-ci.md) | Scenario fixtures, sanitizer/Clang CI, database operations | Before 9.3 | Planned |
+| [ARCH-09](ARCH-09-testing-operations-ci.md) | Scenario fixtures, sanitizer/Clang CI, database operations | Before 9.3 | Partial |
 
 ## Ordering rules
 
