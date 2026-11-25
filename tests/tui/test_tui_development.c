@@ -238,3 +238,87 @@ Test(tui_development, project_form_resolves_season_and_car_labels)
 
     close_test_app(&app, dir, &err);
 }
+
+Test(tui_development, expense_form_links_to_project_by_name)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+    apl_project project = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "", "", "", "", "", 0, 0, "",
+                                            &project, &err),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    apl_tui_list_init(&state.list, 8);
+
+    open_money_entry_dialog_for_project(&state, APL_LEDGER_KIND_EXPENSE, "Aero");
+    cr_assert(apl_tui_dialog_active(&state.dialog));
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 4)->value, "Aero");
+    (void)apl_tui_dialog_set_field_value(&state.dialog, 0, "125.00");
+    (void)apl_tui_dialog_set_field_value(&state.dialog, 1, "2026-04-01");
+    (void)apl_tui_dialog_set_field_value(&state.dialog, 2, "Parts");
+    (void)apl_tui_dialog_set_field_value(&state.dialog, 3, "Floor");
+    store_money_entry_values(&state);
+    cr_assert(perform_money_post(&state, &err), "post failed: %s", apl_error_message(&err));
+    cr_assert_eq(state.entry_detail.project_id, project.id);
+
+    apl_ledger_entry *entries = nullptr;
+    size_t count = 0;
+    cr_assert_eq(
+        apl_ledger_service_list_for_project(&app, team.id, project.id, &entries, &count, &err),
+        APL_OK);
+    cr_assert_eq(count, 1);
+    apl_ledger_service_free_list(entries);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(tui_development, project_budget_report_and_archive_are_project_scoped)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = make_team(&app, &err);
+    apl_project project = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "", "", "", "", "", 0, 0, "",
+                                            &project, &err),
+                 APL_OK);
+
+    apl_budget_plan plan = {};
+    cr_assert_eq(apl_budget_service_save(&app, team.id, project.id, "2026-01-01", "2026-01-31",
+                                         "300.00", "Tyres", 0, "", &plan, &err),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.budget_project_filter = project.id;
+    apl_tui_list_init(&state.list, 8);
+
+    cr_assert_eq(load_budget_report(&state, &err), APL_OK);
+    cr_assert_eq(state.budget_row_count, 1);
+    cr_assert_eq(state.budget_rows[0].project_id, project.id);
+    cr_assert_eq(state.budget_rows[0].plan_id, plan.id);
+
+    perform_budget_archive(&state, plan.id, &err);
+    cr_assert_eq(state.budget_row_count, 0);
+
+    state.include_archived_budgets = true;
+    cr_assert_eq(load_budget_report(&state, &err), APL_OK);
+    cr_assert_eq(state.budget_row_count, 1);
+    cr_assert(state.budget_rows[0].archived);
+
+    close_test_app(&app, dir, &err);
+}

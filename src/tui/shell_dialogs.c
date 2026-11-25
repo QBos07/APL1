@@ -341,6 +341,9 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         (void)apl_tui_dialog_set_field_value(&state->dialog, 1, state->pending_date);
         (void)apl_tui_dialog_set_field_value(&state->dialog, 2, state->pending_category);
         (void)apl_tui_dialog_set_field_value(&state->dialog, 3, state->pending_description);
+        if (state->pending_ledger_kind != APL_LEDGER_KIND_OPENING_BALANCE) {
+            (void)apl_tui_dialog_set_field_value(&state->dialog, 4, state->pending_project);
+        }
         apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
         return;
     }
@@ -391,7 +394,8 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         (void)apl_tui_dialog_set_field_value(&state->dialog, 1, state->pending_end);
         (void)apl_tui_dialog_set_field_value(&state->dialog, 2, state->pending_category);
         (void)apl_tui_dialog_set_field_value(&state->dialog, 3, state->pending_amount);
-        (void)apl_tui_dialog_set_field_value(&state->dialog, 4, state->pending_notes);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 4, state->pending_budget_project);
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 5, state->pending_notes);
         apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
         return;
     }
@@ -460,6 +464,12 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
     } else if (pending == SHELL_PENDING_ARCHIVE_PROJECT) {
         if (result == APL_TUI_DIALOG_ACCEPTED) {
             perform_project_archive(state, pending_record, &error);
+        } else {
+            set_status(state, "Archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_BUDGET) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_budget_archive(state, pending_record, &error);
         } else {
             set_status(state, "Archive cancelled.");
         }

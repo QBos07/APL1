@@ -183,7 +183,7 @@ Test(budget_repository, plans_are_team_scoped_and_have_no_ledger_side_effects)
 
     bool found = false;
     apl_budget_plan scope = {};
-    cr_assert_eq(apl_budget_repository_find_scope(&db.connection, red.id, "2026-01-01",
+    cr_assert_eq(apl_budget_repository_find_scope(&db.connection, red.id, 0, "2026-01-01",
                                                   "2026-01-31", "tyres", &scope, &found, &err),
                  APL_OK);
     cr_assert(found);

@@ -443,9 +443,16 @@ void handle_project_detail_input(shell_state *const state, const uint32_t id)
             apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }
         return;
+    case 'c':
+    case 'C':
+        open_money_entry_dialog_for_project(state, APL_LEDGER_KIND_EXPENSE,
+                                            state->project_detail.title);
+        return;
     case 'b':
     case 'B':
         state->project_return_pending = false;
+        state->budget_project_filter = state->project_detail.id;
+        state->include_archived_budgets = false;
         state->section = APL_TUI_SECTION_MONEY;
         state->screen = SHELL_SCREEN_BUDGET_LIST;
         if (load_budget_report(state, &error) != APL_OK) {
@@ -453,7 +460,7 @@ void handle_project_detail_input(shell_state *const state, const uint32_t id)
             return;
         }
         sync_status_context(state);
-        set_status(state, "Budget report for the active team; project: %s.",
+        set_status(state, "Budget plans for project '%s'. n creates/edits a linked plan.",
                    state->project_detail.title);
         return;
     case 'q':
@@ -569,6 +576,53 @@ apl_status project_resolve_car(shell_state *const state, const char *const text,
                       "existing car",
                       normalized);
         apl_error_set_field(error, APL_FIELD_CAR);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    return APL_OK;
+}
+
+apl_status project_resolve_title(shell_state *const state, const char *const text,
+                                 int64_t *const out, apl_error *const error)
+{
+    *out = 0;
+    char normalized[APL_REFERENCE_LABEL_MAX];
+    apl_status result =
+        apl_reference_optional_normalize(text, "project", normalized, sizeof(normalized), error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_PROJECT);
+        return result;
+    }
+    if (normalized[0] == '\0') {
+        return APL_OK;
+    }
+    const int64_t team_id = active_team_id(state);
+    if (team_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "select an active team before linking a project");
+        apl_error_set_field(error, APL_FIELD_PROJECT);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    apl_project_filter filter = {.team_id = team_id, .include_archived = true};
+    apl_project *projects = nullptr;
+    size_t count = 0;
+    result = apl_project_service_list(state->app, &filter, &projects, &count, error);
+    if (result != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_PROJECT);
+        return result;
+    }
+    for (size_t index = 0; index < count; ++index) {
+        if (apl_tui_text_equal_ci(normalized, projects[index].title)) {
+            *out = projects[index].id;
+            break;
+        }
+    }
+    apl_project_service_free_list(projects);
+    if (*out == 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "project '%s' was not found for this team; leave the field blank or use an "
+                      "existing project",
+                      normalized);
+        apl_error_set_field(error, APL_FIELD_PROJECT);
         return APL_ERR_INVALID_ARGUMENT;
     }
     return APL_OK;

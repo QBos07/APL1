@@ -30,11 +30,16 @@ apl_status apl_budget_repository_update(const apl_db_connection *connection, int
                                         int64_t id, const apl_budget_plan *plan,
                                         apl_budget_plan *out_plan, apl_error *error);
 
-/** Find the plan matching the unique scope, or `found` false. */
+/** Find the plan matching the unique team/project/period/category scope. */
 apl_status apl_budget_repository_find_scope(const apl_db_connection *connection, int64_t team_id,
-                                            const char *start_date, const char *end_date,
-                                            const char *category_key, apl_budget_plan *out_plan,
-                                            bool *out_found, apl_error *error);
+                                            int64_t project_id, const char *start_date,
+                                            const char *end_date, const char *category_key,
+                                            apl_budget_plan *out_plan, bool *out_found,
+                                            apl_error *error);
+
+/** Soft-archive one plan. Archived plans remain readable by ID/history. */
+apl_status apl_budget_repository_archive(const apl_db_connection *connection, int64_t team_id,
+                                         int64_t id, apl_budget_plan *out_plan, apl_error *error);
 
 /** List plans ordered by start date, category key, and ID. */
 apl_status apl_budget_repository_list(const apl_db_connection *connection,

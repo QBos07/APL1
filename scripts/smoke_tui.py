@@ -561,8 +561,8 @@ class Smoke:
                 ).fetchone()[0]
         except sqlite3.Error as error:
             self.fail(f"database is not a usable migrated apl1 database: {error}")
-        if version != 14:
-            self.fail(f"database schema version is {version}, expected 14")
+        if version != 15:
+            self.fail(f"database schema version is {version}, expected 15")
 
         with sqlite3.connect(self.database_path) as connection:
             teams = connection.execute(
@@ -984,7 +984,7 @@ class Smoke:
         self.type_text("2026-01-31")
         self.send_keys("Tab", "Tab")
         self.type_text("300.00")
-        self.send_keys("Tab")
+        self.send_keys("Tab", "Tab")
         self.type_text("January")
         self.send_keys("Return")
         self.wait_for_content("budget review", ("Review budget plan", "EUR", "Tyres"))

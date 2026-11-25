@@ -105,8 +105,9 @@ apl_status load_budget_report(shell_state *const state, apl_error *const error)
     if (team_id > 0) {
         char from[APL_REFERENCE_DATE_MAX];
         money_date_from(state->budget_date_preset, from, sizeof(from));
-        status = apl_budget_service_report(state->app, team_id, from, "",
-                                           state->budget_category_filter, &rows, &count, error);
+        status = apl_budget_service_report_for_project(
+            state->app, team_id, state->budget_project_filter, state->include_archived_budgets,
+            from, "", state->budget_category_filter, &rows, &count, error);
     }
     if (status != APL_OK) {
         return status;
@@ -187,10 +188,28 @@ void open_money_entry_dialog(shell_state *const state, const apl_ledger_kind kin
     (void)apl_tui_dialog_add_field(&state->dialog, "Date (YYYY-MM-DD)", "", true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Category (user-entered)", "", true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Description (required)", "", true);
+    if (kind != APL_LEDGER_KIND_OPENING_BALANCE) {
+        (void)apl_tui_dialog_add_field(&state->dialog, "Project (optional)", "", false);
+    }
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_ENTRY;
     state->pending_ledger_kind = kind;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
     set_status(state, "Tab moves fields. Enter reviews before saving; Esc writes nothing.");
+}
+
+void open_money_entry_dialog_for_project(shell_state *const state, const apl_ledger_kind kind,
+                                         const char *const project_title)
+{
+    open_money_entry_dialog(state, kind);
+    if (!apl_tui_dialog_active(&state->dialog) ||
+        state->dialog_context != SHELL_DIALOG_CONTEXT_MONEY_ENTRY) {
+        return;
+    }
+    if (kind != APL_LEDGER_KIND_OPENING_BALANCE) {
+        (void)apl_tui_dialog_set_field_value(&state->dialog, 4, project_title);
+    }
+    set_status(state, "Enter a linked %s for project '%s'; Esc writes nothing.",
+               kind == APL_LEDGER_KIND_INCOME ? "income" : "expense", project_title);
 }
 
 void store_money_entry_values(shell_state *const state)
@@ -199,6 +218,7 @@ void store_money_entry_values(shell_state *const state)
     const apl_tui_dialog_field *const date = apl_tui_dialog_field_at(&state->dialog, 1);
     const apl_tui_dialog_field *const category = apl_tui_dialog_field_at(&state->dialog, 2);
     const apl_tui_dialog_field *const description = apl_tui_dialog_field_at(&state->dialog, 3);
+    const apl_tui_dialog_field *const project = apl_tui_dialog_field_at(&state->dialog, 4);
     (void)snprintf(state->pending_amount, sizeof(state->pending_amount), "%.63s",
                    amount != nullptr ? amount->value : "");
     (void)snprintf(state->pending_date, sizeof(state->pending_date), "%.10s",
@@ -207,6 +227,8 @@ void store_money_entry_values(shell_state *const state)
                    category != nullptr ? category->value : "");
     (void)snprintf(state->pending_description, sizeof(state->pending_description), "%.511s",
                    description != nullptr ? description->value : "");
+    (void)snprintf(state->pending_project, sizeof(state->pending_project), "%.127s",
+                   project != nullptr ? project->value : "");
 }
 
 void open_money_review_dialog(shell_state *const state)
@@ -225,12 +247,14 @@ void open_money_review_dialog(shell_state *const state)
     } else {
         (void)snprintf(amount_display, sizeof(amount_display), "%s", state->pending_amount);
     }
-    char message[1024];
+    char message[2048];
     (void)snprintf(message, sizeof(message),
                    "Team: %s\nCurrency: %s\nKind: %s\nAmount: %s\nDate: %s\nCategory: %s\n"
-                   "Description: %s\n\nConfirm to save. Nothing is written before confirmation.",
+                   "Description: %s\nProject: %s\n\nConfirm to save. Nothing is written before "
+                   "confirmation.",
                    state->active_team.name, state->active_team.currency, kind, amount_display,
-                   state->pending_date, state->pending_category, state->pending_description);
+                   state->pending_date, state->pending_category, state->pending_description,
+                   state->pending_project[0] != '\0' ? state->pending_project : "not linked");
     apl_tui_dialog_open_confirm(&state->dialog, "Review money entry", message);
     state->dialog.focus = 1;
     state->dialog_context = SHELL_DIALOG_CONTEXT_MONEY_REVIEW;
@@ -338,6 +362,15 @@ bool perform_money_post(shell_state *const state, apl_error *const error)
 {
     apl_ledger_entry created = {};
     apl_status status = APL_OK;
+    int64_t project_id = 0;
+    if (state->pending_ledger_kind != APL_LEDGER_KIND_OPENING_BALANCE &&
+        state->pending_project[0] != '\0') {
+        status = project_resolve_title(state, state->pending_project, &project_id, error);
+        if (status != APL_OK) {
+            set_status_from_error(state, "Cannot save money entry", error);
+            return false;
+        }
+    }
     switch (state->pending_ledger_kind) {
     case APL_LEDGER_KIND_OPENING_BALANCE:
         status = apl_ledger_service_post_opening(
@@ -345,14 +378,26 @@ bool perform_money_post(shell_state *const state, apl_error *const error)
             state->pending_category, state->pending_description, &created, error);
         break;
     case APL_LEDGER_KIND_INCOME:
-        status = apl_ledger_service_post_income(
-            state->app, active_team_id(state), state->pending_amount, state->pending_date,
-            state->pending_category, state->pending_description, &created, error);
+        status = project_id > 0
+                     ? apl_ledger_service_post_income_linked(
+                           state->app, active_team_id(state), state->pending_amount,
+                           state->pending_date, state->pending_category, state->pending_description,
+                           project_id, &created, error)
+                     : apl_ledger_service_post_income(state->app, active_team_id(state),
+                                                      state->pending_amount, state->pending_date,
+                                                      state->pending_category,
+                                                      state->pending_description, &created, error);
         break;
     case APL_LEDGER_KIND_EXPENSE:
-        status = apl_ledger_service_post_expense(
-            state->app, active_team_id(state), state->pending_amount, state->pending_date,
-            state->pending_category, state->pending_description, &created, error);
+        status = project_id > 0
+                     ? apl_ledger_service_post_expense_linked(
+                           state->app, active_team_id(state), state->pending_amount,
+                           state->pending_date, state->pending_category, state->pending_description,
+                           project_id, &created, error)
+                     : apl_ledger_service_post_expense(state->app, active_team_id(state),
+                                                       state->pending_amount, state->pending_date,
+                                                       state->pending_category,
+                                                       state->pending_description, &created, error);
         break;
     default:
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "unknown money entry kind");
@@ -404,6 +449,24 @@ bool perform_money_correction(shell_state *const state, apl_error *const error)
     return true;
 }
 
+static void budget_project_label(const shell_state *const state, const int64_t project_id,
+                                 char *const out, const size_t out_size)
+{
+    out[0] = '\0';
+    if (project_id <= 0) {
+        return;
+    }
+    apl_project project = {};
+    apl_error error;
+    apl_error_init(&error);
+    if (apl_project_service_get(state->app, active_team_id(state), project_id, &project, &error) ==
+        APL_OK) {
+        (void)snprintf(out, out_size, "%s", project.title);
+    } else {
+        (void)snprintf(out, out_size, "(unknown project)");
+    }
+}
+
 void open_budget_form(shell_state *const state, const bool edit)
 {
     if (active_team_id(state) == 0) {
@@ -417,11 +480,12 @@ void open_budget_form(shell_state *const state, const bool edit)
     const apl_budget_report_row *const row = (state->list.selected < state->budget_row_count)
                                                  ? &state->budget_rows[state->list.selected]
                                                  : nullptr;
-    const bool has_plan = edit && row != nullptr && row->plan_id > 0;
+    const bool has_plan = edit && row != nullptr && row->plan_id > 0 && !row->archived;
     char start[APL_REFERENCE_DATE_MAX] = "";
     char end[APL_REFERENCE_DATE_MAX] = "";
     char category[APL_LEDGER_CATEGORY_MAX] = "";
     char amount[64] = "";
+    char project[APL_REFERENCE_LABEL_MAX] = "";
     char notes[APL_REFERENCE_NOTES_MAX] = "";
     if (has_plan) {
         (void)snprintf(start, sizeof(start), "%s", row->start_date);
@@ -431,9 +495,11 @@ void open_budget_form(shell_state *const state, const bool edit)
                        (long long)(row->planned.minor_units / 100),
                        (long long)(row->planned.minor_units % 100));
         state->pending_season_id = row->season_id;
+        budget_project_label(state, row->project_id, project, sizeof(project));
         (void)snprintf(notes, sizeof(notes), "%s", row->notes);
     } else {
         state->pending_season_id = 0;
+        budget_project_label(state, state->budget_project_filter, project, sizeof(project));
         if (row != nullptr) {
             (void)snprintf(category, sizeof(category), "%s", row->category);
         }
@@ -444,6 +510,7 @@ void open_budget_form(shell_state *const state, const bool edit)
     (void)apl_tui_dialog_add_field(&state->dialog, "End date (YYYY-MM-DD)", end, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Category (user-entered)", category, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Planned (e.g. 300.00)", amount, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Project (optional)", project, false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", notes, false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_BUDGET_FORM;
     state->dialog_record_id = has_plan ? row->plan_id : 0;
@@ -457,7 +524,8 @@ void store_budget_values(shell_state *const state)
     const apl_tui_dialog_field *const end = apl_tui_dialog_field_at(&state->dialog, 1);
     const apl_tui_dialog_field *const category = apl_tui_dialog_field_at(&state->dialog, 2);
     const apl_tui_dialog_field *const amount = apl_tui_dialog_field_at(&state->dialog, 3);
-    const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 4);
+    const apl_tui_dialog_field *const project = apl_tui_dialog_field_at(&state->dialog, 4);
+    const apl_tui_dialog_field *const notes = apl_tui_dialog_field_at(&state->dialog, 5);
     (void)snprintf(state->pending_start, sizeof(state->pending_start), "%.10s",
                    start != nullptr ? start->value : "");
     (void)snprintf(state->pending_end, sizeof(state->pending_end), "%.10s",
@@ -466,6 +534,8 @@ void store_budget_values(shell_state *const state)
                    category != nullptr ? category->value : "");
     (void)snprintf(state->pending_amount, sizeof(state->pending_amount), "%.63s",
                    amount != nullptr ? amount->value : "");
+    (void)snprintf(state->pending_budget_project, sizeof(state->pending_budget_project), "%.127s",
+                   project != nullptr ? project->value : "");
     (void)snprintf(state->pending_notes, sizeof(state->pending_notes), "%.1023s",
                    notes != nullptr ? notes->value : "");
     return;
@@ -476,9 +546,11 @@ void open_budget_review_dialog(shell_state *const state)
     char message[1024];
     (void)snprintf(message, sizeof(message),
                    "Team: %.100s\nCurrency: %.3s\nPeriod: %.10s to %.10s\nCategory: %.100s\n"
-                   "Planned: %.63s\nNotes: %.400s\n\nConfirm to save the plan.",
+                   "Planned: %.63s\nProject: %.100s\nNotes: %.400s\n\nConfirm to save the plan.",
                    state->active_team.name, state->active_team.currency, state->pending_start,
                    state->pending_end, state->pending_category, state->pending_amount,
+                   state->pending_budget_project[0] != '\0' ? state->pending_budget_project
+                                                            : "not linked",
                    state->pending_notes);
     apl_tui_dialog_open_confirm(&state->dialog, "Review budget plan", message);
     state->dialog.focus = 1;
@@ -490,16 +562,23 @@ void open_budget_review_dialog(shell_state *const state)
 bool perform_budget_save(shell_state *const state, apl_error *const error)
 {
     apl_budget_plan saved = {};
-    const apl_status status =
-        (state->dialog_record_id > 0)
-            ? apl_budget_service_update(
-                  state->app, active_team_id(state), state->dialog_record_id, state->pending_start,
-                  state->pending_end, state->pending_amount, state->pending_category,
-                  state->pending_season_id, state->pending_notes, &saved, error)
-            : apl_budget_service_save(state->app, active_team_id(state), state->pending_start,
-                                      state->pending_end, state->pending_amount,
-                                      state->pending_category, state->pending_season_id,
-                                      state->pending_notes, &saved, error);
+    int64_t project_id = 0;
+    apl_status status =
+        project_resolve_title(state, state->pending_budget_project, &project_id, error);
+    if (status != APL_OK) {
+        set_status_from_error(state, "Cannot save budget plan", error);
+        return false;
+    }
+    status = (state->dialog_record_id > 0)
+                 ? apl_budget_service_update(
+                       state->app, active_team_id(state), state->dialog_record_id, project_id,
+                       state->pending_start, state->pending_end, state->pending_amount,
+                       state->pending_category, state->pending_season_id, state->pending_notes,
+                       &saved, error)
+                 : apl_budget_service_save(
+                       state->app, active_team_id(state), project_id, state->pending_start,
+                       state->pending_end, state->pending_amount, state->pending_category,
+                       state->pending_season_id, state->pending_notes, &saved, error);
     if (status != APL_OK) {
         set_status_from_error(state, "Cannot save budget plan", error);
         return false;
@@ -710,11 +789,15 @@ void draw_budget_list(shell_state *const state)
         apl_tui_frame_draw_line(body, 0, "No active team. Select one before browsing budgets.");
         return;
     }
+    char project[APL_REFERENCE_LABEL_MAX];
+    budget_project_label(state, state->budget_project_filter, project, sizeof(project));
     char header[512];
     (void)snprintf(
-        header, sizeof(header), "Budget report: %s   Currency: %s   Date:%s   Category:%s",
+        header, sizeof(header),
+        "Budget report: %s   Currency: %s   Project:%s   Archived:%s   Date:%s   Category:%s",
         state->active_team.name,
         state->active_team.currency[0] != '\0' ? state->active_team.currency : "(not chosen)",
+        project[0] != '\0' ? project : "all", state->include_archived_budgets ? "yes" : "no",
         money_date_filter_name(state->budget_date_preset),
         state->budget_category_filter[0] != '\0' ? state->budget_category_filter : "all");
     apl_tui_frame_draw_line(body, 0, header);
@@ -773,8 +856,9 @@ void draw_budget_list(shell_state *const state)
         char period_text[32];
         (void)snprintf(period_text, sizeof(period_text), "%s..%s", period, period_end);
         char line[512];
-        (void)snprintf(line, sizeof(line), "%c %-23.23s %-16.16s %14s %14s %.80s",
-                       focused ? '>' : ' ', period_text, row->category, planned, actual, variance);
+        (void)snprintf(line, sizeof(line), "%c %-23.23s %-16.16s %14s %14s %.80s%s",
+                       focused ? '>' : ' ', period_text, row->category, planned, actual, variance,
+                       row->archived ? " [archived]" : "");
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)(offset + 3), line);
@@ -821,7 +905,29 @@ void open_selected_budget(shell_state *const state)
         open_budget_form(state, false);
         return;
     }
+    const apl_budget_report_row *const row = &state->budget_rows[state->list.selected];
+    if (row->plan_id > 0 && row->archived) {
+        set_status_warning(state, "This budget plan is archived and read-only; press a to include "
+                                  "archived plans or n to create a new one.");
+        return;
+    }
     open_budget_form(state, true);
+}
+
+void perform_budget_archive(shell_state *const state, const int64_t id, apl_error *const error)
+{
+    apl_budget_plan archived = {};
+    if (apl_budget_service_archive(state->app, active_team_id(state), id, &archived, error) !=
+        APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    if (load_budget_report(state, error) != APL_OK) {
+        show_error_dialog(state, error);
+        return;
+    }
+    set_status_success(state, "Budget plan for %s archived; it no longer appears by default.",
+                       archived.category);
 }
 
 void handle_money_list_input(shell_state *const state, const uint32_t id)
@@ -999,6 +1105,39 @@ void handle_budget_list_input(shell_state *const state, const uint32_t id)
     case 'n':
     case 'N':
         open_budget_form(state, false);
+        return;
+    case 'x':
+    case 'X': {
+        if (state->budget_row_count == 0 || state->list.selected >= state->budget_row_count) {
+            set_status_warning(state, "Select a budget plan to archive.");
+            return;
+        }
+        const apl_budget_report_row *const row = &state->budget_rows[state->list.selected];
+        if (row->plan_id <= 0) {
+            set_status_warning(state, "Only an entered budget plan can be archived.");
+            return;
+        }
+        if (row->archived) {
+            set_status_warning(state, "This budget plan is already archived.");
+            return;
+        }
+        state->pending = SHELL_PENDING_ARCHIVE_BUDGET;
+        state->pending_record_id = row->plan_id;
+        apl_tui_dialog_open_confirm(&state->dialog, "Archive budget plan?",
+                                    "The plan remains readable through history but no longer "
+                                    "counts as a plan in reports. No ledger entry is changed.");
+        apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+        return;
+    }
+    case 'a':
+    case 'A':
+        state->include_archived_budgets = !state->include_archived_budgets;
+        if (load_budget_report(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, state->include_archived_budgets ? "Including archived budget plans."
+                                                              : "Hiding archived budget plans.");
+        }
         return;
     case 'u':
     case 'U':

@@ -67,12 +67,15 @@ typedef struct apl_budget_plan {
     int64_t id;
     int64_t team_id;
     int64_t season_id;
+    int64_t project_id; /* 0 means a team-level plan */
     apl_money amount;
     char start_date[APL_REFERENCE_DATE_MAX];
     char end_date[APL_REFERENCE_DATE_MAX];
     char category[APL_LEDGER_CATEGORY_MAX];
     char category_key[APL_LEDGER_CATEGORY_MAX];
     char notes[APL_REFERENCE_NOTES_MAX];
+    bool archived;
+    char archived_at[APL_RECORD_TIMESTAMP_MAX];
     char created_at[APL_RECORD_TIMESTAMP_MAX];
     char updated_at[APL_RECORD_TIMESTAMP_MAX];
 } apl_budget_plan;
@@ -91,6 +94,8 @@ typedef struct apl_ledger_filter {
 typedef struct apl_budget_filter {
     int64_t team_id;
     int64_t season_id;
+    int64_t project_id;
+    bool include_archived;
     char from_date[APL_REFERENCE_DATE_MAX];
     char to_date[APL_REFERENCE_DATE_MAX];
     char category_key[APL_LEDGER_CATEGORY_MAX];
@@ -130,7 +135,9 @@ typedef struct apl_ledger_category_total {
 typedef struct apl_budget_report_row {
     int64_t plan_id;
     int64_t season_id;
+    int64_t project_id;
     bool has_plan;
+    bool archived;
     bool has_actual;
     bool over_plan;
     apl_money planned;

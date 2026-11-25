@@ -64,6 +64,7 @@ typedef enum shell_pending_action {
     SHELL_PENDING_ARCHIVE_CAR,
     SHELL_PENDING_ARCHIVE_DRIVER,
     SHELL_PENDING_ARCHIVE_PROJECT,
+    SHELL_PENDING_ARCHIVE_BUDGET,
 } shell_pending_action;
 
 typedef enum shell_dialog_context {
@@ -187,6 +188,10 @@ typedef struct shell_state {
     char pending_role[APL_TUI_COMMAND_WORD_MAX];
     char pending_notes[APL_TUI_COMMAND_WORD_MAX];
     char pending_currency[APL_MONEY_CURRENCY_MAX];
+    char pending_project[APL_REFERENCE_LABEL_MAX];
+    char pending_budget_project[APL_REFERENCE_LABEL_MAX];
+    bool include_archived_budgets;
+    int64_t budget_project_filter;
     apl_project *projects;
     size_t project_count;
     apl_project project_detail;
@@ -369,6 +374,9 @@ void draw_budget_list(shell_state *state);
 void open_money_filter_dialog(shell_state *state);
 void open_selected_money_entry(shell_state *state);
 void open_selected_budget(shell_state *state);
+void perform_budget_archive(shell_state *state, int64_t id, apl_error *error);
+void open_money_entry_dialog_for_project(shell_state *state, apl_ledger_kind kind,
+                                         const char *project_title);
 void handle_money_list_input(shell_state *state, uint32_t id);
 void handle_money_detail_input(shell_state *state, uint32_t id);
 void handle_budget_list_input(shell_state *state, uint32_t id);
@@ -411,5 +419,7 @@ apl_status project_resolve_season(shell_state *state, const char *text, int64_t 
                                   apl_error *error);
 apl_status project_resolve_car(shell_state *state, const char *text, int64_t *out,
                                apl_error *error);
+apl_status project_resolve_title(shell_state *state, const char *text, int64_t *out,
+                                 apl_error *error);
 
 #endif /*APL_TUI_SHELL_INTERNAL_H */

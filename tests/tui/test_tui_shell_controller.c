@@ -90,8 +90,10 @@ Test(shell_controller, form_error_fields_map_to_dialog_inputs)
     cr_assert_eq(money_form_error_field(&error), 3);
     apl_error_set_field(&error, APL_FIELD_PERIOD);
     cr_assert_eq(budget_form_error_field(&error), 0);
-    apl_error_set_field(&error, APL_FIELD_NOTES);
+    apl_error_set_field(&error, APL_FIELD_PROJECT);
     cr_assert_eq(budget_form_error_field(&error), 4);
+    apl_error_set_field(&error, APL_FIELD_NOTES);
+    cr_assert_eq(budget_form_error_field(&error), 5);
 }
 
 Test(shell_controller, each_tab_keeps_its_own_list_position)

@@ -18,18 +18,23 @@
 
 /** Validate and save a plan, updating the existing plan when the
  *  team/period/category scope already exists. */
-apl_status apl_budget_service_save(const apl_app *app, int64_t team_id, const char *start_date,
-                                   const char *end_date, const char *amount_text,
-                                   const char *category, int64_t season_id, const char *notes,
-                                   apl_budget_plan *out_plan, apl_error *error);
+apl_status apl_budget_service_save(const apl_app *app, int64_t team_id, int64_t project_id,
+                                   const char *start_date, const char *end_date,
+                                   const char *amount_text, const char *category, int64_t season_id,
+                                   const char *notes, apl_budget_plan *out_plan, apl_error *error);
 
 /** Update one known plan by stable ID, including when its period/category
  *  changes. This never creates a second plan for the edited row. */
 apl_status apl_budget_service_update(const apl_app *app, int64_t team_id, int64_t id,
-                                     const char *start_date, const char *end_date,
-                                     const char *amount_text, const char *category,
-                                     int64_t season_id, const char *notes,
+                                     int64_t project_id, const char *start_date,
+                                     const char *end_date, const char *amount_text,
+                                     const char *category, int64_t season_id, const char *notes,
                                      apl_budget_plan *out_plan, apl_error *error);
+
+/** Soft-archive one plan. It disappears from default reports but remains
+ *  readable by ID/history. */
+apl_status apl_budget_service_archive(const apl_app *app, int64_t team_id, int64_t id,
+                                      apl_budget_plan *out_plan, apl_error *error);
 
 /** Fetch one plan for the team. */
 apl_status apl_budget_service_get(const apl_app *app, int64_t team_id, int64_t id,
@@ -50,6 +55,14 @@ apl_status apl_budget_service_report(const apl_app *app, int64_t team_id, const 
                                      const char *to_date, const char *category_text,
                                      apl_budget_report_row **out_rows, size_t *out_count,
                                      apl_error *error);
+
+/** Report plans and linked actuals for one project scope. */
+apl_status apl_budget_service_report_for_project(const apl_app *app, int64_t team_id,
+                                                 int64_t project_id, bool include_archived,
+                                                 const char *from_date, const char *to_date,
+                                                 const char *category_text,
+                                                 apl_budget_report_row **out_rows,
+                                                 size_t *out_count, apl_error *error);
 
 void apl_budget_service_free_list(apl_budget_plan *plans);
 void apl_budget_service_free_report(apl_budget_report_row *rows);

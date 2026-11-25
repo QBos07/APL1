@@ -8,8 +8,8 @@
 #include "db/sqlite_util.h"
 
 #define PLAN_COLUMNS                                                                               \
-    "id, team_id, season_id, amount_minor, currency, start_date, end_date, category, "             \
-    "category_key, notes, created_at, updated_at"
+    "id, team_id, season_id, project_id, amount_minor, currency, start_date, end_date, "           \
+    "category, category_key, notes, archived, archived_at, created_at, updated_at"
 
 static void read_plan(sqlite3_stmt *const statement, apl_budget_plan *const plan)
 {
@@ -18,15 +18,19 @@ static void read_plan(sqlite3_stmt *const statement, apl_budget_plan *const plan
     plan->team_id = sqlite3_column_int64(statement, 1);
     plan->season_id =
         sqlite3_column_type(statement, 2) == SQLITE_NULL ? 0 : sqlite3_column_int64(statement, 2);
-    plan->amount.minor_units = sqlite3_column_int64(statement, 3);
-    apl_db_copy_column_text(statement, 4, plan->amount.currency, sizeof(plan->amount.currency));
-    apl_db_copy_column_text(statement, 5, plan->start_date, sizeof(plan->start_date));
-    apl_db_copy_column_text(statement, 6, plan->end_date, sizeof(plan->end_date));
-    apl_db_copy_column_text(statement, 7, plan->category, sizeof(plan->category));
-    apl_db_copy_column_text(statement, 8, plan->category_key, sizeof(plan->category_key));
-    apl_db_copy_column_text(statement, 9, plan->notes, sizeof(plan->notes));
-    apl_db_copy_column_text(statement, 10, plan->created_at, sizeof(plan->created_at));
-    apl_db_copy_column_text(statement, 11, plan->updated_at, sizeof(plan->updated_at));
+    plan->project_id =
+        sqlite3_column_type(statement, 3) == SQLITE_NULL ? 0 : sqlite3_column_int64(statement, 3);
+    plan->amount.minor_units = sqlite3_column_int64(statement, 4);
+    apl_db_copy_column_text(statement, 5, plan->amount.currency, sizeof(plan->amount.currency));
+    apl_db_copy_column_text(statement, 6, plan->start_date, sizeof(plan->start_date));
+    apl_db_copy_column_text(statement, 7, plan->end_date, sizeof(plan->end_date));
+    apl_db_copy_column_text(statement, 8, plan->category, sizeof(plan->category));
+    apl_db_copy_column_text(statement, 9, plan->category_key, sizeof(plan->category_key));
+    apl_db_copy_column_text(statement, 10, plan->notes, sizeof(plan->notes));
+    plan->archived = sqlite3_column_int(statement, 11) != 0;
+    apl_db_copy_column_text(statement, 12, plan->archived_at, sizeof(plan->archived_at));
+    apl_db_copy_column_text(statement, 13, plan->created_at, sizeof(plan->created_at));
+    apl_db_copy_column_text(statement, 14, plan->updated_at, sizeof(plan->updated_at));
 }
 
 static apl_status prepare(sqlite3 *const handle, const char *const sql, sqlite3_stmt **const out,
@@ -62,45 +66,54 @@ static apl_status write_error(sqlite3 *const handle, apl_error *const error)
     return APL_ERR_DB_QUERY;
 }
 
-static apl_status bind_plan(sqlite3_stmt *const statement, const int first_index,
-                            const apl_budget_plan *const plan)
+static int bind_optional_id(sqlite3_stmt *const statement, const int index, const int64_t id)
 {
-    const int last = first_index + 8;
-    int bind_status = sqlite3_bind_int64(statement, first_index, plan->team_id);
-    if (bind_status == SQLITE_OK) {
-        if (plan->season_id > 0) {
-            bind_status = sqlite3_bind_int64(statement, first_index + 1, plan->season_id);
-        } else {
-            bind_status = sqlite3_bind_null(statement, first_index + 1);
-        }
+    if (id > 0) {
+        return sqlite3_bind_int64(statement, index, id);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_int64(statement, first_index + 2, plan->amount.minor_units);
+    return sqlite3_bind_null(statement, index);
+}
+
+static int bind_optional_text(sqlite3_stmt *const statement, const int index,
+                              const char *const text)
+{
+    if (text == nullptr || text[0] == '\0') {
+        return sqlite3_bind_null(statement, index);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, first_index + 3, plan->amount.currency, -1,
-                                        SQLITE_TRANSIENT);
+    return sqlite3_bind_text(statement, index, text, -1, SQLITE_TRANSIENT);
+}
+
+/** Bind season/project/amount/currency/start/end/category/key/notes. */
+static int bind_plan_payload(sqlite3_stmt *const statement, const int first_index,
+                             const apl_budget_plan *const plan)
+{
+    int index = first_index;
+    int status = bind_optional_id(statement, index++, plan->season_id);
+    if (status == SQLITE_OK) {
+        status = bind_optional_id(statement, index++, plan->project_id);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status =
-            sqlite3_bind_text(statement, first_index + 4, plan->start_date, -1, SQLITE_TRANSIENT);
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_int64(statement, index++, plan->amount.minor_units);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status =
-            sqlite3_bind_text(statement, first_index + 5, plan->end_date, -1, SQLITE_TRANSIENT);
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_text(statement, index++, plan->amount.currency, -1, SQLITE_TRANSIENT);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status =
-            sqlite3_bind_text(statement, first_index + 6, plan->category, -1, SQLITE_TRANSIENT);
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_text(statement, index++, plan->start_date, -1, SQLITE_TRANSIENT);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status =
-            sqlite3_bind_text(statement, first_index + 7, plan->category_key, -1, SQLITE_TRANSIENT);
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_text(statement, index++, plan->end_date, -1, SQLITE_TRANSIENT);
     }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, last, plan->notes, -1, SQLITE_TRANSIENT);
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_text(statement, index++, plan->category, -1, SQLITE_TRANSIENT);
     }
-    return (apl_status)bind_status;
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_text(statement, index++, plan->category_key, -1, SQLITE_TRANSIENT);
+    }
+    if (status == SQLITE_OK) {
+        status = sqlite3_bind_text(statement, index, plan->notes, -1, SQLITE_TRANSIENT);
+    }
+    return status;
 }
 
 apl_status apl_budget_repository_create(const apl_db_connection *const connection,
@@ -121,16 +134,20 @@ apl_status apl_budget_repository_create(const apl_db_connection *const connectio
     sqlite3_stmt *statement = nullptr;
     apl_status status =
         prepare(handle,
-                "INSERT INTO budget_plans (team_id, season_id, amount_minor, currency, start_date, "
-                "end_date, category, category_key, notes, created_at, updated_at) VALUES "
-                "(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, "
+                "INSERT INTO budget_plans (team_id, season_id, project_id, amount_minor, currency, "
+                "start_date, end_date, category, category_key, notes, archived, created_at, "
+                "updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0, "
                 "strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), "
                 "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) RETURNING " PLAN_COLUMNS ";",
                 &statement, error);
     if (status != APL_OK) {
         return status;
     }
-    if (bind_plan(statement, 1, plan) != APL_OK) {
+    int bind_status = sqlite3_bind_int64(statement, 1, plan->team_id);
+    if (bind_status == SQLITE_OK) {
+        bind_status = bind_plan_payload(statement, 2, plan);
+    }
+    if (bind_status != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot bind budget plan: %s",
                       sqlite3_errmsg(handle));
         sqlite3_finalize(statement);
@@ -212,44 +229,27 @@ apl_status apl_budget_repository_update(const apl_db_connection *const connectio
     sqlite3_stmt *statement = nullptr;
     apl_status status =
         prepare(handle,
-                "UPDATE budget_plans SET season_id = ?3, amount_minor = ?4, currency = ?5, "
-                "start_date = ?6, end_date = ?7, category = ?8, category_key = ?9, notes = ?10, "
+                "UPDATE budget_plans SET season_id = ?3, project_id = ?4, amount_minor = ?5, "
+                "currency = ?6, start_date = ?7, end_date = ?8, category = ?9, category_key = ?10, "
+                "notes = ?11, archived = ?12, archived_at = ?13, "
                 "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
                 "WHERE id = ?2 AND team_id = ?1 RETURNING " PLAN_COLUMNS ";",
                 &statement, error);
     if (status != APL_OK) {
         return status;
     }
-    /* Bind team (?1), id (?2), then the plan payload (?3..?10). */
     int bind_status = sqlite3_bind_int64(statement, 1, team_id);
     if (bind_status == SQLITE_OK) {
         bind_status = sqlite3_bind_int64(statement, 2, id);
     }
-    if (bind_status == SQLITE_OK && bound.season_id > 0) {
-        bind_status = sqlite3_bind_int64(statement, 3, bound.season_id);
-    } else if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_null(statement, 3);
+    if (bind_status == SQLITE_OK) {
+        bind_status = bind_plan_payload(statement, 3, &bound);
     }
     if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_int64(statement, 4, bound.amount.minor_units);
+        bind_status = sqlite3_bind_int(statement, 12, bound.archived ? 1 : 0);
     }
     if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, 5, bound.amount.currency, -1, SQLITE_TRANSIENT);
-    }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, 6, bound.start_date, -1, SQLITE_TRANSIENT);
-    }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, 7, bound.end_date, -1, SQLITE_TRANSIENT);
-    }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, 8, bound.category, -1, SQLITE_TRANSIENT);
-    }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, 9, bound.category_key, -1, SQLITE_TRANSIENT);
-    }
-    if (bind_status == SQLITE_OK) {
-        bind_status = sqlite3_bind_text(statement, 10, bound.notes, -1, SQLITE_TRANSIENT);
+        bind_status = bind_optional_text(statement, 13, bound.archived_at);
     }
     if (bind_status != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot bind budget update: %s",
@@ -275,12 +275,10 @@ apl_status apl_budget_repository_update(const apl_db_connection *const connectio
     return APL_OK;
 }
 
-apl_status apl_budget_repository_find_scope(const apl_db_connection *const connection,
-                                            const int64_t team_id, const char *const start_date,
-                                            const char *const end_date,
-                                            const char *const category_key,
-                                            apl_budget_plan *const out_plan, bool *const out_found,
-                                            apl_error *const error)
+apl_status apl_budget_repository_find_scope(
+    const apl_db_connection *const connection, const int64_t team_id, const int64_t project_id,
+    const char *const start_date, const char *const end_date, const char *const category_key,
+    apl_budget_plan *const out_plan, bool *const out_found, apl_error *const error)
 {
     if (connection == nullptr || start_date == nullptr || end_date == nullptr ||
         category_key == nullptr || out_plan == nullptr || out_found == nullptr || team_id <= 0) {
@@ -296,18 +294,19 @@ apl_status apl_budget_repository_find_scope(const apl_db_connection *const conne
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
-        prepare(handle,
-                "SELECT " PLAN_COLUMNS " FROM budget_plans "
-                "WHERE team_id = ?1 AND start_date = ?2 AND end_date = ?3 AND category_key = ?4;",
-                &statement, error);
+    apl_status status = prepare(handle,
+                                "SELECT " PLAN_COLUMNS " FROM budget_plans "
+                                "WHERE team_id = ?1 AND COALESCE(project_id, 0) = ?2 "
+                                "AND start_date = ?3 AND end_date = ?4 AND category_key = ?5;",
+                                &statement, error);
     if (status != APL_OK) {
         return status;
     }
     sqlite3_bind_int64(statement, 1, team_id);
-    sqlite3_bind_text(statement, 2, start_date, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(statement, 3, end_date, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(statement, 4, category_key, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int64(statement, 2, project_id);
+    sqlite3_bind_text(statement, 3, start_date, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 4, end_date, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(statement, 5, category_key, -1, SQLITE_TRANSIENT);
     const int step_status = sqlite3_step(statement);
     if (step_status == SQLITE_DONE) {
         sqlite3_finalize(statement);
@@ -354,6 +353,8 @@ apl_status apl_budget_repository_list(const apl_db_connection *const connection,
                                 "AND (?3 = '' OR start_date <= ?3) "
                                 "AND (?4 = '' OR category_key = ?4) "
                                 "AND (?5 = 0 OR season_id = ?5) "
+                                "AND (?6 = 0 OR project_id = ?6) "
+                                "AND (?7 = 1 OR archived = 0) "
                                 "ORDER BY start_date ASC, category_key ASC, id ASC;",
                                 &statement, error);
     if (status != APL_OK) {
@@ -371,6 +372,12 @@ apl_status apl_budget_repository_list(const apl_db_connection *const connection,
     }
     if (bind_status == SQLITE_OK) {
         bind_status = sqlite3_bind_int64(statement, 5, filter->season_id);
+    }
+    if (bind_status == SQLITE_OK) {
+        bind_status = sqlite3_bind_int64(statement, 6, filter->project_id);
+    }
+    if (bind_status == SQLITE_OK) {
+        bind_status = sqlite3_bind_int(statement, 7, filter->include_archived ? 1 : 0);
     }
     if (bind_status != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot bind budget filters: %s",
@@ -412,6 +419,52 @@ apl_status apl_budget_repository_list(const apl_db_connection *const connection,
     }
     *out_plans = plans;
     *out_count = count;
+    return APL_OK;
+}
+
+apl_status apl_budget_repository_archive(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t id,
+                                         apl_budget_plan *const out_plan, apl_error *const error)
+{
+    if (connection == nullptr || out_plan == nullptr || team_id <= 0 || id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "budget archive arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    *out_plan = (apl_budget_plan){};
+    sqlite3 *const handle = apl_db_handle(connection);
+    if (handle == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is closed");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+
+    sqlite3_stmt *statement = nullptr;
+    apl_status status =
+        prepare(handle,
+                "UPDATE budget_plans SET archived = 1, "
+                "archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), "
+                "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+                "WHERE id = ?2 AND team_id = ?1 RETURNING " PLAN_COLUMNS ";",
+                &statement, error);
+    if (status != APL_OK) {
+        return status;
+    }
+    sqlite3_bind_int64(statement, 1, team_id);
+    sqlite3_bind_int64(statement, 2, id);
+    const int step_status = sqlite3_step(statement);
+    if (step_status == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        apl_error_set(error, APL_ERR_NOT_FOUND, "budget plan %lld was not found for this team",
+                      (long long)id);
+        return APL_ERR_NOT_FOUND;
+    }
+    if (step_status != SQLITE_ROW) {
+        apl_error_set(error, APL_ERR_DB_QUERY, "cannot archive budget plan: %s",
+                      sqlite3_errmsg(handle));
+        sqlite3_finalize(statement);
+        return APL_ERR_DB_QUERY;
+    }
+    read_plan(statement, out_plan);
+    sqlite3_finalize(statement);
     return APL_OK;
 }
 

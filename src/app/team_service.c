@@ -410,7 +410,7 @@ apl_status apl_team_service_set_currency(const apl_app *const app, const int64_t
         apl_budget_plan *plans = nullptr;
         size_t plan_count = 0;
         if (status == APL_OK) {
-            const apl_budget_filter budget_filter = {.team_id = id};
+            const apl_budget_filter budget_filter = {.team_id = id, .include_archived = true};
             status =
                 apl_budget_repository_list(&app->db, &budget_filter, &plans, &plan_count, error);
             apl_budget_repository_free_list(plans);

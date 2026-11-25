@@ -173,6 +173,8 @@ unsigned money_form_error_field(const apl_error *const error)
         return 2;
     case APL_FIELD_DESCRIPTION:
         return 3;
+    case APL_FIELD_PROJECT:
+        return 4;
     case APL_FIELD_AMOUNT:
     case APL_FIELD_CURRENCY:
     default:
@@ -192,8 +194,10 @@ unsigned budget_form_error_field(const apl_error *const error)
         return 2;
     case APL_FIELD_AMOUNT:
         return 3;
-    case APL_FIELD_NOTES:
+    case APL_FIELD_PROJECT:
         return 4;
+    case APL_FIELD_NOTES:
+        return 5;
     default:
         return 0;
     }

@@ -6,6 +6,7 @@
 #include "app/app.h"
 #include "app/budget_service.h"
 #include "app/ledger_service.h"
+#include "app/project_service.h"
 #include "app/team_service.h"
 #include "db/activity_repository.h"
 #include "test_support.h"
@@ -57,7 +58,7 @@ Test(budget_service, plans_are_validated_and_audited_without_touching_the_ledger
     const apl_team team = create_team(&app, "Ferrari", &err);
 
     apl_budget_plan plan = {};
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "200.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-01-01", "2026-01-31", "200.00",
                                          "Tyres", 0, "January", &plan, &err),
                  APL_OK, "save failed: %s", apl_error_message(&err));
     cr_assert_gt(plan.id, 0);
@@ -68,7 +69,7 @@ Test(budget_service, plans_are_validated_and_audited_without_touching_the_ledger
 
     /* Saving the same scope updates that plan instead of creating a duplicate. */
     apl_budget_plan updated = {};
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "250.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-01-01", "2026-01-31", "250.00",
                                          " tyres ", 0, "Revised", &updated, &err),
                  APL_OK);
     cr_assert_eq(updated.id, plan.id);
@@ -85,16 +86,16 @@ Test(budget_service, plans_are_validated_and_audited_without_touching_the_ledger
     cr_assert_eq(plans[0].amount.minor_units, 25000);
     apl_budget_service_free_list(plans);
 
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-02-01", "2026-01-31", "10.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-02-01", "2026-01-31", "10.00",
                                          "Tyres", 0, "", &plan, &err),
                  APL_ERR_INVALID_ARGUMENT);
     cr_assert_eq(apl_error_field_id(&err), APL_FIELD_PERIOD);
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-02-01", "2026-02-28", "-1.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-02-01", "2026-02-28", "-1.00",
                                          "Tyres", 0, "", &plan, &err),
                  APL_ERR_INVALID_ARGUMENT);
     cr_assert_eq(apl_error_field_id(&err), APL_FIELD_AMOUNT);
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-02-01", "2026-02-28", "10.00", " ", 0,
-                                         "", &plan, &err),
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-02-01", "2026-02-28", "10.00", " ",
+                                         0, "", &plan, &err),
                  APL_ERR_INVALID_ARGUMENT);
     cr_assert_eq(apl_error_field_id(&err), APL_FIELD_CATEGORY);
 
@@ -117,11 +118,11 @@ Test(budget_service, report_separates_no_plan_no_actual_and_overspend)
     const apl_team team = create_team(&app, "Ferrari", &err);
 
     apl_budget_plan tyres = {};
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "200.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-01-01", "2026-01-31", "200.00",
                                          "Tyres", 0, "", &tyres, &err),
                  APL_OK);
     apl_budget_plan fuel = {};
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "100.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-01-01", "2026-01-31", "100.00",
                                          "Fuel", 0, "", &fuel, &err),
                  APL_OK);
 
@@ -206,7 +207,7 @@ Test(budget_service, corrections_reduce_actual_spending)
     const apl_team team = create_team(&app, "Ferrari", &err);
 
     apl_budget_plan plan = {};
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "100.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-01-01", "2026-01-31", "100.00",
                                          "Tyres", 0, "", &plan, &err),
                  APL_OK);
     apl_ledger_entry expense = {};
@@ -254,14 +255,14 @@ Test(budget_service, update_by_id_keeps_the_same_plan_when_scope_changes)
     const apl_team team = create_team(&app, "Ferrari", &err);
 
     apl_budget_plan plan = {};
-    cr_assert_eq(apl_budget_service_save(&app, team.id, "2026-01-01", "2026-01-31", "200.00",
+    cr_assert_eq(apl_budget_service_save(&app, team.id, 0, "2026-01-01", "2026-01-31", "200.00",
                                          "Tyres", 0, "January", &plan, &err),
                  APL_OK);
 
     /* Changing the period and category through an explicit edit must update
      * the selected row, not create a second plan and leave the first behind. */
     apl_budget_plan moved = {};
-    cr_assert_eq(apl_budget_service_update(&app, team.id, plan.id, "2026-02-01", "2026-02-28",
+    cr_assert_eq(apl_budget_service_update(&app, team.id, plan.id, 0, "2026-02-01", "2026-02-28",
                                            "300.00", "Fuel", 0, "February", &moved, &err),
                  APL_OK, "update failed: %s", apl_error_message(&err));
     cr_assert_eq(moved.id, plan.id);
@@ -281,13 +282,153 @@ Test(budget_service, update_by_id_keeps_the_same_plan_when_scope_changes)
     cr_assert_eq(activity_count(&app, team.id, "budget_updated", &err), 1);
 
     apl_budget_plan missing = {};
-    cr_assert_eq(apl_budget_service_update(&app, team.id, plan.id + 1000, "2026-03-01",
+    cr_assert_eq(apl_budget_service_update(&app, team.id, plan.id + 1000, 0, "2026-03-01",
                                            "2026-03-31", "10.00", "Tyres", 0, "", &missing, &err),
                  APL_ERR_NOT_FOUND);
     count = 1;
     cr_assert_eq(apl_budget_service_list(&app, &filter, &plans, &count, &err), APL_OK);
     cr_assert_eq(count, 1);
     apl_budget_service_free_list(plans);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(budget_service, project_budgets_link_actuals_and_archive_by_id)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = create_team(&app, "Ferrari", &err);
+    apl_project project = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "", "", "", "", "", 0, 0, "",
+                                            &project, &err),
+                 APL_OK);
+
+    apl_budget_plan plan = {};
+    cr_assert_eq(apl_budget_service_save(&app, team.id, project.id, "2026-01-01", "2026-01-31",
+                                         "300.00", "Tyres", 0, "Project tyres", &plan, &err),
+                 APL_OK, "project budget save failed: %s", apl_error_message(&err));
+    cr_assert_eq(plan.project_id, project.id);
+
+    apl_ledger_entry linked = {};
+    cr_assert_eq(apl_ledger_service_post_expense_linked(&app, team.id, "100.00", "2026-01-05",
+                                                        "Tyres", "Linked", project.id, &linked,
+                                                        &err),
+                 APL_OK);
+    apl_ledger_entry unlinked = {};
+    cr_assert_eq(apl_ledger_service_post_expense(&app, team.id, "50.00", "2026-01-06", "Tyres",
+                                                 "Unlinked", &unlinked, &err),
+                 APL_OK);
+
+    apl_budget_report_row *rows = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_budget_service_report_for_project(&app, team.id, project.id, false, "", "", "",
+                                                       &rows, &count, &err),
+                 APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_eq(rows[0].plan_id, plan.id);
+    cr_assert_eq(rows[0].project_id, project.id);
+    cr_assert_eq(rows[0].actual.minor_units, 10000);
+    apl_budget_service_free_report(rows);
+
+    apl_budget_plan archived = {};
+    cr_assert_eq(apl_budget_service_archive(&app, team.id, plan.id, &archived, &err), APL_OK);
+    cr_assert(archived.archived);
+
+    apl_budget_filter filter = {.team_id = team.id};
+    apl_budget_plan *plans = nullptr;
+    count = 1;
+    cr_assert_eq(apl_budget_service_list(&app, &filter, &plans, &count, &err), APL_OK);
+    cr_assert_eq(count, 0);
+    apl_budget_service_free_list(plans);
+
+    filter.include_archived = true;
+    cr_assert_eq(apl_budget_service_list(&app, &filter, &plans, &count, &err), APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert(plans[0].archived);
+    apl_budget_service_free_list(plans);
+
+    rows = nullptr;
+    count = 0;
+    cr_assert_eq(apl_budget_service_report_for_project(&app, team.id, project.id, false, "", "", "",
+                                                       &rows, &count, &err),
+                 APL_OK);
+    /* The archived plan disappears, but the linked actual still appears as an
+     * explicit unplanned actual rather than being silently deleted. */
+    cr_assert_eq(count, 1);
+    cr_assert_not(rows[0].has_plan);
+    cr_assert_eq(rows[0].actual.minor_units, 10000);
+    apl_budget_service_free_report(rows);
+    cr_assert_eq(activity_count(&app, team.id, "budget_archived", &err), 1);
+
+    close_test_app(&app, dir, &err);
+}
+
+Test(budget_service, project_plans_do_not_capture_another_projects_actuals)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error err;
+    apl_error_init(&err);
+    apl_app app = {};
+    open_test_app(&app, dir, sizeof(dir), path, sizeof(path), &err);
+    const apl_team team = create_team(&app, "Ferrari", &err);
+    apl_project aero = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Aero", "", "", "", "", "", 0, 0, "",
+                                            &aero, &err),
+                 APL_OK);
+    apl_project brakes = {};
+    cr_assert_eq(apl_project_service_create(&app, team.id, "Brakes", "", "", "", "", "", 0, 0, "",
+                                            &brakes, &err),
+                 APL_OK);
+
+    apl_budget_plan aero_plan = {};
+    cr_assert_eq(apl_budget_service_save(&app, team.id, aero.id, "2026-01-01", "2026-01-31",
+                                         "300.00", "Parts", 0, "", &aero_plan, &err),
+                 APL_OK);
+    apl_budget_plan brake_plan = {};
+    cr_assert_eq(apl_budget_service_save(&app, team.id, brakes.id, "2026-01-01", "2026-01-31",
+                                         "200.00", "Parts", 0, "", &brake_plan, &err),
+                 APL_OK);
+
+    apl_ledger_entry entry = {};
+    cr_assert_eq(apl_ledger_service_post_expense_linked(&app, team.id, "100.00", "2026-01-05",
+                                                        "Parts", "Aero part", aero.id, &entry,
+                                                        &err),
+                 APL_OK);
+    cr_assert_eq(apl_ledger_service_post_expense_linked(&app, team.id, "50.00", "2026-01-05",
+                                                        "Parts", "Brake part", brakes.id, &entry,
+                                                        &err),
+                 APL_OK);
+
+    apl_budget_report_row *rows = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_budget_service_report_for_project(&app, team.id, aero.id, false, "", "", "",
+                                                       &rows, &count, &err),
+                 APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_eq(rows[0].plan_id, aero_plan.id);
+    cr_assert_eq(rows[0].actual.minor_units, 10000);
+    apl_budget_service_free_report(rows);
+
+    rows = nullptr;
+    count = 0;
+    cr_assert_eq(apl_budget_service_report_for_project(&app, team.id, 0, false, "", "", "", &rows,
+                                                       &count, &err),
+                 APL_OK);
+    cr_assert_eq(count, 2);
+    for (size_t index = 0; index < count; ++index) {
+        if (rows[index].plan_id == aero_plan.id) {
+            cr_assert_eq(rows[index].actual.minor_units, 10000);
+        }
+        if (rows[index].plan_id == brake_plan.id) {
+            cr_assert_eq(rows[index].actual.minor_units, 5000);
+        }
+    }
+    apl_budget_service_free_report(rows);
 
     close_test_app(&app, dir, &err);
 }

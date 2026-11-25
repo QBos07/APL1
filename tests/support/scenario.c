@@ -61,7 +61,7 @@ apl_status apl_test_scenario_start(apl_test_scenario *const scenario, apl_error 
     }
     apl_budget_plan plan = {};
     if (status == APL_OK) {
-        status = apl_budget_service_save(&scenario->app, team.id, "2026-01-01", "2026-01-31",
+        status = apl_budget_service_save(&scenario->app, team.id, 0, "2026-01-01", "2026-01-31",
                                          "200.00", "Tyres", 0, "Scenario budget", &plan, error);
     }
     if (status != APL_OK) {
