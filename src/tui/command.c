@@ -8,7 +8,7 @@
 #include "tui/navigation.h"
 #include "tui/text.h"
 
-constexpr size_t TOKEN_COUNT_MAX = 32;
+static constexpr size_t TOKEN_COUNT_MAX = 32;
 
 typedef struct token_list {
     char tokens[TOKEN_COUNT_MAX][APL_TUI_COMMAND_WORD_MAX];
@@ -86,7 +86,7 @@ static const apl_tui_command_spec COMMANDS[] = {
      0},
 };
 
-constexpr size_t COMMAND_COUNT = APL_COUNT_OF(COMMANDS);
+static constexpr size_t COMMAND_COUNT = APL_COUNT_OF(COMMANDS);
 
 static bool is_space(const char value)
 {

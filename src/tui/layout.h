@@ -49,22 +49,22 @@ typedef enum apl_tui_layout_mode {
 
 /** Smallest terminal the shared frame supports. 80x24 is the recommended
  *  interactive size; 40x10 is the functional minimum. */
-constexpr unsigned APL_TUI_MIN_ROWS = 10;
-constexpr unsigned APL_TUI_MIN_COLS = 40;
+static constexpr unsigned APL_TUI_MIN_ROWS = 10;
+static constexpr unsigned APL_TUI_MIN_COLS = 40;
 
 /** Normal mode starts at this size; smaller (but supported) terminals use the
  *  compact rail/dialog treatment. */
-constexpr unsigned APL_TUI_NORMAL_MIN_ROWS = 18;
-constexpr unsigned APL_TUI_NORMAL_MIN_COLS = 80;
+static constexpr unsigned APL_TUI_NORMAL_MIN_ROWS = 18;
+static constexpr unsigned APL_TUI_NORMAL_MIN_COLS = 80;
 
 /** Fixed vertical regions: window bar and status bar. */
-constexpr unsigned APL_TUI_CHROME_ROWS = 2;
+static constexpr unsigned APL_TUI_CHROME_ROWS = 2;
 
 /** Tab-rail widths and team-switcher heights. */
-constexpr unsigned APL_TUI_RAIL_COLS_NORMAL = 22;
-constexpr unsigned APL_TUI_RAIL_COLS_COMPACT = 18;
-constexpr unsigned APL_TUI_SWITCHER_ROWS_NORMAL = 2;
-constexpr unsigned APL_TUI_SWITCHER_ROWS_COMPACT = 1;
+static constexpr unsigned APL_TUI_RAIL_COLS_NORMAL = 22;
+static constexpr unsigned APL_TUI_RAIL_COLS_COMPACT = 18;
+static constexpr unsigned APL_TUI_SWITCHER_ROWS_NORMAL = 2;
+static constexpr unsigned APL_TUI_SWITCHER_ROWS_COMPACT = 1;
 
 /** Computed region rectangles for one terminal size. */
 typedef struct apl_tui_layout {

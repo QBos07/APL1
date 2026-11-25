@@ -36,7 +36,7 @@ typedef enum apl_status {
 } apl_status;
 
 /** Maximum length of an apl_error message, including the terminating NUL. */
-constexpr size_t APL_ERROR_MESSAGE_MAX = 256;
+static constexpr size_t APL_ERROR_MESSAGE_MAX = 256;
 
 /** Optional form-field identity for validation failures.
  *

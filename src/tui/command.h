@@ -12,14 +12,14 @@
  * are distinguishable so the shell can open a form or show usage help.
  */
 
-constexpr size_t APL_TUI_COMMAND_MAX_POSITIONALS = 4;
-constexpr size_t APL_TUI_COMMAND_MAX_OPTIONS = 8;
-constexpr size_t APL_TUI_COMMAND_WORD_MAX = 256;
-constexpr size_t APL_TUI_COMMAND_NAME_MAX = 64;
-constexpr size_t APL_TUI_COMMAND_OPTION_MAX = 32;
-constexpr size_t APL_TUI_COMMAND_ERROR_MAX = 256;
-constexpr size_t APL_TUI_COMMAND_SUGGESTION_MAX = 256;
-constexpr size_t APL_TUI_COMMAND_HELP_MAX = 4096;
+static constexpr size_t APL_TUI_COMMAND_MAX_POSITIONALS = 4;
+static constexpr size_t APL_TUI_COMMAND_MAX_OPTIONS = 8;
+static constexpr size_t APL_TUI_COMMAND_WORD_MAX = 256;
+static constexpr size_t APL_TUI_COMMAND_NAME_MAX = 64;
+static constexpr size_t APL_TUI_COMMAND_OPTION_MAX = 32;
+static constexpr size_t APL_TUI_COMMAND_ERROR_MAX = 256;
+static constexpr size_t APL_TUI_COMMAND_SUGGESTION_MAX = 256;
+static constexpr size_t APL_TUI_COMMAND_HELP_MAX = 4096;
 
 typedef enum apl_tui_command_id {
     APL_TUI_COMMAND_NONE = 0,

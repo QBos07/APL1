@@ -2,7 +2,7 @@
 
 #include "tui/theme.h"
 
-constexpr unsigned TEST_UNDERLINE = 0x0008u;
+static constexpr unsigned TEST_UNDERLINE = 0x0008u;
 
 Test(tui_theme, roles_are_semantically_distinct_in_color_mode)
 {

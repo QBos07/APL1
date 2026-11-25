@@ -6,7 +6,7 @@
 
 #include "tui/text.h"
 
-constexpr size_t WRAP_BUFFER_SIZE = 1024;
+static constexpr size_t WRAP_BUFFER_SIZE = 1024;
 
 static const char *const REGION_NAMES[APL_TUI_REGION_COUNT] = {
     "window",

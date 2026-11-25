@@ -27,10 +27,16 @@ checks added during foundation hardening.
 - Use the C23 one-argument form of `va_start(args)`; its second parameter is
   obsolete.
 - Use `{}` for zero initialization instead of `{0}`.
-- Declare compile-time integer constants with `constexpr` (for example
-  `APL_DB_PATH_MAX`) and use `const` for everything that is not mutated:
-  local variables, pointers that are not reseated (`T *const`), and pointees
-  that are only read (`const T *`).
+- Declare compile-time integer constants with `static constexpr` (for example
+  `APL_DB_PATH_MAX`) so file-scope constants have internal linkage in every
+  translation unit that includes their header. Use `const` for everything that
+  is not mutated: local variables, pointers that are not reseated (`T *const`),
+  and pointees that are only read (`const T *`).
+- Omit the top-level `const` qualifier from parameters in function prototypes
+  (`void f(T value)`, `void f(T *pointer)`): C ignores it for the function type
+  and it only describes the callee's local copy. Definitions keep those
+  qualifiers for local immutability; pointee const (`const T *`) is part of the
+  interface and stays in both.
 - Use standard C23 attributes where they apply, for example
   `[[gnu::format(printf, 3, 4)]]` for printf-like functions and
   `[[maybe_unused]]` for intentionally unused parameters.

@@ -27,16 +27,16 @@ typedef enum apl_tui_dialog_result {
     APL_TUI_DIALOG_DISMISSED,
 } apl_tui_dialog_result;
 
-constexpr size_t APL_TUI_DIALOG_TITLE_MAX = 96;
-constexpr size_t APL_TUI_DIALOG_MESSAGE_MAX = 4096;
-constexpr size_t APL_TUI_DIALOG_FIELDS_MAX = 8;
-constexpr size_t APL_TUI_DIALOG_FIELD_LABEL_MAX = 48;
-constexpr size_t APL_TUI_DIALOG_FIELD_VALUE_MAX = 256;
-constexpr size_t APL_TUI_DIALOG_FIELD_ERROR_MAX = 160;
-constexpr size_t APL_TUI_DIALOG_VALIDATION_MAX = 256;
-constexpr size_t APL_TUI_DIALOG_OPTIONS_MAX = 48;
-constexpr size_t APL_TUI_DIALOG_OPTION_LABEL_MAX = 160;
-constexpr unsigned APL_TUI_DIALOG_CONTENT_ROW = 3;
+static constexpr size_t APL_TUI_DIALOG_TITLE_MAX = 96;
+static constexpr size_t APL_TUI_DIALOG_MESSAGE_MAX = 4096;
+static constexpr size_t APL_TUI_DIALOG_FIELDS_MAX = 8;
+static constexpr size_t APL_TUI_DIALOG_FIELD_LABEL_MAX = 48;
+static constexpr size_t APL_TUI_DIALOG_FIELD_VALUE_MAX = 256;
+static constexpr size_t APL_TUI_DIALOG_FIELD_ERROR_MAX = 160;
+static constexpr size_t APL_TUI_DIALOG_VALIDATION_MAX = 256;
+static constexpr size_t APL_TUI_DIALOG_OPTIONS_MAX = 48;
+static constexpr size_t APL_TUI_DIALOG_OPTION_LABEL_MAX = 160;
+static constexpr unsigned APL_TUI_DIALOG_CONTENT_ROW = 3;
 
 typedef struct apl_tui_dialog_field {
     char label[APL_TUI_DIALOG_FIELD_LABEL_MAX];

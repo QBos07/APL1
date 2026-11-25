@@ -7,9 +7,9 @@
 #include "core/text.h"
 #include "tui/text.h"
 
-constexpr size_t STATUS_LINE_MAX = 768;
-constexpr unsigned HINT_MIN_COLUMNS = 60;
-constexpr unsigned FULL_HINT_MIN_COLUMNS = 100;
+static constexpr size_t STATUS_LINE_MAX = 768;
+static constexpr unsigned HINT_MIN_COLUMNS = 60;
+static constexpr unsigned FULL_HINT_MIN_COLUMNS = 100;
 
 void apl_tui_status_init(apl_tui_status *const status)
 {

@@ -17,16 +17,16 @@
  * string to mean "not recorded" rather than inventing a date.
  */
 
-constexpr size_t APL_REFERENCE_LABEL_MAX = 128;
-constexpr size_t APL_REFERENCE_SHORT_MAX = 64;
-constexpr size_t APL_REFERENCE_NOTES_MAX = 1024;
-constexpr size_t APL_REFERENCE_DATE_MAX = 11;
-constexpr size_t APL_REFERENCE_TIMESTAMP_MAX = APL_RECORD_TIMESTAMP_MAX;
-constexpr size_t APL_ACTIVITY_ACTION_MAX = 64;
-constexpr size_t APL_ACTIVITY_ENTITY_MAX = 64;
-constexpr size_t APL_ACTIVITY_SUMMARY_MAX = 512;
-constexpr size_t APL_ACTIVITY_FIELD_MAX = 64;
-constexpr size_t APL_ACTIVITY_VALUE_MAX = 512;
+static constexpr size_t APL_REFERENCE_LABEL_MAX = 128;
+static constexpr size_t APL_REFERENCE_SHORT_MAX = 64;
+static constexpr size_t APL_REFERENCE_NOTES_MAX = 1024;
+static constexpr size_t APL_REFERENCE_DATE_MAX = 11;
+static constexpr size_t APL_REFERENCE_TIMESTAMP_MAX = APL_RECORD_TIMESTAMP_MAX;
+static constexpr size_t APL_ACTIVITY_ACTION_MAX = 64;
+static constexpr size_t APL_ACTIVITY_ENTITY_MAX = 64;
+static constexpr size_t APL_ACTIVITY_SUMMARY_MAX = 512;
+static constexpr size_t APL_ACTIVITY_FIELD_MAX = 64;
+static constexpr size_t APL_ACTIVITY_VALUE_MAX = 512;
 
 /** A user-created season/reporting period. Dates are ISO YYYY-MM-DD or empty. */
 typedef struct apl_season {

@@ -18,13 +18,13 @@
  */
 
 /** Maximum team-name buffer size, including the terminating NUL. */
-constexpr size_t APL_TEAM_NAME_MAX = 128;
+static constexpr size_t APL_TEAM_NAME_MAX = 128;
 
 /** Maximum optional-notes buffer size, including the terminating NUL. */
-constexpr size_t APL_TEAM_NOTES_MAX = 1024;
+static constexpr size_t APL_TEAM_NOTES_MAX = 1024;
 
 /** Maximum stored timestamp length, including the terminating NUL. */
-constexpr size_t APL_TEAM_TIMESTAMP_MAX = APL_RECORD_TIMESTAMP_MAX;
+static constexpr size_t APL_TEAM_TIMESTAMP_MAX = APL_RECORD_TIMESTAMP_MAX;
 
 /** A persisted team row. Text fields are NUL-terminated and owned by the
  *  value; optional text is an empty string, never a null pointer. */

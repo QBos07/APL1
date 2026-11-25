@@ -21,8 +21,8 @@
  * for grouping and filtering.
  */
 
-constexpr size_t APL_LEDGER_CATEGORY_MAX = 128;
-constexpr size_t APL_LEDGER_DESCRIPTION_MAX = 512;
+static constexpr size_t APL_LEDGER_CATEGORY_MAX = 128;
+static constexpr size_t APL_LEDGER_DESCRIPTION_MAX = 512;
 
 typedef enum apl_ledger_kind {
     APL_LEDGER_KIND_NONE = 0,

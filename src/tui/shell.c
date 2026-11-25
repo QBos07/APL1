@@ -38,8 +38,8 @@
 
 #include "tui/shell_internal.h"
 
-static void open_current_list_record(shell_state *const state);
-static void handle_input(shell_state *const state, const ncinput *const input);
+static void open_current_list_record(shell_state *state);
+static void handle_input(shell_state *state, const ncinput *input);
 
 void set_section(shell_state *const state, const apl_tui_section section)
 {

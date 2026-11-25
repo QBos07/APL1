@@ -15,7 +15,7 @@
  * than silently converted.
  */
 
-constexpr size_t APL_MONEY_CURRENCY_MAX = 4;
+static constexpr size_t APL_MONEY_CURRENCY_MAX = 4;
 
 typedef struct apl_money {
     int64_t minor_units;

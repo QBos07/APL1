@@ -11,7 +11,7 @@
  * record kinds should be appended so old history remains readable.
  */
 
-constexpr size_t APL_RECORD_TIMESTAMP_MAX = 32;
+static constexpr size_t APL_RECORD_TIMESTAMP_MAX = 32;
 
 /** Common lifecycle metadata for persisted records.
  *

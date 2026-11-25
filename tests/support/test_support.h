@@ -25,12 +25,12 @@
 
 /** Maximum path length accepted by the test-directory helpers, including the
  *  terminating NUL. */
-constexpr size_t APL_TEST_PATH_MAX = 4096;
+static constexpr size_t APL_TEST_PATH_MAX = 4096;
 
 /** Maximum length of a directory created beneath the temporary base. Smaller
  *  than APL_TEST_PATH_MAX so joining a child name into a full path buffer
  *  cannot truncate. */
-constexpr size_t APL_TEST_DIR_MAX = 2048;
+static constexpr size_t APL_TEST_DIR_MAX = 2048;
 
 /** Resolve the temporary-directory base from an explicit `TMPDIR` value
  *  (testable variant; never reads the process environment). Always writes an
