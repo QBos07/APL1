@@ -399,6 +399,51 @@ static const apl_db_migration apl_migrations[] = {
          "WHEN NOT EXISTS (SELECT 1 FROM part_types WHERE part_types.id = NEW.type_id "
          "AND part_types.team_id = NEW.team_id) "
          "BEGIN SELECT RAISE(ABORT, 'part unit type must belong to the same team'); END;\n"},
+    /* Version 18: append-only dated lifecycle events (6.3). Actions are
+     * user-entered install/remove/replace/repair/dispose. Event date is entered
+     * by the user and is separate from the system creation timestamp. No
+     * lifecycle or fitment row is seeded and no mutable "current part" field is
+     * stored. */
+    {18, "CREATE TABLE lifecycle_events ("
+         "id INTEGER PRIMARY KEY,"
+         "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+         "action TEXT NOT NULL CHECK (action IN "
+         "('install', 'remove', 'replace', 'repair', 'dispose')),"
+         "event_date TEXT NOT NULL "
+         "CHECK (event_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),"
+         "unit_id INTEGER REFERENCES part_units(id) ON DELETE RESTRICT,"
+         "old_unit_id INTEGER REFERENCES part_units(id) ON DELETE RESTRICT,"
+         "new_unit_id INTEGER REFERENCES part_units(id) ON DELETE RESTRICT,"
+         "car_id INTEGER REFERENCES cars(id) ON DELETE SET NULL,"
+         "position TEXT NOT NULL DEFAULT '',"
+         "event_label TEXT NOT NULL DEFAULT '',"
+         "reason TEXT NOT NULL DEFAULT '',"
+         "usage TEXT NOT NULL DEFAULT '',"
+         "notes TEXT NOT NULL DEFAULT '',"
+         "created_at TEXT NOT NULL,"
+         "CHECK (length(trim(event_date)) > 0)"
+         ");\n"
+         "CREATE INDEX idx_lifecycle_team_date ON lifecycle_events(team_id, event_date, id);\n"
+         "CREATE INDEX idx_lifecycle_car_date ON lifecycle_events(car_id, event_date);\n"
+         "CREATE INDEX idx_lifecycle_unit_date ON lifecycle_events(unit_id, event_date);\n"
+         "CREATE INDEX idx_lifecycle_old_unit ON lifecycle_events(old_unit_id, event_date);\n"
+         "CREATE INDEX idx_lifecycle_new_unit ON lifecycle_events(new_unit_id, event_date);\n"
+         "CREATE INDEX idx_lifecycle_action ON lifecycle_events(team_id, action, event_date);\n"
+         "CREATE TRIGGER lifecycle_car_same_team BEFORE INSERT ON lifecycle_events "
+         "WHEN NEW.car_id IS NOT NULL AND NOT EXISTS ("
+         "SELECT 1 FROM cars WHERE cars.id = NEW.car_id AND cars.team_id = NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'lifecycle car must belong to the same team'); END;\n"
+         "CREATE TRIGGER lifecycle_unit_same_team BEFORE INSERT ON lifecycle_events "
+         "WHEN (NEW.unit_id IS NOT NULL AND NOT EXISTS ("
+         "SELECT 1 FROM part_units WHERE part_units.id = NEW.unit_id "
+         "AND part_units.team_id = NEW.team_id)) OR "
+         "(NEW.old_unit_id IS NOT NULL AND NOT EXISTS ("
+         "SELECT 1 FROM part_units WHERE part_units.id = NEW.old_unit_id "
+         "AND part_units.team_id = NEW.team_id)) OR "
+         "(NEW.new_unit_id IS NOT NULL AND NOT EXISTS ("
+         "SELECT 1 FROM part_units WHERE part_units.id = NEW.new_unit_id "
+         "AND part_units.team_id = NEW.team_id)) "
+         "BEGIN SELECT RAISE(ABORT, 'lifecycle unit must belong to the same team'); END;\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

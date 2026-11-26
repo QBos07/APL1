@@ -1,3 +1,5 @@
+#include "core/error.h"
+#include "core/util.h"
 #include "domain/part.h"
 
 #include <ctype.h>
@@ -196,6 +198,108 @@ apl_status apl_part_unit_notes_normalize(const char *const text, char *const out
 {
     const apl_status status =
         apl_reference_optional_normalize(text, "part unit notes", out, out_size, error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_NOTES);
+    }
+    return status;
+}
+
+static const char *const LIFECYCLE_CODES[] = {"install", "remove", "replace", "repair", "dispose"};
+static const char *const LIFECYCLE_LABELS[] = {"Install", "Remove", "Replace", "Repair",
+                                               "Dispose"};
+
+const char *apl_lifecycle_action_code(const apl_lifecycle_action action)
+{
+    const int index = (int)action - (int)APL_LIFECYCLE_INSTALL;
+    if (action < APL_LIFECYCLE_INSTALL || action > APL_LIFECYCLE_DISPOSE) {
+        return "";
+    }
+    return LIFECYCLE_CODES[index];
+}
+
+const char *apl_lifecycle_action_label(const apl_lifecycle_action action)
+{
+    const int index = (int)action - (int)APL_LIFECYCLE_INSTALL;
+    if (action < APL_LIFECYCLE_INSTALL || action > APL_LIFECYCLE_DISPOSE) {
+        return "Unknown";
+    }
+    return LIFECYCLE_LABELS[index];
+}
+
+apl_lifecycle_action apl_lifecycle_action_from_code(const char *const code)
+{
+    if (code == nullptr) {
+        return APL_LIFECYCLE_NONE;
+    }
+    for (size_t index = 0; index < APL_COUNT_OF(LIFECYCLE_CODES); ++index) {
+        if (strcmp(code, LIFECYCLE_CODES[index]) == 0) {
+            return (apl_lifecycle_action)((int)APL_LIFECYCLE_INSTALL + (int)index);
+        }
+    }
+    return APL_LIFECYCLE_NONE;
+}
+
+apl_status apl_lifecycle_date_normalize(const char *const text, char *const out,
+                                        const size_t out_size, apl_error *const error)
+{
+    apl_status status = apl_reference_date_normalize(text, "event date", out, out_size, error);
+    if (status == APL_OK && out[0] == '\0') {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "event date is required");
+        status = APL_ERR_INVALID_ARGUMENT;
+    }
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_DATE);
+    }
+    return status;
+}
+
+apl_status apl_lifecycle_position_normalize(const char *const text, char *const out,
+                                            const size_t out_size, apl_error *const error)
+{
+    const apl_status status =
+        apl_reference_optional_normalize(text, "position", out, out_size, error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_POSITION);
+    }
+    return status;
+}
+
+apl_status apl_lifecycle_event_label_normalize(const char *const text, char *const out,
+                                               const size_t out_size, apl_error *const error)
+{
+    const apl_status status =
+        apl_reference_optional_normalize(text, "event label", out, out_size, error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_EVENT_LABEL);
+    }
+    return status;
+}
+
+apl_status apl_lifecycle_reason_normalize(const char *const text, char *const out,
+                                          const size_t out_size, apl_error *const error)
+{
+    const apl_status status = apl_reference_optional_normalize(text, "reason", out, out_size, error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_REASON);
+    }
+    return status;
+}
+
+apl_status apl_lifecycle_usage_normalize(const char *const text, char *const out,
+                                         const size_t out_size, apl_error *const error)
+{
+    const apl_status status = apl_reference_optional_normalize(text, "usage", out, out_size, error);
+    if (status != APL_OK) {
+        apl_error_set_field(error, APL_FIELD_USAGE);
+    }
+    return status;
+}
+
+apl_status apl_lifecycle_notes_normalize(const char *const text, char *const out,
+                                         const size_t out_size, apl_error *const error)
+{
+    const apl_status status =
+        apl_reference_optional_normalize(text, "event notes", out, out_size, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_NOTES);
     }

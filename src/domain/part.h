@@ -117,4 +117,82 @@ apl_status apl_part_unit_condition_normalize(const char *text, const char *label
 apl_status apl_part_unit_notes_normalize(const char *text, char *out, size_t out_size,
                                          apl_error *error);
 
+/** User-entered lifecycle action identifiers (work item 6.3). */
+typedef enum apl_lifecycle_action {
+    APL_LIFECYCLE_NONE = 0,
+    APL_LIFECYCLE_INSTALL,
+    APL_LIFECYCLE_REMOVE,
+    APL_LIFECYCLE_REPLACE,
+    APL_LIFECYCLE_REPAIR,
+    APL_LIFECYCLE_DISPOSE,
+} apl_lifecycle_action;
+
+/** Stable storage code ("install", "remove", …) or "" for invalid. */
+const char *apl_lifecycle_action_code(apl_lifecycle_action action);
+
+/** Display label ("Install", "Remove", …) or "Unknown" for invalid. */
+const char *apl_lifecycle_action_label(apl_lifecycle_action action);
+
+/** Resolve a stable storage code; unknown codes return APL_LIFECYCLE_NONE. */
+apl_lifecycle_action apl_lifecycle_action_from_code(const char *code);
+
+/** One append-only dated lifecycle event (work item 6.3).
+ *
+ * An install/remove/repair/dispose event identifies the affected `unit_id`. A
+ * replace event references both `old_unit_id` and `new_unit_id` in one
+ * operation and appears in both unit histories. `event_date` is entered by the
+ * user and is separate from `created_at`. Position/event/reason/usage/notes and
+ * the car link are optional.
+ */
+typedef struct apl_lifecycle_event {
+    int64_t id;
+    int64_t team_id;
+    apl_lifecycle_action action;
+    int64_t unit_id;      /* affected unit for install/remove/repair/dispose */
+    int64_t old_unit_id;  /* old unit for a replace */
+    int64_t new_unit_id;  /* new unit for a replace */
+    int64_t car_id;       /* optional car/position link */
+    char event_date[APL_REFERENCE_DATE_MAX];
+    char position[APL_LIFECYCLE_POSITION_MAX];
+    char event_label[APL_LIFECYCLE_EVENT_MAX];
+    char reason[APL_LIFECYCLE_REASON_MAX];
+    char usage[APL_LIFECYCLE_USAGE_MAX];
+    char notes[APL_REFERENCE_NOTES_MAX];
+    char created_at[APL_RECORD_TIMESTAMP_MAX];
+} apl_lifecycle_event;
+
+/** Read filters for lifecycle/history lists. Empty text/zero fields unset. */
+typedef struct apl_lifecycle_filter {
+    int64_t team_id;
+    int64_t unit_id;
+    int64_t car_id;
+    apl_lifecycle_action action;
+    char from_date[APL_REFERENCE_DATE_MAX];
+    char to_date[APL_REFERENCE_DATE_MAX];
+} apl_lifecycle_filter;
+
+/** Normalize an entered required event date (ISO YYYY-MM-DD). */
+apl_status apl_lifecycle_date_normalize(const char *text, char *out, size_t out_size,
+                                        apl_error *error);
+
+/** Normalize an optional position label. */
+apl_status apl_lifecycle_position_normalize(const char *text, char *out, size_t out_size,
+                                            apl_error *error);
+
+/** Normalize an optional event label. */
+apl_status apl_lifecycle_event_label_normalize(const char *text, char *out, size_t out_size,
+                                               apl_error *error);
+
+/** Normalize an optional reason text. */
+apl_status apl_lifecycle_reason_normalize(const char *text, char *out, size_t out_size,
+                                          apl_error *error);
+
+/** Normalize an optional usage text. */
+apl_status apl_lifecycle_usage_normalize(const char *text, char *out, size_t out_size,
+                                         apl_error *error);
+
+/** Normalize optional free-form notes text. */
+apl_status apl_lifecycle_notes_normalize(const char *text, char *out, size_t out_size,
+                                         apl_error *error);
+
 #endif /* APL_DOMAIN_PART_H */
