@@ -16,7 +16,10 @@
 #include "app/car_service.h"
 #include "app/driver_service.h"
 #include "app/ledger_service.h"
+#include "app/lifecycle_service.h"
 #include "app/membership_service.h"
+#include "app/part_type_service.h"
+#include "app/part_unit_service.h"
 #include "app/project_service.h"
 #include "app/season_service.h"
 #include "app/team_service.h"
@@ -24,6 +27,7 @@
 #include "core/util.h"
 #include "domain/ledger.h"
 #include "domain/money.h"
+#include "domain/part.h"
 #include "domain/record.h"
 #include "tui/action.h"
 #include "tui/command.h"
@@ -54,6 +58,11 @@ typedef enum shell_screen {
     SHELL_SCREEN_BUDGET_LIST,
     SHELL_SCREEN_PROJECT_LIST,
     SHELL_SCREEN_PROJECT_DETAIL,
+    SHELL_SCREEN_PARTS_FITMENT,
+    SHELL_SCREEN_PART_TYPE_LIST,
+    SHELL_SCREEN_PART_TYPE_DETAIL,
+    SHELL_SCREEN_PART_UNIT_LIST,
+    SHELL_SCREEN_PART_UNIT_DETAIL,
     SHELL_SCREEN_PLACEHOLDER,
 } shell_screen;
 
@@ -65,6 +74,8 @@ typedef enum shell_pending_action {
     SHELL_PENDING_ARCHIVE_DRIVER,
     SHELL_PENDING_ARCHIVE_PROJECT,
     SHELL_PENDING_ARCHIVE_BUDGET,
+    SHELL_PENDING_ARCHIVE_PART_TYPE,
+    SHELL_PENDING_ARCHIVE_PART_UNIT,
 } shell_pending_action;
 
 typedef enum shell_dialog_context {
@@ -94,6 +105,17 @@ typedef enum shell_dialog_context {
     SHELL_DIALOG_CONTEXT_PROJECT_EDIT,
     SHELL_DIALOG_CONTEXT_PROJECT_UPDATE,
     SHELL_DIALOG_CONTEXT_PROJECT_FILTER,
+    SHELL_DIALOG_CONTEXT_PART_TYPE_CREATE,
+    SHELL_DIALOG_CONTEXT_PART_TYPE_EDIT,
+    SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE,
+    SHELL_DIALOG_CONTEXT_PART_UNIT_EDIT,
+    SHELL_DIALOG_CONTEXT_PART_FILTER,
+    SHELL_DIALOG_CONTEXT_PART_INSTALL,
+    SHELL_DIALOG_CONTEXT_PART_REMOVE,
+    SHELL_DIALOG_CONTEXT_PART_REPAIR,
+    SHELL_DIALOG_CONTEXT_PART_DISPOSE,
+    SHELL_DIALOG_CONTEXT_PART_REPLACE,
+    SHELL_DIALOG_CONTEXT_PART_REPLACE_REVIEW,
 } shell_dialog_context;
 
 static constexpr int APL_TUI_SCROLL_STEP = 3;
@@ -209,6 +231,28 @@ typedef struct shell_state {
     apl_tui_section project_return_section;
     shell_screen project_return_screen;
     int64_t project_return_id;
+    apl_part_type *part_types;
+    size_t part_type_count;
+    apl_part_unit *part_units;
+    size_t part_unit_count;
+    apl_fitment_row *fitment_rows;
+    size_t fitment_count;
+    apl_lifecycle_history_entry *unit_events;
+    size_t unit_event_count;
+    apl_part_type part_type_detail;
+    apl_part_unit part_unit_detail;
+    int64_t dialog_part_type_id;
+    int64_t dialog_part_unit_id;
+    int64_t dialog_car_id;
+    bool include_archived_part_types;
+    bool include_archived_part_units;
+    char part_type_category_filter[APL_PART_TYPE_CATEGORY_MAX];
+    int64_t part_unit_type_filter;
+    char parts_action_filter[APL_LIFECYCLE_EVENT_MAX];
+    int64_t parts_car_filter;
+    char parts_from_date[APL_REFERENCE_DATE_MAX];
+    char parts_to_date[APL_REFERENCE_DATE_MAX];
+    char parts_search[APL_PART_UNIT_SERIAL_MAX];
 } shell_state;
 
 void handle_dialog_input(shell_state *state, const ncinput *input);
@@ -422,5 +466,63 @@ apl_status project_resolve_car(shell_state *state, const char *text, int64_t *ou
                                apl_error *error);
 apl_status project_resolve_title(shell_state *state, const char *text, int64_t *out,
                                  apl_error *error);
+
+/* --- Parts (Phase 6) --- */
+apl_status load_parts_fitment(shell_state *state, apl_error *error);
+apl_status load_part_units(shell_state *state, int64_t preferred_id, apl_error *error);
+apl_status load_part_types(shell_state *state, int64_t preferred_id, apl_error *error);
+apl_status load_part_unit_detail(shell_state *state, int64_t unit_id, apl_error *error);
+void open_part_unit_detail(shell_state *state, apl_part_unit unit);
+void open_part_type_detail(shell_state *state, apl_part_type type);
+void open_selected_part_unit(shell_state *state);
+void draw_parts_fitment(shell_state *state);
+void draw_part_type_list(shell_state *state);
+void draw_part_type_detail(shell_state *state);
+void draw_part_unit_list(shell_state *state);
+void draw_part_unit_detail(shell_state *state);
+void handle_parts_fitment_input(shell_state *state, uint32_t id);
+void handle_part_type_list_input(shell_state *state, uint32_t id);
+void handle_part_type_detail_input(shell_state *state, uint32_t id);
+void handle_part_unit_list_input(shell_state *state, uint32_t id);
+void handle_part_unit_detail_input(shell_state *state, uint32_t id);
+void build_parts_filter_bar(const shell_state *state, char *out, size_t out_size,
+                            unsigned starts[6], unsigned ends[6]);
+void open_part_type_dialog(shell_state *state, bool edit);
+void open_part_unit_dialog(shell_state *state, bool edit);
+void open_lifecycle_dialog(shell_state *state, apl_lifecycle_action action);
+void open_replace_dialog_direct(shell_state *state);
+void open_parts_filter_dialog(shell_state *state);
+bool perform_part_type_create(shell_state *state, const char *category, const char *name,
+                              const char *description, const char *notes, apl_error *error);
+bool perform_part_type_update(shell_state *state, const char *category, const char *name,
+                              const char *description, const char *notes, apl_error *error);
+void perform_part_type_archive(shell_state *state, int64_t id, apl_error *error);
+bool perform_part_unit_create(shell_state *state, const char *type_name, const char *serial,
+                              const char *part_number, const char *condition, const char *notes,
+                              apl_error *error);
+bool perform_part_unit_update(shell_state *state, int64_t type_id, const char *serial,
+                              const char *part_number, const char *condition, const char *notes,
+                              apl_error *error);
+void perform_part_unit_archive(shell_state *state, int64_t id, apl_error *error);
+bool perform_lifecycle_action(shell_state *state, apl_lifecycle_action action, const char *unit,
+                              const char *car, const char *position, const char *event_date,
+                              const char *event_label, const char *reason, const char *usage,
+                              const char *notes, apl_error *error);
+bool perform_replace(shell_state *state, const char *old_unit, const char *new_unit,
+                     const char *car, const char *position, const char *event_date,
+                     const char *event_label, const char *reason, const char *usage,
+                     const char *notes, apl_error *error);
+bool apply_parts_filter(shell_state *state, const char *action, const char *car,
+                        const char *from_date, const char *to_date, const char *search,
+                        apl_error *error);
+unsigned part_type_form_error_field(const apl_error *error);
+unsigned part_unit_form_error_field(const apl_error *error);
+unsigned lifecycle_form_error_field(const apl_error *error);
+apl_status part_resolve_unit_by_id(shell_state *state, const char *text, int64_t *out,
+                                   apl_error *error);
+apl_status part_resolve_car_by_name(shell_state *state, const char *text, int64_t *out,
+                                    apl_error *error);
+apl_status part_resolve_type_id_for_dialog(shell_state *state, const char *text, int64_t *out,
+                                           apl_error *error);
 
 #endif /*APL_TUI_SHELL_INTERNAL_H */

@@ -269,6 +269,7 @@ add_library(apl_tui STATIC
     src/tui/screen_history.c
     src/tui/screen_money.c
     src/tui/screen_development.c
+    src/tui/screen_parts.c
 )
 
 target_include_directories(apl_tui PUBLIC src)

@@ -86,6 +86,12 @@ void set_section(shell_state *const state, const apl_tui_section section)
             show_error_dialog(state, &error);
         }
         break;
+    case APL_TUI_SECTION_PARTS:
+        state->screen = SHELL_SCREEN_PARTS_FITMENT;
+        if (load_parts_fitment(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
+        break;
     default:
         state->screen = SHELL_SCREEN_PLACEHOLDER;
         break;
@@ -374,6 +380,22 @@ static const char *context_key_hint(const shell_state *const state)
         }
         return "n new | Enter open | f filters | a archived | c clear";
     }
+    if (state->section == APL_TUI_SECTION_PARTS) {
+        if (state->screen == SHELL_SCREEN_PART_UNIT_DETAIL) {
+            return "i install | r remove | p repair | d dispose | R replace | e edit | x archive | "
+                   "Esc register";
+        }
+        if (state->screen == SHELL_SCREEN_PART_TYPE_DETAIL) {
+            return "e edit | x archive | n add unit | Esc types";
+        }
+        if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
+            return "n type | Enter open | f filters | a archived";
+        }
+        if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
+            return "n unit | Enter open | a archived";
+        }
+        return "n unit | t types | f filters | a archived";
+    }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
             return "c correct | Esc ledger";
@@ -412,6 +434,11 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_BUDGET_LIST:
     case SHELL_SCREEN_PROJECT_LIST:
     case SHELL_SCREEN_PROJECT_DETAIL:
+    case SHELL_SCREEN_PARTS_FITMENT:
+    case SHELL_SCREEN_PART_TYPE_LIST:
+    case SHELL_SCREEN_PART_TYPE_DETAIL:
+    case SHELL_SCREEN_PART_UNIT_LIST:
+    case SHELL_SCREEN_PART_UNIT_DETAIL:
         break;
     }
     return ", . views | : commands | m menu | q quit";
@@ -656,6 +683,24 @@ static void draw_screen(shell_state *const state)
         } else {
             draw_money_list(state);
         }
+    } else if (state->section == APL_TUI_SECTION_PARTS) {
+        switch (state->screen) {
+        case SHELL_SCREEN_PART_TYPE_LIST:
+            draw_part_type_list(state);
+            break;
+        case SHELL_SCREEN_PART_TYPE_DETAIL:
+            draw_part_type_detail(state);
+            break;
+        case SHELL_SCREEN_PART_UNIT_LIST:
+            draw_part_unit_list(state);
+            break;
+        case SHELL_SCREEN_PART_UNIT_DETAIL:
+            draw_part_unit_detail(state);
+            break;
+        default:
+            draw_parts_fitment(state);
+            break;
+        }
     } else if (state->section != APL_TUI_SECTION_TEAMS) {
         draw_placeholder(state);
     } else {
@@ -690,6 +735,11 @@ static void draw_screen(shell_state *const state)
         case SHELL_SCREEN_BUDGET_LIST:
         case SHELL_SCREEN_PROJECT_LIST:
         case SHELL_SCREEN_PROJECT_DETAIL:
+        case SHELL_SCREEN_PARTS_FITMENT:
+        case SHELL_SCREEN_PART_TYPE_LIST:
+        case SHELL_SCREEN_PART_TYPE_DETAIL:
+        case SHELL_SCREEN_PART_UNIT_LIST:
+        case SHELL_SCREEN_PART_UNIT_DETAIL:
             draw_placeholder(state);
             break;
         }
@@ -1696,6 +1746,14 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
             return;
         }
         count = state->project_count;
+    } else if (state->section == APL_TUI_SECTION_PARTS) {
+        if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
+            count = state->part_type_count;
+        } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
+            count = state->part_unit_count;
+        } else {
+            return;
+        }
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         count = state->season_count;
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -1806,6 +1864,14 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
                                                                 : state->entries[index].id;
     } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         record_id = state->projects[index].id;
+    } else if (state->section == APL_TUI_SECTION_PARTS) {
+        if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
+            record_id = state->part_types[index].id;
+        } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
+            record_id = state->part_units[index].id;
+        } else {
+            record_id = 0;
+        }
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         record_id = state->seasons[index].id;
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -2018,6 +2084,13 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
         }
         return;
     }
+    if (state->section == APL_TUI_SECTION_PARTS) {
+        if (state->screen == SHELL_SCREEN_PART_TYPE_LIST ||
+            state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
+            handle_list_mouse(state, input);
+        }
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         return;
     }
@@ -2049,6 +2122,14 @@ static void open_current_list_record(shell_state *const state)
         }
     } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         open_selected_project(state);
+    } else if (state->section == APL_TUI_SECTION_PARTS) {
+        if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
+            if (state->part_type_count > 0 && state->list.selected < state->part_type_count) {
+                open_part_type_detail(state, state->part_types[state->list.selected]);
+            }
+        } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
+            open_selected_part_unit(state);
+        }
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         open_selected_season(state);
     } else if (state->screen == SHELL_SCREEN_CAR_LIST) {
@@ -2298,6 +2379,26 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         }
         return;
     }
+    if (state->section == APL_TUI_SECTION_PARTS) {
+        switch (state->screen) {
+        case SHELL_SCREEN_PART_TYPE_LIST:
+            handle_part_type_list_input(state, id);
+            break;
+        case SHELL_SCREEN_PART_TYPE_DETAIL:
+            handle_part_type_detail_input(state, id);
+            break;
+        case SHELL_SCREEN_PART_UNIT_LIST:
+            handle_part_unit_list_input(state, id);
+            break;
+        case SHELL_SCREEN_PART_UNIT_DETAIL:
+            handle_part_unit_detail_input(state, id);
+            break;
+        default:
+            handle_parts_fitment_input(state, id);
+            break;
+        }
+        return;
+    }
     if (state->section != APL_TUI_SECTION_TEAMS) {
         if (id == 'q' || id == 'Q') {
             state->quit = true;
@@ -2340,6 +2441,11 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     case SHELL_SCREEN_BUDGET_LIST:
     case SHELL_SCREEN_PROJECT_LIST:
     case SHELL_SCREEN_PROJECT_DETAIL:
+    case SHELL_SCREEN_PARTS_FITMENT:
+    case SHELL_SCREEN_PART_TYPE_LIST:
+    case SHELL_SCREEN_PART_TYPE_DETAIL:
+    case SHELL_SCREEN_PART_UNIT_LIST:
+    case SHELL_SCREEN_PART_UNIT_DETAIL:
         if (id == 'q' || id == 'Q') {
             state->quit = true;
         }

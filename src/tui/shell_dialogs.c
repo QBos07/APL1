@@ -216,6 +216,134 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         return;
     }
 
+    /* Parts dialogs (Phase 6). */
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_TYPE_CREATE ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_PART_TYPE_EDIT) {
+        const shell_dialog_context context = state->dialog_context;
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Part type cancelled without writing.");
+            return;
+        }
+        const bool saved =
+            (context == SHELL_DIALOG_CONTEXT_PART_TYPE_CREATE)
+                ? perform_part_type_create(state, dialog_value(state, 0), dialog_value(state, 1),
+                                           dialog_value(state, 2), dialog_value(state, 3), &error)
+                : perform_part_type_update(state, dialog_value(state, 0), dialog_value(state, 1),
+                                           dialog_value(state, 2), dialog_value(state, 3), &error);
+        if (saved) {
+            close_shell_dialog(state);
+        } else if (state->dialog_context == context) {
+            apl_tui_dialog_set_field_error(&state->dialog, part_type_form_error_field(&error),
+                                           apl_error_message(&error));
+        }
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_PART_UNIT_EDIT) {
+        const shell_dialog_context context = state->dialog_context;
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Part unit cancelled without writing.");
+            return;
+        }
+        if (context == SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE) {
+            int64_t type_id = 0;
+            apl_status resolve_status =
+                part_resolve_type_id_for_dialog(state, dialog_value(state, 0), &type_id, &error);
+            if (resolve_status != APL_OK) {
+                apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
+                return;
+            }
+            const bool saved =
+                perform_part_unit_create(state, dialog_value(state, 0), dialog_value(state, 1),
+                                         dialog_value(state, 2), dialog_value(state, 3),
+                                         dialog_value(state, 4), &error);
+            if (saved) {
+                close_shell_dialog(state);
+            } else if (state->dialog_context == context) {
+                apl_tui_dialog_set_field_error(&state->dialog, part_unit_form_error_field(&error),
+                                               apl_error_message(&error));
+            }
+        } else {
+            const bool saved =
+                perform_part_unit_update(state, state->dialog_part_type_id, dialog_value(state, 1),
+                                         dialog_value(state, 2), dialog_value(state, 3),
+                                         dialog_value(state, 4), &error);
+            if (saved) {
+                close_shell_dialog(state);
+            } else if (state->dialog_context == context) {
+                apl_tui_dialog_set_field_error(&state->dialog, part_unit_form_error_field(&error),
+                                               apl_error_message(&error));
+            }
+        }
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_FILTER) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Parts filters unchanged.");
+            return;
+        }
+        if (!apply_parts_filter(state, dialog_value(state, 0), "", dialog_value(state, 1),
+                                dialog_value(state, 2), dialog_value(state, 3), &error)) {
+            apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
+            return;
+        }
+        close_shell_dialog(state);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_INSTALL ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REMOVE ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REPAIR ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_PART_DISPOSE) {
+        apl_lifecycle_action action = APL_LIFECYCLE_INSTALL;
+        if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REMOVE) {
+            action = APL_LIFECYCLE_REMOVE;
+        } else if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REPAIR) {
+            action = APL_LIFECYCLE_REPAIR;
+        } else if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_DISPOSE) {
+            action = APL_LIFECYCLE_DISPOSE;
+        }
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Lifecycle action cancelled; nothing was written.");
+            return;
+        }
+        if (!perform_lifecycle_action(state, action, dialog_value(state, 0),
+                                      dialog_value(state, 1), dialog_value(state, 2),
+                                      dialog_value(state, 3), dialog_value(state, 4),
+                                      dialog_value(state, 5), dialog_value(state, 6),
+                                      dialog_value(state, 7), &error)) {
+            apl_tui_dialog_set_field_error(&state->dialog, lifecycle_form_error_field(&error),
+                                           apl_error_message(&error));
+            return;
+        }
+        close_shell_dialog(state);
+        return;
+    }
+
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REPLACE) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Replacement cancelled; no change was saved.");
+            return;
+        }
+        if (!perform_replace(state, dialog_value(state, 0), dialog_value(state, 1),
+                             dialog_value(state, 2), dialog_value(state, 3), dialog_value(state, 4),
+                             dialog_value(state, 5), dialog_value(state, 6),
+                             dialog_value(state, 7), dialog_value(state, 8), &error)) {
+            apl_tui_dialog_set_field_error(&state->dialog, lifecycle_form_error_field(&error),
+                                           apl_error_message(&error));
+            return;
+        }
+        close_shell_dialog(state);
+        return;
+    }
+
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_MONEY_CURRENCY) {
         if (result == APL_TUI_DIALOG_DISMISSED) {
             close_shell_dialog(state);
@@ -472,6 +600,18 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             perform_budget_archive(state, pending_record, &error);
         } else {
             set_status(state, "Archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_PART_TYPE) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_part_type_archive(state, pending_record, &error);
+        } else {
+            set_status(state, "Part type archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_ARCHIVE_PART_UNIT) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            perform_part_unit_archive(state, pending_record, &error);
+        } else {
+            set_status(state, "Part unit archive cancelled.");
         }
     } else if (result == APL_TUI_DIALOG_DISMISSED) {
         set_status(state, "Cancelled.");

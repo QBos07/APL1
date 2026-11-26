@@ -154,3 +154,54 @@ Test(shell_controller, project_filter_bar_and_form_error_fields_are_stable)
     apl_error_set_field(&error, APL_FIELD_UPDATE_DATE);
     cr_assert_eq(project_update_form_error_field(&error), 0);
 }
+
+Test(shell_controller, parts_filter_bar_and_form_error_fields_are_stable)
+{
+    shell_state state = {};
+    (void)snprintf(state.parts_action_filter, sizeof(state.parts_action_filter), "replace");
+    (void)snprintf(state.parts_from_date, sizeof(state.parts_from_date), "2026-01-01");
+    state.include_archived_part_units = true;
+
+    char out[512];
+    unsigned starts[6] = {};
+    unsigned ends[6] = {};
+    build_parts_filter_bar(&state, out, sizeof(out), starts, ends);
+    cr_assert_str_eq(out,
+                     "Action:replace  From:2026-01-01  To:any  Search:any  Archived:yes  Clear  ");
+    for (unsigned index = 0; index + 1 < 6; ++index) {
+        cr_assert_lt(ends[index], starts[index + 1]);
+    }
+
+    apl_error error;
+    apl_error_init(&error);
+    apl_error_set_field(&error, APL_FIELD_CATEGORY);
+    cr_assert_eq(part_type_form_error_field(&error), 0);
+    apl_error_set_field(&error, APL_FIELD_NAME);
+    cr_assert_eq(part_type_form_error_field(&error), 1);
+    apl_error_set_field(&error, APL_FIELD_DESCRIPTION);
+    cr_assert_eq(part_type_form_error_field(&error), 2);
+
+    apl_error_clear(&error);
+    apl_error_set_field(&error, APL_FIELD_SERIAL_NUMBER);
+    cr_assert_eq(part_unit_form_error_field(&error), 1);
+    apl_error_set_field(&error, APL_FIELD_CONDITION);
+    cr_assert_eq(part_unit_form_error_field(&error), 3);
+
+    apl_error_init(&error);
+    apl_error_set_field(&error, APL_FIELD_DATE);
+    cr_assert_eq(lifecycle_form_error_field(&error), 3);
+    apl_error_set_field(&error, APL_FIELD_POSITION);
+    cr_assert_eq(lifecycle_form_error_field(&error), 2);
+    apl_error_set_field(&error, APL_FIELD_CAR);
+    cr_assert_eq(lifecycle_form_error_field(&error), 1);
+}
+
+Test(shell_controller, lifecycle_action_codes_and_labels_map_stably)
+{
+    cr_assert_eq(apl_lifecycle_action_from_code("install"), APL_LIFECYCLE_INSTALL);
+    cr_assert_eq(apl_lifecycle_action_from_code("replace"), APL_LIFECYCLE_REPLACE);
+    cr_assert_eq(apl_lifecycle_action_from_code("dispose"), APL_LIFECYCLE_DISPOSE);
+    cr_assert_str_eq(apl_lifecycle_action_label(APL_LIFECYCLE_REPAIR), "Repair");
+    cr_assert_str_eq(apl_lifecycle_action_label(APL_LIFECYCLE_REMOVE), "Remove");
+    cr_assert_str_eq(apl_lifecycle_action_label(APL_LIFECYCLE_NONE), "Unknown");
+}

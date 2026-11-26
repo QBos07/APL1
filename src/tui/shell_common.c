@@ -281,6 +281,18 @@ void free_reference_lists(shell_state *const state)
     apl_ledger_service_free_list(state->project_entries);
     state->project_entries = nullptr;
     state->project_entry_count = 0;
+    apl_part_type_service_free_list(state->part_types);
+    state->part_types = nullptr;
+    state->part_type_count = 0;
+    apl_part_unit_service_free_list(state->part_units);
+    state->part_units = nullptr;
+    state->part_unit_count = 0;
+    apl_lifecycle_service_free_fitment(state->fitment_rows);
+    state->fitment_rows = nullptr;
+    state->fitment_count = 0;
+    apl_lifecycle_service_free_history(state->unit_events);
+    state->unit_events = nullptr;
+    state->unit_event_count = 0;
 }
 
 apl_status refresh_teams(shell_state *const state, const int64_t preferred_id,
