@@ -47,6 +47,22 @@ apl_status apl_lifecycle_service_dispose(const apl_app *app, int64_t team_id, in
                                          const char *reason, const char *usage, const char *notes,
                                          apl_lifecycle_event *out_event, apl_error *error);
 
+/** Replace the currently-fitted `old_unit` at `car`/`position` with `new_unit`
+ *  in one atomic operation (work item 6.6).
+ *
+ * Validates that `old_unit` is the currently recorded fitment and that
+ * `new_unit` is eligible (not fitted elsewhere, not disposed, not archived),
+ * then appends one replace lifecycle event referencing both units plus its
+ * audit event in the same transaction. On any failure the old fitment and all
+ * history remain unchanged.
+ */
+apl_status apl_lifecycle_service_replace(const apl_app *app, int64_t team_id, int64_t car_id,
+                                         const char *position, int64_t old_unit_id,
+                                         int64_t new_unit_id, const char *event_date,
+                                         const char *event_label, const char *reason,
+                                         const char *usage, const char *notes,
+                                         apl_lifecycle_event *out_event, apl_error *error);
+
 apl_status apl_lifecycle_service_get(const apl_app *app, int64_t team_id, int64_t id,
                                      apl_lifecycle_event *out_event, apl_error *error);
 

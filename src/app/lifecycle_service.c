@@ -287,6 +287,106 @@ apl_status apl_lifecycle_service_dispose(const apl_app *const app, const int64_t
     return apl_use_case_commit(&transaction, "cannot record dispose", error);
 }
 
+apl_status apl_lifecycle_service_replace(const apl_app *const app, const int64_t team_id,
+                                         const int64_t car_id, const char *const position,
+                                         const int64_t old_unit_id, const int64_t new_unit_id,
+                                         const char *const event_date, const char *const event_label,
+                                         const char *const reason, const char *const usage,
+                                         const char *const notes,
+                                         apl_lifecycle_event *const out_event,
+                                         apl_error *const error)
+{
+    apl_lifecycle_event event = {.team_id = team_id, .action = APL_LIFECYCLE_REPLACE,
+                                 .car_id = car_id, .old_unit_id = old_unit_id,
+                                 .new_unit_id = new_unit_id};
+    (void)snprintf(event.position, sizeof(event.position), "%s", position);
+    apl_status status =
+        normalize_fields(event_date, event_label, reason, usage, notes, &event, error);
+    if (status == APL_OK) {
+        status = resolve_unit(app, team_id, old_unit_id, &(apl_part_unit){}, error);
+    }
+    if (status == APL_OK) {
+        status = resolve_unit(app, team_id, new_unit_id, &(apl_part_unit){}, error);
+    }
+    if (status == APL_OK) {
+        status = validate_car(app, team_id, car_id, position, error);
+    }
+    if (status != APL_OK) {
+        return apl_use_case_with_context(status, "cannot record replacement", error);
+    }
+
+    apl_db_transaction transaction = {};
+    status = apl_use_case_begin(&transaction, app, "cannot record replacement", error);
+    if (status != APL_OK) {
+        return status;
+    }
+
+    /* The old unit must be the currently-recorded fitment here. */
+    const int64_t current = find_current_fitment(app, team_id, car_id, position, error);
+    if (current < 0) {
+        return apl_use_case_rollback(&transaction, APL_ERR_DB_QUERY, "cannot record replacement",
+                                     error);
+    }
+    if (current == 0 || current != old_unit_id) {
+        apl_error_set(error, APL_ERR_CONFLICT,
+                      "the selected old unit is not the currently-recorded fitment at this "
+                      "car/position");
+        apl_error_set_field(error, APL_FIELD_OLD_UNIT);
+        return apl_use_case_rollback(&transaction, APL_ERR_CONFLICT, "cannot record replacement",
+                                     error);
+    }
+    if (old_unit_id == new_unit_id) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "the old and new units must be different for a replacement");
+        apl_error_set_field(error, APL_FIELD_NEW_UNIT);
+        return apl_use_case_rollback(&transaction, APL_ERR_INVALID_ARGUMENT,
+                                     "cannot record replacement", error);
+    }
+    /* The new unit must not be fitted elsewhere in this team. */
+    apl_fitment_row *rows = nullptr;
+    size_t count = 0;
+    status = apl_lifecycle_repository_current_fitment(&app->db, team_id, &rows, &count, error);
+    if (status == APL_OK) {
+        for (size_t index = 0; index < count && status == APL_OK; ++index) {
+            if (rows[index].unit_id == new_unit_id) {
+                apl_error_set(error, APL_ERR_CONFLICT,
+                              "the new unit is already fitted elsewhere; remove it first");
+                apl_error_set_field(error, APL_FIELD_NEW_UNIT);
+                status = APL_ERR_CONFLICT;
+            }
+        }
+        apl_lifecycle_repository_free_fitment(rows);
+    }
+    if (status != APL_OK) {
+        return apl_use_case_rollback(&transaction, status, "cannot record replacement", error);
+    }
+
+    status = apl_lifecycle_repository_append(&app->db, team_id, &event, out_event, error);
+    if (status == APL_OK) {
+        apl_activity_change changes[4] = {};
+        char old_text[32];
+        char new_text[32];
+        (void)snprintf(old_text, sizeof(old_text), "%lld", (long long)old_unit_id);
+        (void)snprintf(new_text, sizeof(new_text), "%lld", (long long)new_unit_id);
+        apl_audit_change_text(&changes[0], "old_unit", nullptr, true, old_text, false);
+        apl_audit_change_text(&changes[1], "new_unit", nullptr, true, new_text, false);
+        apl_audit_change_text(&changes[2], "date", nullptr, true, out_event->event_date, false);
+        apl_audit_change_text(&changes[3], "reason", nullptr, true, out_event->reason,
+                              out_event->reason[0] == '\0');
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        (void)snprintf(summary, sizeof(summary), "Replaced unit %lld with %lld on %s",
+                       (long long)old_unit_id, (long long)new_unit_id, out_event->event_date);
+        status =
+            apl_audit_append(app, team_id, "lifecycle_replaced",
+                             apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out_event->id,
+                             summary, changes, 4, error);
+    }
+    if (status != APL_OK) {
+        return apl_use_case_rollback(&transaction, status, "cannot record replacement", error);
+    }
+    return apl_use_case_commit(&transaction, "cannot record replacement", error);
+}
+
 apl_status apl_lifecycle_service_get(const apl_app *const app, const int64_t team_id,
                                      const int64_t id, apl_lifecycle_event *const out_event,
                                      apl_error *const error)
