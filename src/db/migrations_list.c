@@ -344,6 +344,30 @@ static const apl_db_migration apl_migrations[] = {
      "SELECT 1 FROM projects WHERE projects.id = NEW.project_id "
      "AND projects.team_id = NEW.team_id) "
      "BEGIN SELECT RAISE(ABORT, 'budget project must belong to the same team'); END;\n"},
+    /* Version 16: user-defined component types (6.1). Category and name are
+     * user-entered labels; no catalogue, compatibility rule, or part type is
+     * seeded. The unique index is partial on non-archived rows so archiving a
+     * type frees its team/category/name for reuse without breaking history. */
+    {16, "CREATE TABLE part_types ("
+         "id INTEGER PRIMARY KEY,"
+         "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+         "category TEXT NOT NULL COLLATE NOCASE,"
+         "category_key TEXT NOT NULL,"
+         "name TEXT NOT NULL COLLATE NOCASE,"
+         "name_key TEXT NOT NULL,"
+         "description TEXT NOT NULL DEFAULT '',"
+         "notes TEXT NOT NULL DEFAULT '',"
+         "archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),"
+         "created_at TEXT NOT NULL,"
+         "updated_at TEXT NOT NULL,"
+         "archived_at TEXT,"
+         "CHECK (length(trim(category)) > 0),"
+         "CHECK (length(trim(name)) > 0)"
+         ");\n"
+         "CREATE INDEX idx_part_types_team_archived ON part_types(team_id, archived);\n"
+         "CREATE INDEX idx_part_types_team_category ON part_types(team_id, category_key);\n"
+         "CREATE UNIQUE INDEX uq_part_types_team_name ON part_types(team_id, category_key, "
+         "name_key) WHERE archived = 0;\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

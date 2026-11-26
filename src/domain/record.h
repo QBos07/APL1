@@ -38,6 +38,9 @@ typedef enum apl_record_kind {
     APL_RECORD_BUDGET_PLAN,
     APL_RECORD_PROJECT,
     APL_RECORD_PROJECT_UPDATE,
+    APL_RECORD_PART_TYPE,
+    APL_RECORD_PART_UNIT,
+    APL_RECORD_LIFECYCLE_EVENT,
 } apl_record_kind;
 
 /** Stable storage code (for example "team"), or "" for an invalid kind. */

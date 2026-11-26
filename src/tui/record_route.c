@@ -17,6 +17,10 @@ apl_tui_section apl_tui_record_section(const apl_record_kind kind)
     case APL_RECORD_PROJECT:
     case APL_RECORD_PROJECT_UPDATE:
         return APL_TUI_SECTION_DEVELOPMENT;
+    case APL_RECORD_PART_TYPE:
+    case APL_RECORD_PART_UNIT:
+    case APL_RECORD_LIFECYCLE_EVENT:
+        return APL_TUI_SECTION_PARTS;
     case APL_RECORD_ACTIVITY:
     case APL_RECORD_NONE:
         return APL_TUI_SECTION_HISTORY;

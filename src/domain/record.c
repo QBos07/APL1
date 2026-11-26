@@ -25,6 +25,12 @@ const char *apl_record_kind_code(const apl_record_kind kind)
         return "project";
     case APL_RECORD_PROJECT_UPDATE:
         return "project_update";
+    case APL_RECORD_PART_TYPE:
+        return "part_type";
+    case APL_RECORD_PART_UNIT:
+        return "part_unit";
+    case APL_RECORD_LIFECYCLE_EVENT:
+        return "lifecycle_event";
     case APL_RECORD_NONE:
         return "";
     }
@@ -54,6 +60,12 @@ const char *apl_record_kind_label(const apl_record_kind kind)
         return "Project";
     case APL_RECORD_PROJECT_UPDATE:
         return "Project update";
+    case APL_RECORD_PART_TYPE:
+        return "Part type";
+    case APL_RECORD_PART_UNIT:
+        return "Part unit";
+    case APL_RECORD_LIFECYCLE_EVENT:
+        return "Lifecycle event";
     case APL_RECORD_NONE:
         return "Unknown";
     }
@@ -65,7 +77,7 @@ apl_record_kind apl_record_kind_from_code(const char *const code)
     if (code == nullptr) {
         return APL_RECORD_NONE;
     }
-    for (int kind = APL_RECORD_TEAM; kind <= APL_RECORD_PROJECT_UPDATE; ++kind) {
+    for (int kind = APL_RECORD_TEAM; kind <= APL_RECORD_LIFECYCLE_EVENT; ++kind) {
         if (strcmp(code, apl_record_kind_code((apl_record_kind)kind)) == 0) {
             return (apl_record_kind)kind;
         }

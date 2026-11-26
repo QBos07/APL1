@@ -92,6 +92,8 @@ if(BUILD_TESTING)
         tests/integration/test_membership_repository.c
         tests/integration/test_project_repository.c
         tests/integration/test_project_service.c
+        tests/integration/test_part_type_repository.c
+        tests/integration/test_part_type_service.c
         tests/integration/test_project_transaction_links.c
         tests/integration/test_project_update_repository.c
         tests/integration/test_project_update_service.c
@@ -193,6 +195,7 @@ target_include_directories(apl_core PUBLIC src)
 add_library(apl_domain STATIC
     src/domain/ledger.c
     src/domain/money.c
+    src/domain/part.c
     src/domain/project.c
     src/domain/record.c
     src/domain/reference.c
@@ -217,6 +220,7 @@ add_library(apl_db STATIC
     src/db/path.c
     src/db/project_repository.c
     src/db/project_update_repository.c
+    src/db/part_type_repository.c
     src/db/season_repository.c
     src/db/settings_repository.c
     src/db/sqlite_util.c
@@ -279,6 +283,7 @@ add_library(apl_app STATIC
     src/app/project_service.c
     src/app/season_service.c
     src/app/team_service.c
+    src/app/part_type_service.c
     src/app/use_case.c
     src/app/version.c
 )
