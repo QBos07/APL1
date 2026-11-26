@@ -195,4 +195,22 @@ apl_status apl_lifecycle_usage_normalize(const char *text, char *out, size_t out
 apl_status apl_lifecycle_notes_normalize(const char *text, char *out, size_t out_size,
                                          apl_error *error);
 
+/** One derived current-fitment row (work item 6.4/6.8).
+ *
+ * Computed only from recorded lifecycle events: `unit_id` is currently fitted
+ * at `car_id`/`position`. `type_id` is included for display convenience.
+ */
+typedef struct apl_fitment_row {
+    int64_t unit_id;
+    int64_t type_id;
+    int64_t car_id;
+    char position[APL_LIFECYCLE_POSITION_MAX];
+} apl_fitment_row;
+
+/** One lifecycle event decorated with its derived current state (6.8). */
+typedef struct apl_lifecycle_history_entry {
+    apl_lifecycle_event event;
+    bool current;
+} apl_lifecycle_history_entry;
+
 #endif /* APL_DOMAIN_PART_H */

@@ -96,6 +96,7 @@ if(BUILD_TESTING)
         tests/integration/test_part_type_service.c
         tests/integration/test_part_unit_repository.c
         tests/integration/test_part_unit_service.c
+        tests/integration/test_lifecycle_repository.c
         tests/integration/test_lifecycle_schema.c
         tests/integration/test_project_transaction_links.c
         tests/integration/test_project_update_repository.c
@@ -225,6 +226,7 @@ add_library(apl_db STATIC
     src/db/project_update_repository.c
     src/db/part_type_repository.c
     src/db/part_unit_repository.c
+    src/db/lifecycle_repository.c
     src/db/season_repository.c
     src/db/settings_repository.c
     src/db/sqlite_util.c
