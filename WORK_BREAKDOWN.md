@@ -246,18 +246,20 @@ Goal: record work and relate it to money and cars/parts without fabricating prog
 
 Goal: track component identity and lifecycle changes without inferring inventory or reliability.
 
-- [ ] **6.1 Add part-type schema and repository.** Category/name are user-entered; serial number is not mandatory.
-- [ ] **6.2 Add individual part/unit schema.** Link to a type and team; allow optional serial/part number and notes.
-- [ ] **6.3 Add fitment/lifecycle-event schema.** Record install/remove/replace/repair/dispose events with user-entered date and optional car, position, event, reason, usage, and notes.
-- [ ] **6.4 Add lifecycle repository queries.** Read current fitment and chronological history without overwriting old entries.
-- [ ] **6.5 Add install/remove use cases.** Validate references and save history atomically; test invalid transitions and rollback.
-- [ ] **6.6 Add replacement use case.** Link old-unit removal and new-unit installation in one transaction; verify a failure leaves the old fitment unchanged.
-- [ ] **6.7 Link a replacement cost to one ledger transaction.** Display the relationship without double-counting costs.
-- [ ] **6.8 Add current-fitment table and part-unit detail view.** Distinguish unknown/unrecorded fitment from “no part fitted.”
-- [ ] **6.9 Add replacement workflow form.** Review car/position, old/new unit, date, and optional links before atomic save.
-- [ ] **6.10 Add parts-history filters.** Search part number/type and filter by car, date, and action.
+- [ ] **6.1 Add part-type schema, repository, and core use cases.** Category/name are user-entered; serial number is not mandatory. [Work item](work-items/phase-6/6.1-part-type-schema-repository.md)
+- [ ] **6.2 Add individual part/unit schema, repository, and core use cases.** Link to a type and team; allow optional serial/part number and notes. [Work item](work-items/phase-6/6.2-part-unit-schema-repository.md)
+- [ ] **6.3 Add fitment/lifecycle-event schema.** Record install/remove/replace/repair/dispose events with user-entered date and optional car, position, event, reason, usage, and notes. [Work item](work-items/phase-6/6.3-lifecycle-schema.md)
+- [ ] **6.4 Add lifecycle repository queries.** Read current fitment and chronological history without overwriting old entries. [Work item](work-items/phase-6/6.4-lifecycle-repository.md)
+- [ ] **6.5 Add install/remove/repair/dispose use cases.** Validate references and save history atomically; test invalid transitions and rollback. [Work item](work-items/phase-6/6.5-lifecycle-use-cases.md)
+- [ ] **6.6 Add replacement use case.** Link old-unit removal and new-unit installation in one transaction; verify a failure leaves the old fitment unchanged. [Work item](work-items/phase-6/6.6-replacement-use-case.md)
+- [ ] **6.7 Link a replacement cost to one ledger transaction.** Display the relationship without double-counting costs. [Work item](work-items/phase-6/6.7-replacement-cost-link.md)
+- [ ] **6.8 Add current-fitment table and part-unit detail view.** Distinguish unknown/unrecorded fitment from “no part fitted.” [Work item](work-items/phase-6/6.8-fitment-and-unit-views.md)
+- [ ] **6.9 Add replacement workflow form.** Review car/position, old/new unit, date, and optional links before atomic save. [Work item](work-items/phase-6/6.9-replacement-form.md)
+- [ ] **6.10 Add parts-history filters.** Search part number/type and filter by car, date, and action. [Work item](work-items/phase-6/6.10-parts-history-filters.md)
+- [ ] **6.11 Add part register management screens and forms.** Create/select/edit/archive types and individual units without inferring inventory. [Work item](work-items/phase-6/6.11-part-register-views-forms.md)
+- [ ] **6.12 Add install/remove/repair/dispose forms.** Provide the non-replacement lifecycle workflows with explicit review and cancellation. [Work item](work-items/phase-6/6.12-lifecycle-forms.md)
 
-**Gate:** a replacement changes the recorded current fitment while preserving inspectable old/new unit histories and linked costs.
+**Gate:** users can maintain part types and individual units, record each supported lifecycle action, and perform an atomic replacement that changes derived current fitment while preserving old/new history and linking an actual ledger cost without double-counting.
 
 ## Phase 7 — Events and manually entered outcomes
 
