@@ -623,8 +623,10 @@ void handle_part_unit_detail_input(shell_state *const state, const uint32_t id)
         open_lifecycle_dialog(state, APL_LIFECYCLE_INSTALL);
         return;
     case 'r':
-    case 'R':
         open_lifecycle_dialog(state, APL_LIFECYCLE_REMOVE);
+        return;
+    case 'R':
+        open_replace_dialog_direct(state);
         return;
     case 'p':
     case 'P':
@@ -925,7 +927,8 @@ void open_replace_dialog_direct(shell_state *const state)
     (void)snprintf(old_text, sizeof(old_text), "%lld", (long long)state->part_unit_detail.id);
     apl_tui_dialog_open_form(
         &state->dialog, "Replace unit",
-        "Old unit is the currently-recorded fitment; new unit must be eligible. Date is required.");
+        "Enter old (currently-fitted) and new unit IDs, an optional car/position, and a required "
+        "date. You review the result before the atomic save.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Old unit ID", old_text, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "New unit ID", new_text, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Car (optional)", "", false);
@@ -937,7 +940,7 @@ void open_replace_dialog_direct(shell_state *const state)
     (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", "", false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_PART_REPLACE;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
-    set_status(state, "Enter previews the replacement; the review step confirms the atomic save.");
+    set_status(state, "Enter previews the replacement; confirm the review to save atomically.");
 }
 
 unsigned part_type_form_error_field(const apl_error *const error)

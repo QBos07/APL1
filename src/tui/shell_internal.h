@@ -76,6 +76,7 @@ typedef enum shell_pending_action {
     SHELL_PENDING_ARCHIVE_BUDGET,
     SHELL_PENDING_ARCHIVE_PART_TYPE,
     SHELL_PENDING_ARCHIVE_PART_UNIT,
+    SHELL_PENDING_APPLY_REPLACE,
 } shell_pending_action;
 
 typedef enum shell_dialog_context {
@@ -253,6 +254,15 @@ typedef struct shell_state {
     char parts_from_date[APL_REFERENCE_DATE_MAX];
     char parts_to_date[APL_REFERENCE_DATE_MAX];
     char parts_search[APL_PART_UNIT_SERIAL_MAX];
+    char replace_old_unit[APL_TUI_DIALOG_FIELD_VALUE_MAX];
+    char replace_new_unit[APL_TUI_DIALOG_FIELD_VALUE_MAX];
+    char replace_car[APL_REFERENCE_LABEL_MAX];
+    char replace_position[APL_LIFECYCLE_POSITION_MAX];
+    char replace_date[APL_REFERENCE_DATE_MAX];
+    char replace_event[APL_LIFECYCLE_EVENT_MAX];
+    char replace_reason[APL_LIFECYCLE_REASON_MAX];
+    char replace_usage[APL_LIFECYCLE_USAGE_MAX];
+    char replace_notes[APL_REFERENCE_NOTES_MAX];
 } shell_state;
 
 void handle_dialog_input(shell_state *state, const ncinput *input);

@@ -332,15 +332,42 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             set_status(state, "Replacement cancelled; no change was saved.");
             return;
         }
-        if (!perform_replace(state, dialog_value(state, 0), dialog_value(state, 1),
-                             dialog_value(state, 2), dialog_value(state, 3), dialog_value(state, 4),
-                             dialog_value(state, 5), dialog_value(state, 6),
-                             dialog_value(state, 7), dialog_value(state, 8), &error)) {
-            apl_tui_dialog_set_field_error(&state->dialog, lifecycle_form_error_field(&error),
-                                           apl_error_message(&error));
-            return;
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            /* Store entered values and open an explicit review before the
+             * atomic save. Cancelling the review writes nothing. */
+            (void)snprintf(state->replace_old_unit, sizeof(state->replace_old_unit), "%s",
+                           dialog_value(state, 0));
+            (void)snprintf(state->replace_new_unit, sizeof(state->replace_new_unit), "%s",
+                           dialog_value(state, 1));
+            (void)snprintf(state->replace_car, sizeof(state->replace_car), "%s",
+                           dialog_value(state, 2));
+            (void)snprintf(state->replace_position, sizeof(state->replace_position), "%s",
+                           dialog_value(state, 3));
+            (void)snprintf(state->replace_date, sizeof(state->replace_date), "%s",
+                           dialog_value(state, 4));
+            (void)snprintf(state->replace_event, sizeof(state->replace_event), "%s",
+                           dialog_value(state, 5));
+            (void)snprintf(state->replace_reason, sizeof(state->replace_reason), "%s",
+                           dialog_value(state, 6));
+            (void)snprintf(state->replace_usage, sizeof(state->replace_usage), "%s",
+                           dialog_value(state, 7));
+            (void)snprintf(state->replace_notes, sizeof(state->replace_notes), "%s",
+                           dialog_value(state, 8));
+            close_shell_dialog(state);
+            state->pending = SHELL_PENDING_APPLY_REPLACE;
+            char message[APL_TUI_DIALOG_MESSAGE_MAX];
+            (void)snprintf(message, sizeof(message),
+                           "Replace old unit %s with new unit %s%s%s on %s%s%s. Confirm to save "
+                           "atomically; the old unit's history and the new unit remain inspectable.",
+                           state->replace_old_unit, state->replace_new_unit,
+                           state->replace_car[0] != '\0' ? " at car " : "",
+                           state->replace_car[0] != '\0' ? state->replace_car : "",
+                           state->replace_date,
+                           state->replace_position[0] != '\0' ? " position " : "",
+                           state->replace_position[0] != '\0' ? state->replace_position : "");
+            apl_tui_dialog_open_confirm(&state->dialog, "Confirm replacement", message);
+            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }
-        close_shell_dialog(state);
         return;
     }
 
@@ -612,6 +639,19 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             perform_part_unit_archive(state, pending_record, &error);
         } else {
             set_status(state, "Part unit archive cancelled.");
+        }
+    } else if (pending == SHELL_PENDING_APPLY_REPLACE) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            if (!perform_replace(state, state->replace_old_unit, state->replace_new_unit,
+                                 state->replace_car, state->replace_position, state->replace_date,
+                                 state->replace_event, state->replace_reason, state->replace_usage,
+                                 state->replace_notes, &error)) {
+                if (state->dialog_context == SHELL_DIALOG_CONTEXT_NONE) {
+                    show_error_dialog(state, &error);
+                }
+            }
+        } else {
+            set_status(state, "Replacement cancelled; no change was saved.");
         }
     } else if (result == APL_TUI_DIALOG_DISMISSED) {
         set_status(state, "Cancelled.");
