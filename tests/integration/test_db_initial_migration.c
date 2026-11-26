@@ -50,13 +50,13 @@ Test(db_initial_migration, new_database_is_marked_at_latest_version)
 
     int version = -1;
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 18);
+    cr_assert_eq(version, 19);
 
     int version_rows = -1;
     cr_assert_eq(
         query_int(&connection, "SELECT COUNT(*) FROM apl_schema_migrations;", &version_rows),
         APL_OK);
-    cr_assert_eq(version_rows, 18);
+    cr_assert_eq(version_rows, 19);
 
     apl_db_close(&connection);
     apl_error_init(&err);
@@ -121,7 +121,7 @@ Test(db_initial_migration, second_migration_run_is_a_noop)
 
     int version = -1;
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 18);
+    cr_assert_eq(version, 19);
 
     int version_rows_after = -1;
     cr_assert_eq(
@@ -146,7 +146,7 @@ Test(db_initial_migration, version_one_database_upgrades_through_team_and_settin
     /* Simulate a database created by the Phase 1 application at version 1. */
     size_t production_count = 0;
     const apl_db_migration *const production = apl_db_migrations_list(&production_count);
-    cr_assert_eq(production_count, 18);
+    cr_assert_eq(production_count, 19);
     cr_assert_eq(apl_db_migrations_run_list(&connection, production, 1, &err), APL_OK);
 
     int version = -1;
@@ -156,7 +156,7 @@ Test(db_initial_migration, version_one_database_upgrades_through_team_and_settin
     /* Startup migrates it forward exactly once. */
     cr_assert_eq(apl_db_migrate(&connection, &err), APL_OK);
     cr_assert_eq(apl_db_current_version(&connection, &version, nullptr), APL_OK);
-    cr_assert_eq(version, 18);
+    cr_assert_eq(version, 19);
 
     int team_rows = -1;
     cr_assert_eq(query_int(&connection, "SELECT COUNT(*) FROM teams;", &team_rows), APL_OK);

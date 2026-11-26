@@ -444,6 +444,21 @@ static const apl_db_migration apl_migrations[] = {
          "SELECT 1 FROM part_units WHERE part_units.id = NEW.new_unit_id "
          "AND part_units.team_id = NEW.team_id)) "
          "BEGIN SELECT RAISE(ABORT, 'lifecycle unit must belong to the same team'); END;\n"},
+    /* Version 19: optional replacement-to-ledger cost link (6.7). Adds a
+     * nullable transaction_id to lifecycle events using an explicit FK, not a
+     * generic polymorphic link. In v1 a transaction is linked to at most one
+     * lifecycle event, so a partial unique index on non-null rows enforces the
+     * one-to-one direction. No cost amount is stored on the event. */
+    {19, "ALTER TABLE lifecycle_events ADD COLUMN transaction_id INTEGER "
+         "REFERENCES ledger_entries(id) ON DELETE SET NULL;\n"
+         "CREATE INDEX idx_lifecycle_transaction ON lifecycle_events(transaction_id);\n"
+         "CREATE UNIQUE INDEX uq_lifecycle_transaction ON lifecycle_events(transaction_id) "
+         "WHERE transaction_id IS NOT NULL;\n"
+         "CREATE TRIGGER lifecycle_transaction_same_team BEFORE INSERT ON lifecycle_events "
+         "WHEN NEW.transaction_id IS NOT NULL AND NOT EXISTS ("
+         "SELECT 1 FROM ledger_entries WHERE ledger_entries.id = NEW.transaction_id "
+         "AND ledger_entries.team_id = NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'lifecycle transaction must belong to the same team'); END;\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

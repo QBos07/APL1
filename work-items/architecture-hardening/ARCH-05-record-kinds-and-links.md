@@ -20,14 +20,14 @@ without losing referential integrity.
 - [x] Confirm the explicit nullable `transactions.project_id` relationship
       specified in [5.5](../phase-5/5.5-project-transaction-links.md); 5.5
       owns the implementation.
-- [ ] Confirm the explicit nullable lifecycle-event-to-transaction relationship
+- [x] Confirm the explicit nullable lifecycle-event-to-transaction relationship
       in [6.7](../phase-6/6.7-replacement-cost-link.md) before its schema change;
       6.7 owns implementation. Do not introduce a generic polymorphic link table.
 - [x] Register the project record kind in
       [5.1](../phase-5/5.1-project-schema-repository.md).
 - [x] Register the update record kind in
       [5.3](../phase-5/5.3-development-update-schema-repository.md).
-- [ ] Register part-type, part-unit, and lifecycle-event record kinds in
+- [x] Register part-type, part-unit, and lifecycle-event record kinds in
       [6.1](../phase-6/6.1-part-type-schema-repository.md),
       [6.2](../phase-6/6.2-part-unit-schema-repository.md), and
       [6.3](../phase-6/6.3-lifecycle-schema.md) before their activity events.
@@ -39,10 +39,10 @@ without losing referential integrity.
 - [x] Existing history filters and audit tests still pass.
 - [ ] Phase 8 global history can route a row to its record.
 - [x] Project-linked transactions are counted once in ledger/project reports (5.5).
-- [ ] Replacement-linked transactions are counted once in ledger/parts reports (6.7).
+- [x] Replacement-linked transactions are counted once in ledger/parts reports (6.7).
 
 ## Boundaries
 
 - The concrete Phase 5 project link is specified in 5.5. The Phase 6 replacement
-  link policy is proposed in 6.7 and must be confirmed before its migration.
+  link uses the explicit nullable `transaction_id` foreign key confirmed in 6.7.
 - Record kinds are append-only; do not renumber existing values.

@@ -63,6 +63,18 @@ apl_status apl_lifecycle_service_replace(const apl_app *app, int64_t team_id, in
                                          const char *usage, const char *notes,
                                          apl_lifecycle_event *out_event, apl_error *error);
 
+/** Link (or clear, when `transaction_id` is 0) an optional actual cost on a
+ *  replacement event (work item 6.7).
+ *
+ * The link points at one real same-team expense ledger entry; no cost amount is
+ * stored on the event. Validation requires the chosen transaction to be an
+ * expense in the same team and currency. The link is contextual only: ledger
+ * totals still count the transaction once.
+ */
+apl_status apl_lifecycle_service_set_cost(const apl_app *app, int64_t team_id, int64_t event_id,
+                                          int64_t transaction_id, apl_lifecycle_event *out_event,
+                                          apl_error *error);
+
 apl_status apl_lifecycle_service_get(const apl_app *app, int64_t team_id, int64_t id,
                                      apl_lifecycle_event *out_event, apl_error *error);
 

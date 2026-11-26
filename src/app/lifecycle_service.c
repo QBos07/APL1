@@ -8,7 +8,9 @@
 #include "core/util.h"
 #include "db/car_repository.h"
 #include "db/lifecycle_repository.h"
+#include "db/ledger_repository.h"
 #include "db/part_unit_repository.h"
+#include "db/team_repository.h"
 #include "db/transaction.h"
 #include "domain/record.h"
 
@@ -385,6 +387,83 @@ apl_status apl_lifecycle_service_replace(const apl_app *const app, const int64_t
         return apl_use_case_rollback(&transaction, status, "cannot record replacement", error);
     }
     return apl_use_case_commit(&transaction, "cannot record replacement", error);
+}
+
+apl_status apl_lifecycle_service_set_cost(const apl_app *const app, const int64_t team_id,
+                                          const int64_t event_id, const int64_t transaction_id,
+                                          apl_lifecycle_event *const out_event,
+                                          apl_error *const error)
+{
+    if (app == nullptr || out_event == nullptr || team_id <= 0 || event_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "replacement cost-link arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    *out_event = (apl_lifecycle_event){};
+    if (transaction_id < 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "replacement cost link must be a positive expense ID or empty");
+        apl_error_set_field(error, APL_FIELD_TRANSACTION);
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+
+    apl_status status = APL_OK;
+    if (transaction_id > 0) {
+        apl_ledger_entry entry = {};
+        status = apl_ledger_repository_get(&app->db, team_id, transaction_id, &entry, error);
+        if (status != APL_OK) {
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            return apl_use_case_with_context(status, "cannot link replacement cost", error);
+        }
+        if (entry.classification != APL_LEDGER_KIND_EXPENSE) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "only an expense transaction can be linked as a replacement cost");
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            return apl_use_case_with_context(APL_ERR_INVALID_ARGUMENT,
+                                             "cannot link replacement cost", error);
+        }
+        apl_team team = {};
+        status = apl_team_repository_get(&app->db, team_id, &team, error);
+        if (status == APL_OK && team.currency[0] != '\0' &&
+            strcmp(team.currency, entry.amount.currency) != 0) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "the linked expense transaction uses a different currency than the team");
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            status = APL_ERR_INVALID_ARGUMENT;
+        }
+        if (status != APL_OK) {
+            return apl_use_case_with_context(status, "cannot link replacement cost", error);
+        }
+    }
+
+    apl_db_transaction transaction = {};
+    status = apl_use_case_begin(&transaction, app, "cannot link replacement cost", error);
+    if (status != APL_OK) {
+        return status;
+    }
+    status = apl_lifecycle_repository_set_transaction(&app->db, team_id, event_id, transaction_id,
+                                                      out_event, error);
+    if (status == APL_OK) {
+        apl_activity_change change = {};
+        const char *new_text = (out_event->transaction_id > 0) ? "linked" : "";
+        apl_audit_change_text(&change, "cost_link", nullptr, true, new_text,
+                              out_event->transaction_id == 0);
+        char summary[APL_ACTIVITY_SUMMARY_MAX];
+        if (out_event->transaction_id > 0) {
+            (void)snprintf(summary, sizeof(summary),
+                           "Linked replacement to expense transaction %lld",
+                           (long long)out_event->transaction_id);
+        } else {
+            (void)snprintf(summary, sizeof(summary), "Removed replacement cost link");
+        }
+        status =
+            apl_audit_append(app, team_id, "lifecycle_cost_linked",
+                             apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out_event->id,
+                             summary, &change, 1, error);
+    }
+    if (status != APL_OK) {
+        return apl_use_case_rollback(&transaction, status, "cannot link replacement cost", error);
+    }
+    return apl_use_case_commit(&transaction, "cannot link replacement cost", error);
 }
 
 apl_status apl_lifecycle_service_get(const apl_app *const app, const int64_t team_id,

@@ -39,6 +39,14 @@ apl_status apl_lifecycle_repository_list_unit(const apl_db_connection *connectio
                                               apl_lifecycle_history_entry **out_entries,
                                               size_t *out_count, apl_error *error);
 
+/** Set (or clear, when `transaction_id` is 0) the optional replacement cost
+ *  link on one replacement event in the same team. */
+apl_status apl_lifecycle_repository_set_transaction(const apl_db_connection *connection,
+                                                    int64_t team_id, int64_t event_id,
+                                                    int64_t transaction_id,
+                                                    apl_lifecycle_event *out_event,
+                                                    apl_error *error);
+
 /** Compute the current derived fitment for a team: one row per currently-fitted
  *  unit with its car/position. Unknown/unrecorded positions are absent. */
 apl_status apl_lifecycle_repository_current_fitment(const apl_db_connection *connection,

@@ -100,6 +100,7 @@ if(BUILD_TESTING)
         tests/integration/test_lifecycle_schema.c
         tests/integration/test_lifecycle_service.c
         tests/integration/test_lifecycle_replace.c
+        tests/integration/test_lifecycle_cost_link.c
         tests/integration/test_project_transaction_links.c
         tests/integration/test_project_update_repository.c
         tests/integration/test_project_update_service.c

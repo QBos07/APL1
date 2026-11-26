@@ -152,6 +152,7 @@ typedef struct apl_lifecycle_event {
     int64_t old_unit_id;  /* old unit for a replace */
     int64_t new_unit_id;  /* new unit for a replace */
     int64_t car_id;       /* optional car/position link */
+    int64_t transaction_id; /* optional replacement-to-ledger link (6.7) */
     char event_date[APL_REFERENCE_DATE_MAX];
     char position[APL_LIFECYCLE_POSITION_MAX];
     char event_label[APL_LIFECYCLE_EVENT_MAX];

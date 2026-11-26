@@ -10,11 +10,11 @@
 
 #define EVENT_COLUMNS                                                                                  \
     "e.id, e.team_id, e.action, e.event_date, e.unit_id, e.old_unit_id, e.new_unit_id, e.car_id, "      \
-    "e.position, e.event_label, e.reason, e.usage, e.notes, e.created_at"
+    "e.position, e.event_label, e.reason, e.usage, e.notes, e.created_at, e.transaction_id"
 
 #define EVENT_COLUMNS_UNALIASED                                                                         \
     "id, team_id, action, event_date, unit_id, old_unit_id, new_unit_id, car_id, position, "            \
-    "event_label, reason, usage, notes, created_at"
+    "event_label, reason, usage, notes, created_at, transaction_id"
 
 static void read_event(sqlite3_stmt *const statement, apl_lifecycle_event *const event)
 {
@@ -37,6 +37,8 @@ static void read_event(sqlite3_stmt *const statement, apl_lifecycle_event *const
     apl_db_copy_column_text(statement, 11, event->usage, sizeof(event->usage));
     apl_db_copy_column_text(statement, 12, event->notes, sizeof(event->notes));
     apl_db_copy_column_text(statement, 13, event->created_at, sizeof(event->created_at));
+    event->transaction_id =
+        sqlite3_column_type(statement, 14) == SQLITE_NULL ? 0 : sqlite3_column_int64(statement, 14);
 }
 
 static apl_status prepare(sqlite3 *const handle, const char *const sql, sqlite3_stmt **const out,
@@ -84,9 +86,10 @@ static apl_status append_event_sql(sqlite3 *const handle, const int64_t team_id,
     apl_status status =
         prepare(handle,
                 "INSERT INTO lifecycle_events (team_id, action, event_date, unit_id, old_unit_id, "
-                "new_unit_id, car_id, position, event_label, reason, usage, notes, created_at) "
+                "new_unit_id, car_id, position, event_label, reason, usage, notes, created_at, "
+                "transaction_id) "
                 "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, "
-                "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+                "strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?13) "
                 "RETURNING " EVENT_COLUMNS_UNALIASED ";",
                 &statement, error);
     if (status != APL_OK) {
@@ -128,6 +131,9 @@ static apl_status append_event_sql(sqlite3 *const handle, const int64_t team_id,
     }
     if (bind == SQLITE_OK) {
         bind = sqlite3_bind_text(statement, 12, event->notes, -1, SQLITE_TRANSIENT);
+    }
+    if (bind == SQLITE_OK) {
+        bind_optional_id(statement, 13, event->transaction_id);
     }
     if (bind != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot bind lifecycle event: %s",
@@ -487,6 +493,51 @@ apl_status apl_lifecycle_repository_current_fitment(const apl_db_connection *con
     free(slots);
     *out_rows = rows;
     *out_count = row_count;
+    return APL_OK;
+}
+
+apl_status apl_lifecycle_repository_set_transaction(const apl_db_connection *const connection,
+                                                    const int64_t team_id, const int64_t event_id,
+                                                    const int64_t transaction_id,
+                                                    apl_lifecycle_event *const out_event,
+                                                    apl_error *const error)
+{
+    if (connection == nullptr || out_event == nullptr || team_id <= 0 || event_id <= 0) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "lifecycle transaction-link arguments are invalid");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    sqlite3 *const handle = apl_db_handle(connection);
+    if (handle == nullptr) {
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is closed");
+        return APL_ERR_INVALID_ARGUMENT;
+    }
+    *out_event = (apl_lifecycle_event){};
+    sqlite3_stmt *statement = nullptr;
+    apl_status status = prepare(handle,
+                                "UPDATE lifecycle_events SET transaction_id = ?3 "
+                                "WHERE id = ?2 AND team_id = ?1 RETURNING " EVENT_COLUMNS_UNALIASED ";",
+                                &statement, error);
+    if (status != APL_OK) {
+        return status;
+    }
+    sqlite3_bind_int64(statement, 1, team_id);
+    sqlite3_bind_int64(statement, 2, event_id);
+    bind_optional_id(statement, 3, transaction_id);
+    const int step_status = sqlite3_step(statement);
+    if (step_status == SQLITE_DONE) {
+        sqlite3_finalize(statement);
+        apl_error_set(error, APL_ERR_NOT_FOUND, "lifecycle event %lld was not found for this team",
+                      (long long)event_id);
+        return APL_ERR_NOT_FOUND;
+    }
+    if (step_status != SQLITE_ROW) {
+        status = write_error(handle, error);
+        sqlite3_finalize(statement);
+        return status;
+    }
+    read_event(statement, out_event);
+    sqlite3_finalize(statement);
     return APL_OK;
 }
 
