@@ -924,9 +924,15 @@ void open_lifecycle_dialog(shell_state *const state, const apl_lifecycle_action 
     (void)snprintf(unit_text, sizeof(unit_text), "%lld",
                    (long long)state->part_unit_detail.id);
     const char *const title = apl_lifecycle_action_label(action);
-    apl_tui_dialog_open_form(
-        &state->dialog, title,
-        "Install/remove require a car and position. Date is the user-entered event date.");
+    const char *const message =
+        (action == APL_LIFECYCLE_REPAIR)
+            ? "Repair records work done; it never changes current fitment. Date is required."
+            : (action == APL_LIFECYCLE_DISPOSE)
+                  ? "Dispose records that a unit leaves service; a currently-fitted unit must be "
+                    "removed first. Date is required."
+                  : "Install/remove require a car and position. Date is the user-entered event "
+                    "date.";
+    apl_tui_dialog_open_form(&state->dialog, title, message);
     (void)apl_tui_dialog_add_field(&state->dialog, "Unit ID", unit_text, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Car (optional)", "", false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Position (optional)", "", false);
