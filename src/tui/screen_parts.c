@@ -241,9 +241,15 @@ void draw_parts_fitment(shell_state *const state)
                             "Fitment is derived from recorded lifecycle events; no stock or "
                             "availability is assumed.");
 
+    unsigned starts[6] = {};
+    unsigned ends[6] = {};
+    char filters[512];
+    build_parts_filter_bar(state, filters, sizeof(filters), starts, ends);
+    apl_tui_frame_draw_line(body, 2, filters);
+
     if (state->fitment_count == 0) {
         apl_tui_frame_draw_line(
-            body, 3,
+            body, 4,
             "No unit is currently recorded as fitted. Open a unit and install it to record a "
             "fitment.");
         return;
@@ -251,7 +257,7 @@ void draw_parts_fitment(shell_state *const state)
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
     const unsigned rows = (layout != nullptr) ? layout->body.rows : 0;
     const size_t visible = apl_tui_list_visible_count(&state->list);
-    for (size_t offset = 0; offset < visible && offset + 4 < rows - 1; ++offset) {
+    for (size_t offset = 0; offset < visible && offset + 5 < rows - 1; ++offset) {
         const size_t index = state->list.offset + offset;
         const apl_fitment_row *const row = &state->fitment_rows[index];
         const bool focused = index == state->list.selected;
@@ -265,7 +271,7 @@ void draw_parts_fitment(shell_state *const state)
                        (long long)row->unit_id, type);
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
-        apl_tui_frame_draw_line(body, (int)(offset + 4), line);
+        apl_tui_frame_draw_line(body, (int)(offset + 5), line);
         apl_tui_theme_reset(body);
     }
 }
@@ -407,6 +413,10 @@ void handle_parts_fitment_input(shell_state *const state, const uint32_t id)
     switch (id) {
     case NCKEY_ESC:
         set_section(state, APL_TUI_SECTION_OVERVIEW);
+        return;
+    case 'f':
+    case 'F':
+        open_parts_filter_dialog(state);
         return;
     case 'n':
     case 'N':
@@ -588,6 +598,10 @@ void handle_part_unit_list_input(shell_state *const state, const uint32_t id)
                                                                   : "Hiding archived part units.");
         }
         return;
+    case 'f':
+    case 'F':
+        open_parts_filter_dialog(state);
+        return;
     default:
         break;
     }
@@ -727,9 +741,31 @@ bool apply_parts_filter(shell_state *const state, const char *const action, cons
     copy_text(state->parts_from_date, sizeof(state->parts_from_date), from);
     copy_text(state->parts_to_date, sizeof(state->parts_to_date), to);
     copy_text(state->parts_search, sizeof(state->parts_search), text);
+
+    /* Reload the register then narrow it to matches of the search text. */
     if (load_part_units(state, 0, error) != APL_OK) {
         show_error_dialog(state, error);
         return false;
+    }
+    if (state->parts_search[0] != '\0') {
+        size_t write = 0;
+        for (size_t index = 0; index < state->part_unit_count; ++index) {
+            const apl_part_unit *const unit = &state->part_units[index];
+            const bool matches =
+                strstr(unit->serial_number, state->parts_search) != nullptr ||
+                strstr(unit->part_number, state->parts_search) != nullptr;
+            if (matches) {
+                if (write != index) {
+                    state->part_units[write] = *unit;
+                }
+                ++write;
+            }
+        }
+        state->part_unit_count = write;
+        apl_tui_list_set_count(&state->list, write);
+        if (write > 0) {
+            apl_tui_list_select(&state->list, 0);
+        }
     }
     set_status_success(state, "Parts filters applied.");
     return true;
