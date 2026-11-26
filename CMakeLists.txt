@@ -98,6 +98,7 @@ if(BUILD_TESTING)
         tests/integration/test_part_unit_service.c
         tests/integration/test_lifecycle_repository.c
         tests/integration/test_lifecycle_schema.c
+        tests/integration/test_lifecycle_service.c
         tests/integration/test_project_transaction_links.c
         tests/integration/test_project_update_repository.c
         tests/integration/test_project_update_service.c
@@ -291,6 +292,7 @@ add_library(apl_app STATIC
     src/app/team_service.c
     src/app/part_type_service.c
     src/app/part_unit_service.c
+    src/app/lifecycle_service.c
     src/app/use_case.c
     src/app/version.c
 )
