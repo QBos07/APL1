@@ -201,7 +201,7 @@ These work items support multiple product phases and are tracked separately from
 - [ ] **ARCH-05 Record kinds and cross-feature links.** Register project/update record kinds before audited writes (5.2/5.4); confirm explicit transaction-to-project and part-to-transaction links before 5.5/6.7; finish record-opening routes by 8.1. [Work item](work-items/architecture-hardening/ARCH-05-record-kinds-and-links.md)
 - [x] **ARCH-06 Money and ledger model.** Settled before Phase 4 money schema and corrections. [Work item](work-items/architecture-hardening/ARCH-06-money-and-ledger-model.md)
 - [x] **ARCH-07 TUI shell decomposition.** Feature screens use dedicated screen modules rather than growing `shell.c` (4.8 onward, including 5.6–5.8). [Work item](work-items/architecture-hardening/ARCH-07-tui-shell-decomposition.md)
-- [ ] **ARCH-08 Query filters and command dispatch.** Complete before Phase 8 search/filter and feature-command routes (8.3–8.8). [Work item](work-items/architecture-hardening/ARCH-08-query-filter-command-dispatch.md)
+- [ ] **ARCH-08 Query filters and command dispatch.** Complete before Phase 8 search/filter and full window-command parity work (8.3–8.14). [Work item](work-items/architecture-hardening/ARCH-08-query-filter-command-dispatch.md)
 - [ ] **ARCH-09 Testing, operations, and CI.** Extend scenario fixtures as Phases 5–7 land; finish operational-failure coverage before Phase 9 hardening (9.3–9.6). [Work item](work-items/architecture-hardening/ARCH-09-testing-operations-ci.md)
 
 **Sequencing rule:** An architecture item is a gate only at its documented target. ARCH-05’s remaining link decision gates 5.5/6.7; ARCH-08 and ARCH-09 do not block Phase 5 feature work.
@@ -279,22 +279,24 @@ Goal: let the user organize events and record, correct, and review driver outcom
 
 ## Phase 8 — Search, history, and feature command routes
 
-Goal: make stored information quick to retrieve and extend the Phase 2 command registry with domain-specific actions.
+Goal: make stored information quick to retrieve and make the command line a complete alternative to operating the windows directly. Every user-visible action offered by a window/menu—including navigation, list/detail, search/filter, create/edit/archive, correction, linking, and reports where applicable—must have a command equivalent. A command missing required values opens the same prefilled dialog; a complete command uses the same use case as the window action.
 
 - [ ] **8.1 Add a global history/activity list.** Filter by team, record type, and date; open the affected record.
 - [ ] **8.2 Add before/after details for audited edits.** Begin with team and money records and expand only when feature-specific audit needs are clear.
 - [ ] **8.3 Add section-level text search for teams and people.** Preserve filters on return from detail.
 - [ ] **8.4 Add money filters and search.** Support date/period, category, type, and description.
 - [ ] **8.5 Add development/parts/event filters.** Add per-section fields incrementally rather than building a universal query language.
-- [ ] **8.6 Add money and budget command routes.** Complete commands execute through their use cases; incomplete commands open prefilled dialogs.
-- [ ] **8.7 Add development and parts command routes.** Use the same forms and use cases as the menu path.
-- [ ] **8.8 Add event, outcome, and history command routes.** Preserve team scope and missing-data semantics.
-- [ ] **8.9 Extend command help/completion from the registry.** Cover each newly implemented domain command and usage error.
-- [ ] **8.10 Test money/budget menu-command parity.** Include a complete command and an incomplete command that opens a dialog.
-- [ ] **8.11 Test development/parts menu-command parity.** Include validation and linked-record behavior.
-- [ ] **8.12 Test event/outcome/history menu-command parity.** Include ambiguity and missing-field behavior.
+- [ ] **8.6 Inventory every window action and define the command-parity matrix.** Include existing Teams/People/reference commands and all Phase 4–7 windows; identify every missing or partial route before implementing the gaps. [Work item](work-items/phase-8/8.6-window-command-parity-inventory.md)
+- [ ] **8.7 Complete team, people, and reference commands.** Close Phase 2/3 gaps for every action available from those windows, including list/show/create/edit/archive and membership/season/car actions where supported. [Work item](work-items/phase-8/8.7-team-people-reference-commands.md)
+- [ ] **8.8 Add complete ledger and budget commands.** Cover transaction list/detail, opening balance, income, expense, correction/reversal, filters, budget plan create/edit/list, and report actions. [Work item](work-items/phase-8/8.8-ledger-budget-commands.md)
+- [ ] **8.9 Add complete development commands.** Cover project list/detail/create/edit/archive, dated update entry, and available filters/actions. [Work item](work-items/phase-8/8.9-development-commands.md)
+- [ ] **8.10 Add complete parts commands.** Cover part type/unit actions and every lifecycle operation, history/detail, filters, and linked transaction selection where supported by the Parts window. [Work item](work-items/phase-8/8.10-parts-commands.md)
+- [ ] **8.11 Add complete event and outcome commands.** Cover event/session actions, outcome list/detail/entry/batch/correction, and supported filters without inventing missing values. [Work item](work-items/phase-8/8.11-events-outcomes-commands.md)
+- [ ] **8.12 Add overview, history, and utility-window commands.** Cover available overview scopes, history filters/detail/open actions, and Settings/Help/About actions. [Work item](work-items/phase-8/8.12-overview-history-utility-commands.md)
+- [ ] **8.13 Complete command help, usage, and completion.** Generate discoverability from the registry for every implemented action, option, alias, and dialog handoff. [Work item](work-items/phase-8/8.13-command-help-completion.md)
+- [ ] **8.14 Verify full window-command parity.** Exercise every parity-matrix action through both entry points, including errors, ambiguity, confirmations, team scope, and persistence. [Work item](work-items/phase-8/8.14-full-command-parity-verification.md)
 
-**Gate:** the user can discover commands, route a common operation to a guided form, and see identical validation/persistence whether they started from a menu or command.
+**Gate:** the parity matrix has no uncovered user-visible window actions. Every window action has a discoverable command equivalent; incomplete commands hand off to the matching dialog, complete commands use the same use case, and automated parity tests prove equivalent validation, confirmation, team scope, audit behavior, and persisted results. Low-level pointer movement/focus and terminal resizing are interaction mechanics, not separate domain commands.
 
 ## Phase 9 — MVP review and stability
 
