@@ -368,6 +368,37 @@ static const apl_db_migration apl_migrations[] = {
          "CREATE INDEX idx_part_types_team_category ON part_types(team_id, category_key);\n"
          "CREATE UNIQUE INDEX uq_part_types_team_name ON part_types(team_id, category_key, "
          "name_key) WHERE archived = 0;\n"},
+    /* Version 17: individual part/unit records (6.2). A unit is a distinct,
+     * team-owned row linked to one part type. Serial and part numbers are
+     * genuinely optional and stored as empty strings (not NULL); no stock or
+     * availability state is created. */
+    {17, "CREATE TABLE part_units ("
+         "id INTEGER PRIMARY KEY,"
+         "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+         "type_id INTEGER NOT NULL REFERENCES part_types(id) ON DELETE RESTRICT,"
+         "serial_number TEXT NOT NULL DEFAULT '',"
+         "part_number TEXT NOT NULL DEFAULT '',"
+         "condition_label TEXT NOT NULL DEFAULT '',"
+         "condition_key TEXT NOT NULL DEFAULT '',"
+         "notes TEXT NOT NULL DEFAULT '',"
+         "archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),"
+         "created_at TEXT NOT NULL,"
+         "updated_at TEXT NOT NULL,"
+         "archived_at TEXT"
+         ");\n"
+         "CREATE INDEX idx_part_units_team_archived ON part_units(team_id, archived);\n"
+         "CREATE INDEX idx_part_units_team_type ON part_units(team_id, type_id, archived);\n"
+         "CREATE INDEX idx_part_units_team_serial ON part_units(team_id, serial_number);\n"
+         "CREATE INDEX idx_part_units_team_part ON part_units(team_id, part_number);\n"
+         "CREATE TRIGGER part_units_type_same_team BEFORE INSERT ON part_units "
+         "WHEN NOT EXISTS (SELECT 1 FROM part_types WHERE part_types.id = NEW.type_id "
+         "AND part_types.team_id = NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'part unit type must belong to the same team'); END;\n"
+         "CREATE TRIGGER part_units_type_same_team_update "
+         "BEFORE UPDATE OF type_id, team_id ON part_units "
+         "WHEN NOT EXISTS (SELECT 1 FROM part_types WHERE part_types.id = NEW.type_id "
+         "AND part_types.team_id = NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'part unit type must belong to the same team'); END;\n"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)
