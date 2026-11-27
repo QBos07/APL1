@@ -88,6 +88,7 @@ if(BUILD_TESTING)
         tests/integration/test_db_migration_rollback.c
         tests/integration/test_driver_repository.c
         tests/integration/test_event_repository.c
+        tests/integration/test_event_service.c
         tests/integration/test_ledger_repository.c
         tests/integration/test_ledger_service.c
         tests/integration/test_membership_repository.c
@@ -292,6 +293,7 @@ add_library(apl_app STATIC
     src/app/budget_service.c
     src/app/car_service.c
     src/app/driver_service.c
+    src/app/event_service.c
     src/app/exit_code.c
     src/app/ledger_service.c
     src/app/membership_service.c
