@@ -89,6 +89,7 @@ if(BUILD_TESTING)
         tests/integration/test_driver_repository.c
         tests/integration/test_event_repository.c
         tests/integration/test_event_service.c
+        tests/integration/test_outcome_repository.c
         tests/integration/test_ledger_repository.c
         tests/integration/test_ledger_service.c
         tests/integration/test_membership_repository.c
@@ -229,6 +230,7 @@ add_library(apl_db STATIC
     src/db/migrations.c
     src/db/migrations_list.c
     src/db/event_repository.c
+    src/db/outcome_repository.c
     src/db/path.c
     src/db/project_repository.c
     src/db/project_update_repository.c

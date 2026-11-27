@@ -49,7 +49,7 @@ Test(app_lifecycle, start_and_stop_with_temporary_database)
      * migration) and cleanup closes the database. */
     int version = -1;
     cr_assert_eq(apl_db_current_version(&app.db, &version, &err), APL_OK);
-    cr_assert_eq(version, 21);
+    cr_assert_eq(version, 22);
 
     apl_app_stop(&app);
     cr_assert_null(apl_db_handle(&app.db));
