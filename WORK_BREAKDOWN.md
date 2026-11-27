@@ -265,17 +265,17 @@ Goal: track component identity and lifecycle changes without inferring inventory
 
 Goal: let the user organize events and record, correct, and review driver outcomes; no simulation.
 
-- [ ] **7.1 Add user-created event schema and repository.** Store entered name/date plus optional season, location, and notes.
-- [ ] **7.2 Add user-created session schema and repository.** Support a session label without generating a race weekend.
-- [ ] **7.3 Add event/session create and edit use cases.** Validate team/season references and preserve history.
-- [ ] **7.4 Decide and document the initial result-field set.** Keep optional fields optional; do not implement configurable custom fields until a concrete need is established.
-- [ ] **7.5 Add driver-outcome schema and repository.** Store only entered values and stable links to driver, event, and session.
-- [ ] **7.6 Add outcome validation and save use case.** Handle duplicate driver/session entries explicitly and preserve missing values as missing.
-- [ ] **7.7 Add batch outcome-entry operation.** Validate all rows and save all-or-none; test rollback on one invalid row.
-- [ ] **7.8 Add outcome correction history.** Show old/new values and audit corrections.
-- [ ] **7.9 Add event/session detail and outcome table.** Clearly show which drivers have records and which have no recorded outcome.
-- [ ] **7.10 Add event and quick outcome-entry forms.** Support single-driver editing and multi-driver entry without requiring every result field.
-- [ ] **7.11 Add recorded-value summaries.** Aggregate only fields with defined semantics; label filters and omit/identify missing data instead of treating it as zero.
+- [ ] **7.1 Add user-created event schema and repository.** Store entered name/date plus optional season, location, and notes. [Work item](work-items/phase-7/7.1-event-schema-repository.md)
+- [ ] **7.2 Add user-created session schema and repository.** Support a session label without generating a race weekend. [Work item](work-items/phase-7/7.2-session-schema-repository.md)
+- [ ] **7.3 Add event/session create and edit use cases.** Validate team/season references and preserve history. [Work item](work-items/phase-7/7.3-event-session-use-cases.md)
+- [ ] **7.4 Decide and document the initial result-field set.** Keep optional fields optional; do not implement configurable custom fields until a concrete need is established. [Work item](work-items/phase-7/7.4-result-field-set.md)
+- [ ] **7.5 Add driver-outcome schema and repository.** Store only entered values and stable links to driver, event, and session. [Work item](work-items/phase-7/7.5-driver-outcome-schema-repository.md)
+- [ ] **7.6 Add outcome validation and save use case.** Handle duplicate driver/session entries explicitly and preserve missing values as missing. [Work item](work-items/phase-7/7.6-outcome-validation-save-use-case.md)
+- [ ] **7.7 Add batch outcome-entry operation.** Validate all rows and save all-or-none; test rollback on one invalid row. [Work item](work-items/phase-7/7.7-batch-outcome-entry.md)
+- [ ] **7.8 Add outcome correction history.** Show old/new values and audit corrections. [Work item](work-items/phase-7/7.8-outcome-correction-history.md)
+- [ ] **7.9 Add event/session detail and outcome table.** Clearly show which drivers have records and which have no recorded outcome. [Work item](work-items/phase-7/7.9-event-session-detail-outcomes.md)
+- [ ] **7.10 Add event and quick outcome-entry forms.** Support single-driver editing and multi-driver entry without requiring every result field. [Work item](work-items/phase-7/7.10-event-outcome-forms.md)
+- [ ] **7.11 Add recorded-value summaries.** Aggregate only fields with defined semantics; label filters and omit/identify missing data instead of treating it as zero. [Work item](work-items/phase-7/7.11-recorded-value-summaries.md)
 
 **Gate:** users can enter an event and its outcomes manually, correct an outcome, and inspect honest summaries without generated schedules/results or an implicit points system.
 
