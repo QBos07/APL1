@@ -425,8 +425,9 @@ void draw_part_type_list(shell_state *const state)
         const apl_part_type *const type = &state->part_types[index];
         const bool focused = index == state->list.selected;
         char line[256];
-        (void)snprintf(line, sizeof(line), "%c %.64s  [%s]%s", focused ? '>' : ' ', type->name,
-                       type->category, type->meta.archived ? "  [archived]" : "");
+        (void)snprintf(line, sizeof(line), "%c #%lld  %.58s  [%s]%s", focused ? '>' : ' ',
+                       (long long)type->id, type->name, type->category,
+                       type->meta.archived ? "  [archived]" : "");
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)(offset + 2), line);
@@ -728,7 +729,7 @@ void draw_part_type_detail(shell_state *const state)
     const apl_part_type *const type = &state->part_type_detail;
     int row = 0;
     char line[512];
-    (void)snprintf(line, sizeof(line), "Part type: %s%s", type->name,
+    (void)snprintf(line, sizeof(line), "Part type #%lld: %s%s", (long long)type->id, type->name,
                    type->meta.archived ? " [archived]" : "");
     apl_tui_frame_draw_line(body, row++, line);
     (void)snprintf(line, sizeof(line), "Category: %s", type->category);
@@ -753,6 +754,7 @@ void handle_part_type_detail_input(shell_state *const state, const uint32_t id)
     switch (id) {
     case NCKEY_ESC:
         state->screen = SHELL_SCREEN_PART_TYPE_LIST;
+        state->part_unit_type_filter = 0;
         if (load_part_types(state, state->part_type_detail.id, &error) != APL_OK) {
             show_error_dialog(state, &error);
         }
@@ -1273,6 +1275,9 @@ void open_part_unit_dialog(shell_state *const state, const bool edit)
     char type_text[64] = "";
     if (unit != nullptr) {
         (void)snprintf(type_text, sizeof(type_text), "%lld", (long long)unit->type_id);
+    } else if (state->part_unit_type_filter > 0) {
+        (void)snprintf(type_text, sizeof(type_text), "%lld",
+                       (long long)state->part_unit_type_filter);
     }
     apl_tui_dialog_open_form(
         &state->dialog, edit ? "Edit part unit" : "Create part unit",

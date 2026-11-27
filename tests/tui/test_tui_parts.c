@@ -285,3 +285,85 @@ Test(tui_parts, replacement_review_links_an_existing_expense)
     free(state.entry_events);
     close_parts_test_app(&app, dir, &error);
 }
+
+Test(tui_parts, register_forms_create_edit_and_confirm_archive_without_seed_data)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error error;
+    apl_error_init(&error);
+    apl_app app = {};
+    open_parts_test_app(&app, dir, sizeof(dir), path, sizeof(path), &error);
+
+    apl_team team = {};
+    cr_assert_eq(apl_team_service_create(&app, "Register Team", "", &team, &error), APL_OK);
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_PARTS;
+    state.screen = SHELL_SCREEN_PART_TYPE_LIST;
+    apl_tui_list_init(&state.list, 8);
+
+    open_part_type_dialog(&state, false);
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "Aero");
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "Front Wing");
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "Composite");
+    ncinput input = {.id = NCKEY_ENTER};
+    handle_dialog_input(&state, &input);
+    cr_assert_eq(state.dialog.kind, APL_TUI_DIALOG_NONE);
+    cr_assert_eq(state.part_type_count, 1);
+    const apl_part_type type = state.part_types[0];
+
+    handle_part_type_list_input(&state, NCKEY_ENTER);
+    handle_part_type_detail_input(&state, 'n');
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE);
+    char expected_type[32];
+    (void)snprintf(expected_type, sizeof(expected_type), "%lld", (long long)type.id);
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 0)->value, expected_type);
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "");
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "");
+    handle_dialog_input(&state, &input);
+    cr_assert_eq(state.dialog.kind, APL_TUI_DIALOG_NONE);
+    cr_assert_eq(state.screen, SHELL_SCREEN_PART_UNIT_DETAIL);
+    cr_assert_eq(state.part_unit_detail.type_id, type.id);
+    cr_assert_str_eq(state.part_unit_detail.serial_number, "");
+    cr_assert_str_eq(state.part_unit_detail.part_number, "");
+
+    handle_part_unit_detail_input(&state, 'e');
+    apl_tui_dialog_set_field_value(&state.dialog, 4, "updated notes");
+    handle_dialog_input(&state, &input);
+    cr_assert_str_eq(state.part_unit_detail.notes, "updated notes");
+
+    handle_part_unit_detail_input(&state, 'x');
+    cr_assert_eq(state.dialog.kind, APL_TUI_DIALOG_CONFIRM);
+    input.id = NCKEY_ESC;
+    handle_dialog_input(&state, &input);
+    apl_part_unit fetched_unit = {};
+    cr_assert_eq(
+        apl_part_unit_service_get(&app, team.id, state.dialog_part_unit_id, &fetched_unit, &error),
+        APL_OK);
+    cr_assert_not(fetched_unit.meta.archived);
+
+    handle_part_unit_detail_input(&state, 'x');
+    state.dialog.focus = 1;
+    input.id = NCKEY_ENTER;
+    handle_dialog_input(&state, &input);
+    cr_assert_eq(apl_part_unit_service_get(&app, team.id, fetched_unit.id, &fetched_unit, &error),
+                 APL_OK);
+    cr_assert(fetched_unit.meta.archived);
+
+    open_part_type_detail(&state, type);
+    handle_part_type_detail_input(&state, 'x');
+    state.dialog.focus = 1;
+    handle_dialog_input(&state, &input);
+    apl_part_type fetched_type = {};
+    cr_assert_eq(apl_part_type_service_get(&app, team.id, type.id, &fetched_type, &error), APL_OK);
+    cr_assert(fetched_type.meta.archived);
+
+    apl_part_type_service_free_list(state.part_types);
+    apl_part_unit_service_free_list(state.part_units);
+    apl_lifecycle_service_free_history(state.unit_events);
+    apl_lifecycle_service_free_fitment(state.fitment_rows);
+    close_parts_test_app(&app, dir, &error);
+}
