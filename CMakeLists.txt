@@ -108,6 +108,7 @@ if(BUILD_TESTING)
         tests/integration/test_reference_services.c
         tests/integration/test_scenario.c
         tests/integration/test_season_repository.c
+        tests/integration/test_session_repository.c
         tests/integration/test_app_lifecycle.c
         tests/integration/test_cli.c
         tests/integration/test_settings_repository.c
@@ -234,6 +235,7 @@ add_library(apl_db STATIC
     src/db/part_unit_repository.c
     src/db/lifecycle_repository.c
     src/db/season_repository.c
+    src/db/session_repository.c
     src/db/settings_repository.c
     src/db/sqlite_util.c
     src/db/team_repository.c

@@ -481,6 +481,23 @@ static const apl_db_migration apl_migrations[] = {
          "WHEN NEW.season_id IS NOT NULL AND NOT EXISTS "
          "(SELECT 1 FROM seasons WHERE id=NEW.season_id AND team_id=NEW.team_id) "
          "BEGIN SELECT RAISE(ABORT, 'event season must belong to the same team'); END;"},
+    /* Version 21: explicitly entered sessions belonging to an event. */
+    {21, "CREATE TABLE event_sessions ("
+         "id INTEGER PRIMARY KEY,"
+         "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,"
+         "event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE RESTRICT,"
+         "label TEXT NOT NULL CHECK(length(trim(label)) > 0),"
+         "created_at TEXT NOT NULL,"
+         "updated_at TEXT NOT NULL"
+         ");"
+         "CREATE INDEX idx_event_sessions_event ON event_sessions(team_id,event_id,id);"
+         "CREATE TRIGGER event_sessions_team_insert BEFORE INSERT ON event_sessions "
+         "WHEN NOT EXISTS (SELECT 1 FROM events WHERE id=NEW.event_id AND team_id=NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'session event must belong to the same team'); END;"
+         "CREATE TRIGGER event_sessions_team_update BEFORE UPDATE OF event_id,team_id "
+         "ON event_sessions "
+         "WHEN NOT EXISTS (SELECT 1 FROM events WHERE id=NEW.event_id AND team_id=NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'session event must belong to the same team'); END;"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)
