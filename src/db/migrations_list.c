@@ -545,6 +545,26 @@ static const apl_db_migration apl_migrations[] = {
          "AND driver_id=OLD.driver_id) AND NOT EXISTS (SELECT 1 FROM team_driver_memberships "
          "WHERE team_id=OLD.team_id AND driver_id=OLD.driver_id AND id<>OLD.id) "
          "BEGIN SELECT RAISE(ABORT, 'membership is referenced by outcomes'); END;"},
+    /* Version 23: complete, append-only correction snapshots. The application
+     * has no authenticated identities; actor denotes the local user role. */
+    {23, "CREATE TABLE outcome_corrections ("
+         "id INTEGER PRIMARY KEY,"
+         "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,"
+         "outcome_id INTEGER NOT NULL REFERENCES driver_outcomes(id) ON DELETE RESTRICT,"
+         "actor TEXT NOT NULL,"
+         "occurred_at TEXT NOT NULL,"
+         "old_start INTEGER,old_finish INTEGER,old_laps INTEGER,old_status TEXT,old_notes TEXT,"
+         "new_start INTEGER,new_finish INTEGER,new_laps INTEGER,new_status TEXT,new_notes TEXT"
+         ");"
+         "CREATE INDEX idx_outcome_corrections ON outcome_corrections(team_id,outcome_id,id);"
+         "CREATE TRIGGER outcome_correction_team BEFORE INSERT ON outcome_corrections "
+         "WHEN NOT EXISTS (SELECT 1 FROM driver_outcomes WHERE id=NEW.outcome_id "
+         "AND team_id=NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'correction outcome must belong to the same team'); END;"
+         "CREATE TRIGGER outcome_correction_no_update BEFORE UPDATE ON outcome_corrections "
+         "BEGIN SELECT RAISE(ABORT, 'outcome corrections are append-only'); END;"
+         "CREATE TRIGGER outcome_correction_no_delete BEFORE DELETE ON outcome_corrections "
+         "BEGIN SELECT RAISE(ABORT, 'outcome corrections are append-only'); END;"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)

@@ -5,6 +5,7 @@
 #include "db/driver_repository.h"
 #include "db/event_repository.h"
 #include "db/membership_repository.h"
+#include "db/outcome_correction_repository.h"
 #include "db/session_repository.h"
 #include "db/team_repository.h"
 #include "db_fixture.h"
@@ -73,9 +74,59 @@ Test(outcome_service, validation_duplicate_edit_and_rollback)
     input.has_status = true;
     strcpy(input.status, " Finished ");
     cr_assert_eq(apl_outcome_service_save(&app, APL_OUTCOME_EDIT, &input, &saved, &err), APL_OK);
+    apl_outcome_correction *history = nullptr;
+    size_t history_count = 0;
+    cr_assert_eq(apl_outcome_service_save(&app, APL_OUTCOME_EDIT, &input, &saved, &err), APL_OK);
+    cr_assert_eq(apl_outcome_correction_list(&app.db, team.id, id, &history, &history_count, &err),
+                 APL_OK);
+    cr_assert_eq(history_count, 1);
+    apl_outcome_correction_free_list(history);
+    cr_assert_eq(
+        sqlite3_exec(app.db.handle, "DELETE FROM outcome_corrections", nullptr, nullptr, nullptr) &
+            0xff,
+        SQLITE_CONSTRAINT);
+    cr_assert_eq(sqlite3_exec(app.db.handle,
+                              "CREATE TRIGGER fail_correction BEFORE INSERT ON outcome_corrections "
+                              "BEGIN SELECT RAISE(ABORT,'correction failure'); END;",
+                              nullptr, nullptr, nullptr),
+                 SQLITE_OK);
+    strcpy(input.status, "Not saved");
+    cr_assert_neq(apl_outcome_service_save(&app, APL_OUTCOME_EDIT, &input, &saved, &err), APL_OK);
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, id, &saved, &err), APL_OK);
+    cr_assert_str_eq(saved.status, " Finished ");
+    cr_assert_eq(
+        sqlite3_exec(app.db.handle, "DROP TRIGGER fail_correction", nullptr, nullptr, nullptr),
+        SQLITE_OK);
     cr_assert_not(saved.has_laps);
     cr_assert_str_eq(saved.status, " Finished ");
     cr_assert_eq(saved.id, id);
+    cr_assert_eq(apl_outcome_correction_list(&app.db, team.id, id, &history, &history_count, &err),
+                 APL_OK);
+    cr_assert_eq(history_count, 1);
+    cr_assert_str_eq(history[0].actor, "local user");
+    cr_assert_neq(history[0].occurred_at[0], '\0');
+    cr_assert(history[0].before.has_laps);
+    cr_assert_eq(history[0].before.laps, 0);
+    cr_assert_not(history[0].before.has_status);
+    cr_assert_not(history[0].after.has_laps);
+    cr_assert_str_eq(history[0].after.status, " Finished ");
+    apl_outcome_correction_free_list(history);
+    input.has_status = false;
+    input.has_laps = true;
+    input.laps = 0;
+    cr_assert_eq(apl_outcome_service_save(&app, APL_OUTCOME_EDIT, &input, &saved, &err), APL_OK);
+    cr_assert_eq(apl_outcome_correction_list(&app.db, team.id, id, &history, &history_count, &err),
+                 APL_OK);
+    cr_assert_eq(history_count, 2);
+    cr_assert_lt(history[0].id, history[1].id);
+    cr_assert_str_eq(history[1].before.status, " Finished ");
+    cr_assert_not(history[1].after.has_status);
+    cr_assert(history[1].after.has_laps);
+    apl_outcome_correction_free_list(history);
+    input.has_laps = false;
+    input.has_status = true;
+    strcpy(input.status, " Finished ");
+    cr_assert_eq(apl_outcome_service_save(&app, APL_OUTCOME_EDIT, &input, &saved, &err), APL_OK);
     apl_event_session second = {};
     cr_assert_eq(
         apl_session_repository_create(&app.db, team.id, event.id, "Practice", &second, &err),
@@ -94,6 +145,15 @@ Test(outcome_service, validation_duplicate_edit_and_rollback)
     cr_assert_neq(apl_outcome_service_save(&app, APL_OUTCOME_EDIT, &input, &saved, &err), APL_OK);
     cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, id, &saved, &err), APL_OK);
     cr_assert_str_eq(saved.status, " Finished ");
+    cr_assert_eq(apl_outcome_correction_list(&app.db, team.id, id, &history, &history_count, &err),
+                 APL_OK);
+    cr_assert_eq(history_count, 3);
+    apl_outcome_correction_free_list(history);
+    cr_assert_eq(
+        apl_outcome_correction_list(&app.db, other_team.id, id, &history, &history_count, &err),
+        APL_OK);
+    cr_assert_eq(history_count, 0);
+    apl_outcome_correction_free_list(history);
     input.session_id = second.id;
     cr_assert_neq(apl_outcome_service_save(&app, APL_OUTCOME_CREATE, &input, &saved, &err), APL_OK);
     apl_outcome *rows = nullptr;
@@ -203,5 +263,34 @@ Test(outcome_service, batch_validates_all_rows_and_rolls_back_writes)
     cr_assert_eq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err), APL_OK);
     cr_assert_eq(saved[0].laps, 12);
     cr_assert_eq(saved[1].finish_position, 1);
+    apl_outcome_correction *history = nullptr;
+    size_t history_count = 0;
+    cr_assert_eq(
+        apl_outcome_correction_list(&app.db, team.id, saved[0].id, &history, &history_count, &err),
+        APL_OK);
+    cr_assert_eq(history_count, 1);
+    cr_assert_not(history[0].before.has_laps);
+    cr_assert_eq(history[0].after.laps, 12);
+    apl_outcome_correction_free_list(history);
+    rows[0].input = saved[0];
+    rows[0].input.laps = 13;
+    rows[1].input = saved[1];
+    rows[1].input.finish_position = 2;
+    cr_assert_eq(sqlite3_exec(app.db.handle,
+                              "CREATE TRIGGER fail_second_correction BEFORE INSERT "
+                              "ON outcome_corrections WHEN NEW.outcome_id=2 "
+                              "BEGIN SELECT RAISE(ABORT,'failure'); END;",
+                              nullptr, nullptr, nullptr),
+                 SQLITE_OK);
+    cr_assert_neq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err), APL_OK);
+    apl_outcome fetched = {};
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, rows[0].input.id, &fetched, &err),
+                 APL_OK);
+    cr_assert_eq(fetched.laps, 12);
+    cr_assert_eq(
+        apl_outcome_correction_list(&app.db, team.id, fetched.id, &history, &history_count, &err),
+        APL_OK);
+    cr_assert_eq(history_count, 1);
+    apl_outcome_correction_free_list(history);
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }

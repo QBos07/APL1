@@ -232,6 +232,7 @@ add_library(apl_db STATIC
     src/db/migrations_list.c
     src/db/event_repository.c
     src/db/outcome_repository.c
+    src/db/outcome_correction_repository.c
     src/db/path.c
     src/db/project_repository.c
     src/db/project_update_repository.c

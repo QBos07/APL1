@@ -8,6 +8,7 @@
 #include "app/audit.h"
 #include "app/use_case.h"
 #include "db/membership_repository.h"
+#include "db/outcome_correction_repository.h"
 #include "db/session_repository.h"
 
 /* Reject overlong encodings, surrogates, and code points above U+10FFFF. */
@@ -160,10 +161,32 @@ static apl_status validate_row(const apl_app *app, apl_outcome_save_mode mode, a
 static apl_status write_row(const apl_app *app, apl_outcome_save_mode mode,
                             const apl_outcome *input, apl_outcome *saved, apl_error *error)
 {
+    apl_outcome before = {};
+    if (mode == APL_OUTCOME_EDIT) {
+        apl_status status =
+            apl_outcome_repository_get(&app->db, input->team_id, input->id, &before, error);
+        if (status != APL_OK)
+            return status;
+        if (before.has_start_position == input->has_start_position &&
+            (!before.has_start_position || before.start_position == input->start_position) &&
+            before.has_finish_position == input->has_finish_position &&
+            (!before.has_finish_position || before.finish_position == input->finish_position) &&
+            before.has_laps == input->has_laps &&
+            (!before.has_laps || before.laps == input->laps) &&
+            before.has_status == input->has_status &&
+            (!before.has_status || strcmp(before.status, input->status) == 0) &&
+            before.has_notes == input->has_notes &&
+            (!before.has_notes || strcmp(before.notes, input->notes) == 0)) {
+            *saved = before;
+            return APL_OK;
+        }
+    }
     apl_status status = mode == APL_OUTCOME_CREATE
                             ? apl_outcome_repository_create(&app->db, input, saved, error)
                             : apl_outcome_repository_update(&app->db, input->team_id, input->id,
                                                             input, saved, error);
+    if (status == APL_OK && mode == APL_OUTCOME_EDIT)
+        status = apl_outcome_correction_append(&app->db, &before, saved, error);
     if (status == APL_OK) {
         char summary[APL_ACTIVITY_SUMMARY_MAX];
         (void)snprintf(summary, sizeof(summary), "%s outcome for driver %lld in session %lld",
