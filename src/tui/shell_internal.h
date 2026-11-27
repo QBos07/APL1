@@ -123,6 +123,10 @@ typedef enum shell_dialog_context {
 static constexpr int APL_TUI_SCROLL_STEP = 3;
 static constexpr int64_t APL_TUI_DOUBLE_CLICK_MS = 500;
 
+/* Keep this private, process-lifetime state grouped by feature; optimizing the
+ * padding would make cross-screen state brittle for a negligible one-instance
+ * memory saving. */
+// NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
 typedef struct shell_state {
     const apl_app *app;
     apl_team *teams;

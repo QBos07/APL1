@@ -267,9 +267,6 @@ apl_status load_part_unit_detail(shell_state *const state, const int64_t unit_id
         if (event->action == APL_LIFECYCLE_INSTALL && event->unit_id == unit_id) {
             state->part_unit_fitment_known = true;
             current_event_id = event->id;
-        } else if (event->action == APL_LIFECYCLE_REMOVE && event->unit_id == unit_id) {
-            state->part_unit_fitment_known = true;
-            current_event_id = 0;
         } else if (event->action == APL_LIFECYCLE_REPLACE) {
             state->part_unit_fitment_known = true;
             if (event->old_unit_id == unit_id) {
@@ -278,7 +275,9 @@ apl_status load_part_unit_detail(shell_state *const state, const int64_t unit_id
             if (event->new_unit_id == unit_id) {
                 current_event_id = event->id;
             }
-        } else if (event->action == APL_LIFECYCLE_DISPOSE && event->unit_id == unit_id) {
+        } else if ((event->action == APL_LIFECYCLE_REMOVE ||
+                    event->action == APL_LIFECYCLE_DISPOSE) &&
+                   event->unit_id == unit_id) {
             state->part_unit_fitment_known = true;
             current_event_id = 0;
         }
@@ -621,18 +620,15 @@ void draw_part_unit_detail(shell_state *const state)
                         net = updated;
                     }
                     char amount[64] = "unavailable";
-                    if (net_valid) {
-                        if (net.minor_units == INT64_MIN) {
-                            net_valid = false;
-                        } else {
-                            net.minor_units = -net.minor_units;
-                            (void)apl_money_format(&net, amount, sizeof(amount));
-                        }
+                    if (net_valid && net.minor_units != INT64_MIN) {
+                        net.minor_units = -net.minor_units;
+                        (void)apl_money_format(&net, amount, sizeof(amount));
                     }
-                    (void)snprintf(line, sizeof(line),
-                                   "      Expense #%lld: %s  %s  %s  net cost %s (c to open)",
-                                   (long long)linked->id, linked->entry_date, linked->category,
-                                   linked->description, amount);
+                    (void)snprintf(
+                        line, sizeof(line),
+                        "      Expense #%lld: %s  %.40s  %.160s  net cost %s (c to open)",
+                        (long long)linked->id, linked->entry_date, linked->category,
+                        linked->description, amount);
                 } else {
                     (void)snprintf(line, sizeof(line), "      Expense #%lld: unavailable",
                                    (long long)entry->event.transaction_id);
@@ -1747,7 +1743,6 @@ bool perform_replace(shell_state *const state, const char *const old_unit,
             if (status == APL_OK) {
                 apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
                               "only an existing expense transaction can be linked");
-                status = APL_ERR_INVALID_ARGUMENT;
             }
             apl_error_set_field(error, APL_FIELD_TRANSACTION);
             set_status_from_error(state, "Cannot record replacement", error);

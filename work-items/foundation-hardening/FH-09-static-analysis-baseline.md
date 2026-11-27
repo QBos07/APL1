@@ -34,6 +34,10 @@
 - One C23 false positive is also excluded: `clang-analyzer-valist.Uninitialized`
   does not recognize C23's `__builtin_c23_va_start` when a `va_list` is passed
   to a forwarding helper.
+- `shell_state` has one narrow `performance.Padding` suppression. It is private,
+  process-lifetime UI state grouped by feature for maintainability; the reported
+  padding is negligible for its single instance, while field-size ordering
+  would couple unrelated screen modules.
 - Added `scripts/check-static.sh`, which configures a compile-commands database
   (`$TMPDIR/apl1-tidy-build` by default) and analyzes production `src/*.c`
   files. It is not a build dependency; the GitHub workflow runs it as a
