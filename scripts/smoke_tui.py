@@ -993,7 +993,7 @@ class Smoke:
             "expense row",
             lambda: self.database_query("SELECT COUNT(*) FROM ledger_entries;") == (2,),
         )
-        self.wait_for_content("expense detail", ("Expense", "EUR -250.00"))
+        self.wait_for_content("expense detail", ("Expense", "EUR -250.00", "Entry ID: #2"))
         self.send_keys("Escape")
 
         self.send_keys("b")

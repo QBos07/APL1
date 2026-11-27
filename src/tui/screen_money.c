@@ -678,8 +678,8 @@ void draw_money_list(shell_state *const state)
     }
 
     char header_line[256];
-    (void)snprintf(header_line, sizeof(header_line), "  %-10.10s %-15.15s %18s %-16.16s %s", "Date",
-                   "Kind", "Amount", "Category", "Description");
+    (void)snprintf(header_line, sizeof(header_line), "  %-7s %-10.10s %-15.15s %18s %-16.16s %s",
+                   "ID", "Date", "Kind", "Amount", "Category", "Description");
     apl_tui_theme_apply(&state->theme, body, APL_TUI_ROLE_MUTED);
     apl_tui_frame_draw_line(body, 2, header_line);
     apl_tui_theme_reset(body);
@@ -693,10 +693,10 @@ void draw_money_list(shell_state *const state)
         char amount_text[64];
         (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
         char line[512];
-        const int written =
-            snprintf(line, sizeof(line), "%c %-10.10s %-15.15s %18s %-16.16s %.120s",
-                     focused ? '>' : ' ', entry->entry_date, apl_ledger_kind_label(entry->kind),
-                     amount_text, entry->category, entry->description);
+        const int written = snprintf(
+            line, sizeof(line), "%c #%5lld %-10.10s %-15.15s %18s %-16.16s %.120s",
+            focused ? '>' : ' ', (long long)entry->id, entry->entry_date,
+            apl_ledger_kind_label(entry->kind), amount_text, entry->category, entry->description);
         if (written > 0 && (size_t)written < sizeof(line) && entry->corrects_entry_id > 0) {
             (void)snprintf(line + written, sizeof(line) - (size_t)written, "  [corrects #%lld]",
                            (long long)entry->corrects_entry_id);
@@ -720,6 +720,8 @@ void draw_money_detail(shell_state *const state)
     char line[512];
     char amount_text[64];
     (void)apl_money_format(&entry->amount, amount_text, sizeof(amount_text));
+    (void)snprintf(line, sizeof(line), "Entry ID: #%lld", (long long)entry->id);
+    apl_tui_frame_draw_line(body, row++, line);
     (void)snprintf(line, sizeof(line), "Amount: %s", amount_text);
     apl_tui_frame_draw_line(body, row++, line);
     (void)snprintf(line, sizeof(line), "Kind: %s (%s)", apl_ledger_kind_label(entry->kind),
