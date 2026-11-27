@@ -365,7 +365,10 @@ class Smoke:
             text = self.visible_text()
             return all(needle in text for needle in needles)
 
-        self.wait_for(description, present, timeout=10.0)
+        try:
+            self.wait_for(description, present, timeout=10.0)
+        except SmokeFailure as error:
+            self.fail(f"{error}; visible screen: {self.visible_text()!r}")
 
     def send_keys(self, *keys: str) -> None:
         self.run(
@@ -561,8 +564,8 @@ class Smoke:
                 ).fetchone()[0]
         except sqlite3.Error as error:
             self.fail(f"database is not a usable migrated apl1 database: {error}")
-        if version != 15:
-            self.fail(f"database schema version is {version}, expected 15")
+        if version != 19:
+            self.fail(f"database schema version is {version}, expected 19")
 
         with sqlite3.connect(self.database_path) as connection:
             teams = connection.execute(
@@ -596,6 +599,15 @@ class Smoke:
             project_updates = connection.execute(
                 "SELECT update_date, summary, status_change FROM project_updates ORDER BY id"
             ).fetchall()
+            part_types = connection.execute(
+                "SELECT category, name FROM part_types ORDER BY id"
+            ).fetchall()
+            part_units = connection.execute(
+                "SELECT serial_number, part_number FROM part_units ORDER BY id"
+            ).fetchall()
+            lifecycle = connection.execute(
+                "SELECT action, event_date, position FROM lifecycle_events ORDER BY id"
+            ).fetchall()
             team_currency = connection.execute(
                 "SELECT currency FROM teams WHERE name = 'Ferrari'"
             ).fetchone()
@@ -625,6 +637,12 @@ class Smoke:
             self.fail(f"unexpected project rows after smoke run: {projects!r}")
         if project_updates != [("2026-01-10", "First update", "")]:
             self.fail(f"unexpected project update rows after smoke run: {project_updates!r}")
+        if part_types != [("Aero", "Front Wing")]:
+            self.fail(f"unexpected part type rows after smoke run: {part_types!r}")
+        if part_units != [("", "")]:
+            self.fail(f"unexpected part unit rows after smoke run: {part_units!r}")
+        if lifecycle != [("install", "2026-02-01", "front")]:
+            self.fail(f"unexpected lifecycle rows after smoke run: {lifecycle!r}")
         expected_activity = [
             ("team_created",),
             ("team_created",),
@@ -640,6 +658,9 @@ class Smoke:
             ("ledger_corrected",),
             ("project_created",),
             ("project_update_logged",),
+            ("part_type_created",),
+            ("part_unit_created",),
+            ("lifecycle_installed",),
         ]
         if activity != expected_activity:
             self.fail(f"unexpected activity rows after smoke run: {activity!r}")
@@ -1056,6 +1077,61 @@ class Smoke:
         self.send_keys("Return")
         self.wait_for_content("return to teams after development", ("Ferrari", "McLaren"))
         self.log("created a project and logged a dated update through the forms")
+
+        # Phase 6: create a user-defined part type and unit, then review and
+        # record an install. This verifies the register is reachable from Parts
+        # and that lifecycle changes refresh derived fitment.
+        self.type_text(":")
+        self.type_text("view parts")
+        self.send_keys("Return")
+        self.wait_for_content("parts fitment view", ("Recorded fitment slots",))
+        self.click_cell(4, 40)
+        self.send_keys("y")
+        self.wait_for_content("part type register", ("Part types:", "No part types yet"))
+        self.send_keys("n")
+        self.wait_for_content("part type form", ("Create part type", "Category", "Name"))
+        self.type_text("Aero")
+        self.send_keys("Tab")
+        self.type_text("Front Wing")
+        self.send_keys("Return")
+        self.wait_for_content("created part type", ("Part types: 1", "Front Wing", "Aero"))
+        if self.database_query("SELECT COUNT(*) FROM part_types;") != (1,):
+            self.fail("part type form did not persist exactly one type")
+
+        self.send_keys("Return")
+        self.wait_for_content("part type detail", ("Part type #", "Front Wing", "Aero"))
+        self.send_keys("n")
+        self.wait_for_content("part unit form", ("Create part unit", "Type ID"))
+        self.send_keys("Return")
+        self.wait_for_content("part unit detail", ("Part unit #", "Front Wing", "Current fitment"))
+        if self.database_query("SELECT COUNT(*) FROM part_units;") != (1,):
+            self.fail("part unit form did not persist exactly one unit")
+
+        self.send_keys("i")
+        self.wait_for_content("install form", ("Install", "Unit ID", "Date"))
+        self.send_keys("Tab")
+        self.type_text("SF-26")
+        self.send_keys("Tab")
+        self.type_text("front")
+        self.send_keys("Tab")
+        self.type_text("2026-02-01")
+        self.send_keys("Return")
+        self.wait_for_content("install review", ("Review lifecycle action", "Install unit", "Confirm"))
+        self.send_keys("Tab", "Return")
+        self.wait_for_database(
+            "lifecycle install row",
+            lambda: self.database_query(
+                "SELECT COUNT(*) FROM lifecycle_events WHERE action = 'install';"
+            )
+            == (1,),
+        )
+        self.send_keys("Escape", "Escape")
+        self.wait_for_content("derived fitment row", ("Recorded fitment slots: 1", "SF-26", "front"))
+        self.log("created a part register entry and recorded an install through its review form")
+        self.type_text(":")
+        self.type_text("tl")
+        self.send_keys("Return")
+        self.wait_for_content("return to teams after parts", ("Ferrari", "McLaren"))
 
         self.type_text(":")
         self.type_text("team switch Missing")
