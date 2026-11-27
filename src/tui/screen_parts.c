@@ -357,7 +357,7 @@ void draw_parts_fitment(shell_state *const state)
         return;
     }
     char header[128];
-    (void)snprintf(header, sizeof(header), "Current recorded fitment: %zu row%s",
+    (void)snprintf(header, sizeof(header), "Recorded fitment slots: %zu row%s",
                    state->fitment_count, state->fitment_count == 1 ? "" : "s");
     apl_tui_frame_draw_line(body, 0, header);
 
@@ -372,10 +372,8 @@ void draw_parts_fitment(shell_state *const state)
     apl_tui_frame_draw_line(body, 2, filters);
 
     if (state->fitment_count == 0) {
-        apl_tui_frame_draw_line(
-            body, 4,
-            "No unit is currently recorded as fitted. Open a unit and install it to record a "
-            "fitment.");
+        apl_tui_frame_draw_line(body, 4,
+                                "No lifecycle fitment history; positions are unknown, not empty.");
         return;
     }
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
@@ -388,11 +386,17 @@ void draw_parts_fitment(shell_state *const state)
         char car[APL_REFERENCE_LABEL_MAX];
         char type[128];
         car_label(state, row->car_id, car, sizeof(car));
-        type_label(state, row->type_id, type, sizeof(type));
         char line[512];
-        (void)snprintf(line, sizeof(line), "%c %-20.20s %-12.12s  unit %lld  %s",
-                       focused ? '>' : ' ', car[0] != '\0' ? car : "(unknown car)", row->position,
-                       (long long)row->unit_id, type);
+        if (row->unit_id > 0) {
+            type_label(state, row->type_id, type, sizeof(type));
+            (void)snprintf(line, sizeof(line), "%c %-20.20s %-12.12s  unit %lld  %s",
+                           focused ? '>' : ' ', car[0] != '\0' ? car : "(unknown car)",
+                           row->position, (long long)row->unit_id, type);
+        } else {
+            (void)snprintf(line, sizeof(line), "%c %-20.20s %-12.12s  No unit fitted (recorded)",
+                           focused ? '>' : ' ', car[0] != '\0' ? car : "(unknown car)",
+                           row->position);
+        }
         apl_tui_theme_apply(&state->theme, body,
                             focused ? APL_TUI_ROLE_SELECTION : APL_TUI_ROLE_BODY);
         apl_tui_frame_draw_line(body, (int)(offset + 5), line);
@@ -666,6 +670,20 @@ void handle_parts_fitment_input(shell_state *const state, const uint32_t id)
         return;
     default:
         break;
+    }
+    if (is_enter_key(id) && state->list.selected < state->fitment_count) {
+        const int64_t unit_id = state->fitment_rows[state->list.selected].unit_id;
+        if (unit_id <= 0) {
+            set_status(state, "No part is fitted at this position in recorded history.");
+            return;
+        }
+        apl_part_unit unit = {};
+        if (apl_part_unit_service_get(state->app, active_team_id(state), unit_id, &unit, &error) !=
+            APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            open_part_unit_detail(state, unit);
+        }
     }
 }
 
@@ -1101,7 +1119,6 @@ bool apply_parts_filter(shell_state *const state, const char *const action, cons
             selected_after_filter = unit.id;
         }
     }
-    apl_lifecycle_service_free_events(events);
     state->part_unit_count = write;
     apl_tui_list_set_count(&state->list, write);
     if (selected_after_filter > 0) {
@@ -1112,6 +1129,7 @@ bool apply_parts_filter(shell_state *const state, const char *const action, cons
     }
 
     if (load_parts_fitment(state, error) != APL_OK) {
+        apl_lifecycle_service_free_events(events);
         show_error_dialog(state, error);
         return false;
     }
@@ -1119,11 +1137,17 @@ bool apply_parts_filter(shell_state *const state, const char *const action, cons
     for (size_t index = 0; index < state->fitment_count; ++index) {
         const apl_fitment_row row = state->fitment_rows[index];
         bool included = false;
-        for (size_t unit_index = 0; unit_index < state->part_unit_count; ++unit_index) {
-            if (state->part_units[unit_index].id == row.unit_id) {
-                included = true;
-                break;
+        if (row.unit_id > 0) {
+            for (size_t unit_index = 0; unit_index < state->part_unit_count; ++unit_index) {
+                if (state->part_units[unit_index].id == row.unit_id) {
+                    included = true;
+                    break;
+                }
             }
+        } else {
+            const bool action_or_date_filter =
+                lifecycle_action != APL_LIFECYCLE_NONE || from[0] != '\0' || to[0] != '\0';
+            included = !action_or_date_filter && text[0] == '\0' && type_text[0] == '\0';
         }
         if (included && (car_id == 0 || row.car_id == car_id) &&
             (normalized_position[0] == '\0' ||
@@ -1131,6 +1155,7 @@ bool apply_parts_filter(shell_state *const state, const char *const action, cons
             state->fitment_rows[fitment_write++] = row;
         }
     }
+    apl_lifecycle_service_free_events(events);
     state->fitment_count = fitment_write;
     apl_tui_list_set_count(&state->list,
                            state->screen == SHELL_SCREEN_PARTS_FITMENT ? fitment_write : write);

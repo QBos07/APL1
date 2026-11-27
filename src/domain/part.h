@@ -109,9 +109,9 @@ apl_status apl_part_unit_number_normalize(const char *text, char *out, size_t ou
                                           apl_error *error);
 
 /** Normalize an optional condition/status label and its comparison key. */
-apl_status apl_part_unit_condition_normalize(const char *text, const char *label,
-                                             char *out_display, size_t display_size,
-                                             char *out_key, size_t key_size, apl_error *error);
+apl_status apl_part_unit_condition_normalize(const char *text, const char *label, char *out_display,
+                                             size_t display_size, char *out_key, size_t key_size,
+                                             apl_error *error);
 
 /** Normalize optional free-form notes text for a unit. */
 apl_status apl_part_unit_notes_normalize(const char *text, char *out, size_t out_size,
@@ -148,10 +148,10 @@ typedef struct apl_lifecycle_event {
     int64_t id;
     int64_t team_id;
     apl_lifecycle_action action;
-    int64_t unit_id;      /* affected unit for install/remove/repair/dispose */
-    int64_t old_unit_id;  /* old unit for a replace */
-    int64_t new_unit_id;  /* new unit for a replace */
-    int64_t car_id;       /* optional car/position link */
+    int64_t unit_id;        /* affected unit for install/remove/repair/dispose */
+    int64_t old_unit_id;    /* old unit for a replace */
+    int64_t new_unit_id;    /* new unit for a replace */
+    int64_t car_id;         /* optional car/position link */
     int64_t transaction_id; /* optional replacement-to-ledger link (6.7) */
     char event_date[APL_REFERENCE_DATE_MAX];
     char position[APL_LIFECYCLE_POSITION_MAX];
@@ -196,10 +196,12 @@ apl_status apl_lifecycle_usage_normalize(const char *text, char *out, size_t out
 apl_status apl_lifecycle_notes_normalize(const char *text, char *out, size_t out_size,
                                          apl_error *error);
 
-/** One derived current-fitment row (work item 6.4/6.8).
+/** One derived fitment slot (work item 6.4/6.8).
  *
- * Computed only from recorded lifecycle events: `unit_id` is currently fitted
- * at `car_id`/`position`. `type_id` is included for display convenience.
+ * Computed only from recorded lifecycle events. A positive `unit_id` means a
+ * unit is currently fitted at `car_id`/`position`; zero means history explicitly
+ * records that the slot is empty. A missing row means fitment is unknown.
+ * `type_id` is included for display convenience and is zero for an empty slot.
  */
 typedef struct apl_fitment_row {
     int64_t unit_id;

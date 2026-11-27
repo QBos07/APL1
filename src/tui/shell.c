@@ -2174,6 +2174,10 @@ static void open_current_list_record(shell_state *const state)
         } else if (state->screen == SHELL_SCREEN_PARTS_FITMENT &&
                    state->list.selected < state->fitment_count) {
             const int64_t unit_id = state->fitment_rows[state->list.selected].unit_id;
+            if (unit_id <= 0) {
+                set_status(state, "No part is fitted at this position in recorded history.");
+                return;
+            }
             apl_part_unit unit = {};
             apl_error error;
             apl_error_init(&error);

@@ -44,13 +44,13 @@ static int64_t make_unit(apl_app *const app, const int64_t team_id, const char *
     char type_name[64];
     (void)snprintf(type_name, sizeof(type_name), "Wing %s", serial);
     apl_part_type typed = {};
-    cr_assert_eq(apl_part_type_service_create(app, team_id, "Aero", type_name, "", "", &typed,
-                                              error),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_type_service_create(app, team_id, "Aero", type_name, "", "", &typed, error),
+        APL_OK);
     apl_part_unit unit = {};
-    cr_assert_eq(apl_part_unit_service_create(app, team_id, typed.id, serial, "", "", "", &unit,
-                                              error),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_unit_service_create(app, team_id, typed.id, serial, "", "", "", &unit, error),
+        APL_OK);
     return unit.id;
 }
 
@@ -90,8 +90,8 @@ Test(lifecycle_service, install_remove_and_current_fitment_lifecycle)
     const int64_t wing = make_unit(&app, team.id, "FW-100", &err);
 
     apl_lifecycle_event installed = {};
-    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing, car, "front", "2026-01-10",
-                                               "", "", "", "", &installed, &err),
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing, car, "front", "2026-01-10", "",
+                                               "", "", "", &installed, &err),
                  APL_OK, "install failed: %s", apl_error_message(&err));
     cr_assert_eq(installed.action, APL_LIFECYCLE_INSTALL);
 
@@ -105,8 +105,8 @@ Test(lifecycle_service, install_remove_and_current_fitment_lifecycle)
     /* Install a second unit at the same position conflicts (use replace). */
     const int64_t wing2 = make_unit(&app, team.id, "FW-200", &err);
     apl_lifecycle_event dup = {};
-    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing2, car, "front", "2026-01-11",
-                                               "", "", "", "", &dup, &err),
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing2, car, "front", "2026-01-11", "",
+                                               "", "", "", &dup, &err),
                  APL_ERR_CONFLICT);
 
     /* Removing a unit not currently fitted at front conflicts. */
@@ -122,7 +122,10 @@ Test(lifecycle_service, install_remove_and_current_fitment_lifecycle)
     cr_assert_eq(removed.action, APL_LIFECYCLE_REMOVE);
 
     cr_assert_eq(apl_lifecycle_service_current_fitment(&app, team.id, &rows, &count, &err), APL_OK);
-    cr_assert_eq(count, 0);
+    cr_assert_eq(count, 1);
+    cr_assert_eq(rows[0].unit_id, 0);
+    cr_assert_eq(rows[0].car_id, car);
+    cr_assert_str_eq(rows[0].position, "front");
     apl_lifecycle_service_free_fitment(rows);
 
     cr_assert_eq(count_events(&app, "lifecycle_installed", &err), 1);
@@ -143,13 +146,13 @@ Test(lifecycle_service, repair_keeps_fitment_and_invalid_writes_nothing)
     const int64_t car = make_car(&app, team.id, "SF-26", &err);
     const int64_t wing = make_unit(&app, team.id, "FW-100", &err);
 
-    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing, car, "front", "2026-01-01",
-                                               "", "", "", "", &(apl_lifecycle_event){}, &err),
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing, car, "front", "2026-01-01", "",
+                                               "", "", "", &(apl_lifecycle_event){}, &err),
                  APL_OK);
 
     apl_lifecycle_event repaired = {};
-    cr_assert_eq(apl_lifecycle_service_repair(&app, team.id, wing, car, "front", "2026-01-20",
-                                              "", "crash", "", "", &repaired, &err),
+    cr_assert_eq(apl_lifecycle_service_repair(&app, team.id, wing, car, "front", "2026-01-20", "",
+                                              "crash", "", "", &repaired, &err),
                  APL_OK);
     cr_assert_eq(repaired.action, APL_LIFECYCLE_REPAIR);
 
@@ -163,8 +166,8 @@ Test(lifecycle_service, repair_keeps_fitment_and_invalid_writes_nothing)
 
     /* An invalid date writes neither a lifecycle nor an activity row. */
     apl_lifecycle_event bad = {};
-    cr_assert_eq(apl_lifecycle_service_repair(&app, team.id, wing, car, "front", "not-a-date",
-                                              "", "", "", "", &bad, &err),
+    cr_assert_eq(apl_lifecycle_service_repair(&app, team.id, wing, car, "front", "not-a-date", "",
+                                              "", "", "", &bad, &err),
                  APL_ERR_INVALID_ARGUMENT);
     cr_assert_eq(count_events(&app, "lifecycle_repaired", &err), 1);
 
@@ -183,8 +186,8 @@ Test(lifecycle_service, dispose_requires_removal_first)
     const int64_t car = make_car(&app, team.id, "SF-26", &err);
     const int64_t wing = make_unit(&app, team.id, "FW-100", &err);
 
-    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing, car, "front", "2026-01-01",
-                                               "", "", "", "", &(apl_lifecycle_event){}, &err),
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, wing, car, "front", "2026-01-01", "",
+                                               "", "", "", &(apl_lifecycle_event){}, &err),
                  APL_OK);
 
     /* Cannot dispose a currently-fitted unit. */

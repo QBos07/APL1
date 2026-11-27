@@ -113,6 +113,63 @@ Test(tui_parts, filters_compose_against_lifecycle_and_user_entered_part_details)
     close_parts_test_app(&app, dir, &error);
 }
 
+Test(tui_parts, fitment_view_distinguishes_unknown_from_recorded_empty_slot)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error error;
+    apl_error_init(&error);
+    apl_app app = {};
+    open_parts_test_app(&app, dir, sizeof(dir), path, sizeof(path), &error);
+
+    apl_team team = {};
+    cr_assert_eq(apl_team_service_create(&app, "Fitment Team", "", &team, &error), APL_OK);
+    apl_car car = {};
+    cr_assert_eq(apl_car_service_create(&app, team.id, "SF-26", "", "", &car, &error), APL_OK);
+    apl_part_type type = {};
+    cr_assert_eq(apl_part_type_service_create(&app, team.id, "Aero", "Wing", "", "", &type, &error),
+                 APL_OK);
+    apl_part_unit unit = {};
+    cr_assert_eq(
+        apl_part_unit_service_create(&app, team.id, type.id, "FW-1", "", "", "", &unit, &error),
+        APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.screen = SHELL_SCREEN_PARTS_FITMENT;
+    apl_tui_list_init(&state.list, 8);
+    cr_assert_eq(load_parts_fitment(&state, &error), APL_OK);
+    cr_assert_eq(state.fitment_count, 0);
+
+    apl_lifecycle_event event = {};
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, unit.id, car.id, "front",
+                                               "2026-01-01", "", "", "", "", &event, &error),
+                 APL_OK);
+    cr_assert_eq(load_parts_fitment(&state, &error), APL_OK);
+    cr_assert_eq(state.fitment_count, 1);
+    cr_assert_eq(state.fitment_rows[0].unit_id, unit.id);
+    cr_assert_eq(load_part_unit_detail(&state, unit.id, &error), APL_OK);
+    cr_assert(state.part_unit_fitment_known);
+    cr_assert(state.part_unit_is_fitted);
+
+    cr_assert_eq(apl_lifecycle_service_remove(&app, team.id, unit.id, car.id, "front", "2026-01-02",
+                                              "", "", "", "", &event, &error),
+                 APL_OK);
+    cr_assert_eq(load_parts_fitment(&state, &error), APL_OK);
+    cr_assert_eq(state.fitment_count, 1);
+    cr_assert_eq(state.fitment_rows[0].unit_id, 0);
+    cr_assert_eq(state.fitment_rows[0].car_id, car.id);
+    cr_assert_eq(load_part_unit_detail(&state, unit.id, &error), APL_OK);
+    cr_assert(state.part_unit_fitment_known);
+    cr_assert_not(state.part_unit_is_fitted);
+
+    apl_lifecycle_service_free_fitment(state.fitment_rows);
+    apl_lifecycle_service_free_history(state.unit_events);
+    close_parts_test_app(&app, dir, &error);
+}
+
 Test(tui_parts, lifecycle_form_requires_review_and_cancel_writes_nothing)
 {
     char dir[APL_TEST_DIR_MAX];

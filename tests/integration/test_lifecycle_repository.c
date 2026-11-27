@@ -53,8 +53,8 @@ static int64_t make_car(apl_test_db *const db, const int64_t team_id, const char
 static apl_lifecycle_event install(int64_t team_id, int64_t unit_id, int64_t car_id,
                                    const char *position, const char *date)
 {
-    apl_lifecycle_event event = {.team_id = team_id, .action = APL_LIFECYCLE_INSTALL,
-                                 .unit_id = unit_id, .car_id = car_id};
+    apl_lifecycle_event event = {
+        .team_id = team_id, .action = APL_LIFECYCLE_INSTALL, .unit_id = unit_id, .car_id = car_id};
     (void)snprintf(event.event_date, sizeof(event.event_date), "%s", date);
     (void)snprintf(event.position, sizeof(event.position), "%s", position);
     return event;
@@ -65,8 +65,8 @@ static apl_status append_cmp(apl_test_db *const db, apl_lifecycle_event event)
     apl_error err;
     apl_error_init(&err);
     apl_lifecycle_event out = {};
-    const apl_status status = apl_lifecycle_repository_append(&db->connection, event.team_id,
-                                                              &event, &out, &err);
+    const apl_status status =
+        apl_lifecycle_repository_append(&db->connection, event.team_id, &event, &out, &err);
     (void)err;
     return status;
 }
@@ -85,17 +85,17 @@ Test(lifecycle_repository, derives_current_fitment_from_events)
     /* No events -> no fitment (unknown, not "no part fitted"). */
     apl_fitment_row *rows = nullptr;
     size_t count = 1;
-    cr_assert_eq(apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count,
-                                                          &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 0);
     cr_assert_null(rows);
 
     /* Install wing at front -> current. */
     cr_assert_eq(append_cmp(&db, install(team.id, wing, car, "front", "2026-01-01")), APL_OK);
-    cr_assert_eq(apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count,
-                                                          &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 1);
     cr_assert_eq(rows[0].unit_id, wing);
     cr_assert_eq(rows[0].car_id, car);
@@ -104,23 +104,26 @@ Test(lifecycle_repository, derives_current_fitment_from_events)
 
     /* Install wing2 at same position -> replaces existing without a replace op. */
     cr_assert_eq(append_cmp(&db, install(team.id, wing2, car, "front", "2026-01-05")), APL_OK);
-    cr_assert_eq(apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count,
-                                                          &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 1);
     cr_assert_eq(rows[0].unit_id, wing2);
     apl_lifecycle_repository_free_fitment(rows);
 
-    /* Remove wing2 -> no fitment recorded at front. */
-    apl_lifecycle_event remove = {.team_id = team.id, .action = APL_LIFECYCLE_REMOVE,
-                                  .unit_id = wing2, .car_id = car};
+    /* Remove wing2 -> an explicit empty slot, distinct from no event history. */
+    apl_lifecycle_event remove = {
+        .team_id = team.id, .action = APL_LIFECYCLE_REMOVE, .unit_id = wing2, .car_id = car};
     (void)snprintf(remove.event_date, sizeof(remove.event_date), "2026-02-01");
     (void)snprintf(remove.position, sizeof(remove.position), "front");
     cr_assert_eq(append_cmp(&db, remove), APL_OK);
-    cr_assert_eq(apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count,
-                                                          &err),
-                 APL_OK);
-    cr_assert_eq(count, 0);
+    cr_assert_eq(
+        apl_lifecycle_repository_current_fitment(&db.connection, team.id, &rows, &count, &err),
+        APL_OK);
+    cr_assert_eq(count, 1);
+    cr_assert_eq(rows[0].unit_id, 0);
+    cr_assert_eq(rows[0].car_id, car);
+    cr_assert_str_eq(rows[0].position, "front");
     apl_lifecycle_repository_free_fitment(rows);
 
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
@@ -137,8 +140,8 @@ Test(lifecycle_repository, lists_chronologically_and_filters)
     const int64_t wing = make_unit(&db, team.id, "FW-100");
 
     cr_assert_eq(append_cmp(&db, install(team.id, wing, car, "front", "2026-03-01")), APL_OK);
-    apl_lifecycle_event repair = {.team_id = team.id, .action = APL_LIFECYCLE_REPAIR,
-                                  .unit_id = wing, .car_id = car};
+    apl_lifecycle_event repair = {
+        .team_id = team.id, .action = APL_LIFECYCLE_REPAIR, .unit_id = wing, .car_id = car};
     (void)snprintf(repair.event_date, sizeof(repair.event_date), "2026-03-10");
     (void)snprintf(repair.position, sizeof(repair.position), "front");
     cr_assert_eq(append_cmp(&db, repair), APL_OK);
@@ -167,9 +170,9 @@ Test(lifecycle_repository, lists_chronologically_and_filters)
     apl_lifecycle_repository_free_events(events);
 
     apl_lifecycle_history_entry *entries = nullptr;
-    cr_assert_eq(apl_lifecycle_repository_list_unit(&db.connection, team.id, wing, &entries, &count,
-                                                    &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_repository_list_unit(&db.connection, team.id, wing, &entries, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 2);
     apl_lifecycle_repository_free_history(entries);
 

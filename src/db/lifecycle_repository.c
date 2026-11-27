@@ -8,12 +8,12 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define EVENT_COLUMNS                                                                                  \
-    "e.id, e.team_id, e.action, e.event_date, e.unit_id, e.old_unit_id, e.new_unit_id, e.car_id, "      \
+#define EVENT_COLUMNS                                                                              \
+    "e.id, e.team_id, e.action, e.event_date, e.unit_id, e.old_unit_id, e.new_unit_id, e.car_id, " \
     "e.position, e.event_label, e.reason, e.usage, e.notes, e.created_at, e.transaction_id"
 
-#define EVENT_COLUMNS_UNALIASED                                                                         \
-    "id, team_id, action, event_date, unit_id, old_unit_id, new_unit_id, car_id, position, "            \
+#define EVENT_COLUMNS_UNALIASED                                                                    \
+    "id, team_id, action, event_date, unit_id, old_unit_id, new_unit_id, car_id, position, "       \
     "event_label, reason, usage, notes, created_at, transaction_id"
 
 static void read_event(sqlite3_stmt *const statement, apl_lifecycle_event *const event)
@@ -397,8 +397,8 @@ static int64_t unit_type(sqlite3 *const handle, const int64_t unit_id)
 }
 
 apl_status apl_lifecycle_repository_current_fitment(const apl_db_connection *const connection,
-                                                    const int64_t team_id, apl_fitment_row **const
-                                                        out_rows,
+                                                    const int64_t team_id,
+                                                    apl_fitment_row **const out_rows,
                                                     size_t *const out_count, apl_error *const error)
 {
     if (connection == nullptr || out_rows == nullptr || out_count == nullptr || team_id <= 0) {
@@ -471,9 +471,6 @@ apl_status apl_lifecycle_repository_current_fitment(const apl_db_connection *con
     size_t row_count = 0;
     size_t row_capacity = 0;
     for (size_t index = 0; index < slot_count; ++index) {
-        if (slots[index].unit_id == 0) {
-            continue;
-        }
         if (row_count == row_capacity) {
             typeof(rows) const grown = apl_grow_array(rows, &row_capacity, 4, sizeof(*rows));
             if (grown == nullptr) {
@@ -514,10 +511,11 @@ apl_status apl_lifecycle_repository_set_transaction(const apl_db_connection *con
     }
     *out_event = (apl_lifecycle_event){};
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "UPDATE lifecycle_events SET transaction_id = ?3 "
-                                "WHERE id = ?2 AND team_id = ?1 RETURNING " EVENT_COLUMNS_UNALIASED ";",
-                                &statement, error);
+    apl_status status =
+        prepare(handle,
+                "UPDATE lifecycle_events SET transaction_id = ?3 "
+                "WHERE id = ?2 AND team_id = ?1 RETURNING " EVENT_COLUMNS_UNALIASED ";",
+                &statement, error);
     if (status != APL_OK) {
         return status;
     }
