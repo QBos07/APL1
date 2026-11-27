@@ -243,6 +243,9 @@ typedef struct shell_state {
     size_t unit_event_count;
     apl_part_type part_type_detail;
     apl_part_unit part_unit_detail;
+    apl_fitment_row part_unit_fitment;
+    bool part_unit_fitment_known;
+    bool part_unit_is_fitted;
     int64_t dialog_part_type_id;
     int64_t dialog_part_unit_id;
     int64_t dialog_car_id;

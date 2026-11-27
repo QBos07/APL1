@@ -238,10 +238,56 @@ apl_status load_part_unit_detail(shell_state *const state, const int64_t unit_id
     if (status != APL_OK) {
         return status;
     }
+    apl_fitment_row *fitment = nullptr;
+    size_t fitment_count = 0;
+    status =
+        apl_lifecycle_service_current_fitment(state->app, team_id, &fitment, &fitment_count, error);
+    if (status != APL_OK) {
+        apl_lifecycle_service_free_history(events);
+        return status;
+    }
     state->part_unit_detail = unit;
     apl_lifecycle_service_free_history(state->unit_events);
     state->unit_events = events;
     state->unit_event_count = count;
+    state->part_unit_fitment_known = false;
+    state->part_unit_is_fitted = false;
+    state->part_unit_fitment = (apl_fitment_row){};
+    for (size_t index = 0; index < fitment_count; ++index) {
+        if (fitment[index].unit_id == unit_id) {
+            state->part_unit_fitment_known = true;
+            state->part_unit_is_fitted = true;
+            state->part_unit_fitment = fitment[index];
+            break;
+        }
+    }
+    int64_t current_event_id = 0;
+    for (size_t index = 0; index < count; ++index) {
+        apl_lifecycle_event *const event = &state->unit_events[index].event;
+        if (event->action == APL_LIFECYCLE_INSTALL && event->unit_id == unit_id) {
+            state->part_unit_fitment_known = true;
+            current_event_id = event->id;
+        } else if (event->action == APL_LIFECYCLE_REMOVE && event->unit_id == unit_id) {
+            state->part_unit_fitment_known = true;
+            current_event_id = 0;
+        } else if (event->action == APL_LIFECYCLE_REPLACE) {
+            state->part_unit_fitment_known = true;
+            if (event->old_unit_id == unit_id) {
+                current_event_id = 0;
+            }
+            if (event->new_unit_id == unit_id) {
+                current_event_id = event->id;
+            }
+        } else if (event->action == APL_LIFECYCLE_DISPOSE && event->unit_id == unit_id) {
+            state->part_unit_fitment_known = true;
+            current_event_id = 0;
+        }
+    }
+    for (size_t index = 0; index < count; ++index) {
+        state->unit_events[index].current =
+            current_event_id > 0 && state->unit_events[index].event.id == current_event_id;
+    }
+    apl_lifecycle_service_free_fitment(fitment);
     apl_tui_list_set_count(&state->list, count);
     return APL_OK;
 }
@@ -463,6 +509,21 @@ void draw_part_unit_detail(shell_state *const state)
     row += (int)apl_tui_frame_draw_wrapped(
         body, row, 2, layout != nullptr && layout->body.cols > 2 ? layout->body.cols - 2 : 40,
         unit->notes[0] != '\0' ? unit->notes : "not recorded");
+    if (state->part_unit_is_fitted) {
+        char car[APL_REFERENCE_LABEL_MAX];
+        car_label(state, state->part_unit_fitment.car_id, car, sizeof(car));
+        (void)snprintf(line, sizeof(line), "Current fitment: %s at %s / %s",
+                       car[0] != '\0' ? car : "(unknown car)",
+                       state->part_unit_fitment.position[0] != '\0'
+                           ? state->part_unit_fitment.position
+                           : "(unknown position)",
+                       type);
+    } else if (state->part_unit_fitment_known) {
+        (void)snprintf(line, sizeof(line), "Current fitment: no unit fitted (recorded history)");
+    } else {
+        (void)snprintf(line, sizeof(line), "Current fitment: unknown / not recorded");
+    }
+    apl_tui_frame_draw_line(body, row++, line);
     ++row;
 
     apl_tui_frame_draw_line(body, row++, "Lifecycle history (entered-date order):");
@@ -490,13 +551,34 @@ void draw_part_unit_detail(shell_state *const state)
     } else {
         for (size_t index = 0; index < state->unit_event_count && row < (int)rows - 1; ++index) {
             const apl_lifecycle_history_entry *const entry = &state->unit_events[index];
-            (void)snprintf(line, sizeof(line), "  %c %s  %s  %s%s%s", entry->current ? '*' : ' ',
-                           entry->event.event_date, apl_lifecycle_action_label(entry->event.action),
-                           entry->event.position[0] != '\0' ? "front: " : "", entry->event.position,
-                           entry->event.reason[0] != '\0' ? "  reason: " : "");
+            (void)snprintf(line, sizeof(line), "  %c %s  %s", entry->current ? '*' : ' ',
+                           entry->event.event_date,
+                           apl_lifecycle_action_label(entry->event.action));
             apl_tui_frame_draw_line(body, row++, line);
+            if ((entry->event.car_id > 0 || entry->event.position[0] != '\0') &&
+                row < (int)rows - 1) {
+                char car[APL_REFERENCE_LABEL_MAX];
+                car_label(state, entry->event.car_id, car, sizeof(car));
+                (void)snprintf(line, sizeof(line), "      Car: %s  Position: %s",
+                               car[0] != '\0' ? car : "not recorded",
+                               entry->event.position[0] != '\0' ? entry->event.position
+                                                                : "not recorded");
+                apl_tui_frame_draw_line(body, row++, line);
+            }
+            if (entry->event.event_label[0] != '\0' && row < (int)rows - 1) {
+                (void)snprintf(line, sizeof(line), "      Event: %.450s", entry->event.event_label);
+                apl_tui_frame_draw_line(body, row++, line);
+            }
             if (entry->event.reason[0] != '\0' && row < (int)rows - 1) {
-                (void)snprintf(line, sizeof(line), "      %.400s", entry->event.reason);
+                (void)snprintf(line, sizeof(line), "      Reason: %.390s", entry->event.reason);
+                apl_tui_frame_draw_line(body, row++, line);
+            }
+            if (entry->event.usage[0] != '\0' && row < (int)rows - 1) {
+                (void)snprintf(line, sizeof(line), "      Usage: %.440s", entry->event.usage);
+                apl_tui_frame_draw_line(body, row++, line);
+            }
+            if (entry->event.notes[0] != '\0' && row < (int)rows - 1) {
+                (void)snprintf(line, sizeof(line), "      Notes: %.440s", entry->event.notes);
                 apl_tui_frame_draw_line(body, row++, line);
             }
             if (entry->event.transaction_id > 0 && row < (int)rows - 1) {

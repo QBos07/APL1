@@ -212,6 +212,9 @@ Test(tui_parts, replacement_review_links_an_existing_expense)
     state.screen = SHELL_SCREEN_PART_UNIT_DETAIL;
     apl_tui_list_init(&state.list, 8);
     open_part_unit_detail(&state, old_unit);
+    cr_assert(state.part_unit_fitment_known);
+    cr_assert(state.part_unit_is_fitted);
+    cr_assert_str_eq(state.part_unit_fitment.position, "front");
 
     open_replace_dialog_direct(&state);
     char new_id[32];
@@ -259,6 +262,8 @@ Test(tui_parts, replacement_review_links_an_existing_expense)
     cr_assert_eq(history[1].event.action, APL_LIFECYCLE_REPLACE);
     cr_assert_eq(history[1].event.transaction_id, expense.id);
     apl_lifecycle_service_free_history(history);
+    cr_assert(state.part_unit_fitment_known);
+    cr_assert(state.part_unit_is_fitted);
 
     handle_part_unit_detail_input(&state, 'c');
     cr_assert_eq(state.section, APL_TUI_SECTION_MONEY);
@@ -269,6 +274,9 @@ Test(tui_parts, replacement_review_links_an_existing_expense)
     cr_assert_eq(state.section, APL_TUI_SECTION_PARTS);
     cr_assert_eq(state.screen, SHELL_SCREEN_PART_UNIT_DETAIL);
     cr_assert_not(state.parts_return_pending);
+    open_part_unit_detail(&state, old_unit);
+    cr_assert(state.part_unit_fitment_known);
+    cr_assert_not(state.part_unit_is_fitted);
 
     apl_part_unit_service_free_list(state.part_units);
     apl_lifecycle_service_free_fitment(state.fitment_rows);
