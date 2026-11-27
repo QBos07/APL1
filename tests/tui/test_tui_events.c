@@ -188,3 +188,111 @@ Test(tui_events, event_and_session_forms_validate_and_cancel_without_losing_inpu
     free_reference_lists(&state);
     cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
 }
+
+Test(tui_events, staged_batch_review_and_failed_save_are_atomic)
+{
+    apl_test_db db = {};
+    apl_error error;
+    apl_error_init(&error);
+    cr_assert_eq(apl_test_db_open(&db, &error), APL_OK);
+    apl_app app = {.db = db.connection};
+    apl_team team = {};
+    cr_assert_eq(apl_team_repository_create(&app.db, "Team", "", &team, &error), APL_OK);
+    apl_event event = {};
+    apl_event_session session = {};
+    cr_assert_eq(apl_event_repository_create(&app.db, team.id, 0, "Event", "2026-01-01", "", "",
+                                             &event, &error),
+                 APL_OK);
+    cr_assert_eq(
+        apl_session_repository_create(&app.db, team.id, event.id, "Race", &session, &error),
+        APL_OK);
+    apl_driver drivers[2] = {};
+    apl_membership member = {};
+    cr_assert_eq(apl_driver_repository_create(&app.db, "First", "", "", &drivers[0], &error),
+                 APL_OK);
+    cr_assert_eq(apl_driver_repository_create(&app.db, "Second", "", "", &drivers[1], &error),
+                 APL_OK);
+    for (size_t i = 0; i < 2; ++i)
+        cr_assert_eq(apl_membership_repository_create(&app.db, team.id, drivers[i].id, "2020-01-01",
+                                                      "", "", "", &member, &error),
+                     APL_OK);
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_EVENTS;
+    state.screen = SHELL_SCREEN_SESSION_DETAIL;
+    apl_tui_list_init(&state.list, 8);
+    apl_tui_focus_init(&state.focus);
+    cr_assert_eq(apl_session_detail_load(&app, team.id, event.id, session.id,
+                                         &state.race_session_detail, &error),
+                 APL_OK);
+    apl_tui_list_set_count(&state.list, state.race_session_detail.row_count);
+    handle_events_input(&state, 'b');
+    cr_assert(state.outcome_batch_active);
+    ncinput enter = {.id = NCKEY_ENTER};
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "0");
+    apl_tui_dialog_set_field_value(&state.dialog, 3, "Finished");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    apl_tui_list_select(&state.list, 1);
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "2");
+    apl_tui_dialog_set_field_value(&state.dialog, 4, "manual note");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.outcome_batch_count, 2);
+    apl_outcome *records = nullptr;
+    size_t count = 0;
+    cr_assert_eq(apl_outcome_repository_list(&app.db, team.id, event.id, session.id, &records,
+                                             &count, &error),
+                 APL_OK);
+    cr_assert_eq(count, 0);
+    apl_outcome_repository_free_list(records);
+    handle_events_input(&state, 'r');
+    cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_REVIEW);
+    cr_assert_str_eq(state.outcome_batch[1].input.notes, "manual note");
+    cr_assert_eq(sqlite3_exec(app.db.handle,
+                              "CREATE TRIGGER fail_batch_ui BEFORE INSERT ON driver_outcomes "
+                              "WHEN NEW.driver_id=2 BEGIN SELECT RAISE(ABORT,'failure'); END;",
+                              nullptr, nullptr, nullptr),
+                 SQLITE_OK);
+    handle_events_input(&state, 's');
+    cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_REVIEW);
+    cr_assert_eq(state.outcome_batch_count, 2);
+    cr_assert_eq(apl_outcome_repository_list(&app.db, team.id, event.id, session.id, &records,
+                                             &count, &error),
+                 APL_OK);
+    cr_assert_eq(count, 0);
+    apl_outcome_repository_free_list(records);
+    cr_assert_eq(
+        sqlite3_exec(app.db.handle, "DROP TRIGGER fail_batch_ui", nullptr, nullptr, nullptr),
+        SQLITE_OK);
+    handle_events_input(&state, 's');
+    cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
+    cr_assert_not(state.outcome_batch_active);
+    cr_assert_eq(apl_outcome_repository_list(&app.db, team.id, event.id, session.id, &records,
+                                             &count, &error),
+                 APL_OK);
+    cr_assert_eq(count, 2);
+    cr_assert(records[0].has_laps);
+    cr_assert_eq(records[0].laps, 0);
+    cr_assert_not(records[1].has_laps);
+    cr_assert_str_eq(records[1].notes, "manual note");
+    apl_outcome_repository_free_list(records);
+    handle_events_input(&state, 'b');
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 4, "not saved");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    handle_events_input(&state, 'x');
+    cr_assert_not(state.outcome_batch_active);
+    cr_assert_eq(apl_outcome_repository_list(&app.db, team.id, event.id, session.id, &records,
+                                             &count, &error),
+                 APL_OK);
+    cr_assert_eq(count, 2);
+    apl_outcome_repository_free_list(records);
+    free_reference_lists(&state);
+    cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
+}

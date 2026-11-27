@@ -148,6 +148,7 @@ void perform_set_active(shell_state *const state, const int64_t team_id, apl_err
         }
     }
     if (state->section == APL_TUI_SECTION_EVENTS) {
+        clear_outcome_batch(state);
         state->screen = SHELL_SCREEN_EVENT_LIST;
         apl_event_repository_free_list(state->race_events);
         state->race_events = nullptr;

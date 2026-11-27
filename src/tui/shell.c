@@ -44,6 +44,8 @@ static void handle_input(shell_state *state, const ncinput *input);
 
 void set_section(shell_state *const state, const apl_tui_section section)
 {
+    if (state->section == APL_TUI_SECTION_EVENTS)
+        clear_outcome_batch(state);
     state->project_return_pending = false;
     const apl_tui_section previous = state->section;
     shell_save_view_state(state, previous);
@@ -380,13 +382,17 @@ static const char *context_key_hint(const shell_state *const state)
         return "a scope | f entity | g action | d dates | c clear | Enter detail";
     }
     if (state->section == APL_TUI_SECTION_EVENTS) {
+        if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW)
+            return "Up/Down review | h/l text | Enter edit | s save | x cancel";
+        if (state->outcome_batch_active)
+            return "a stage row | r review | x cancel batch | Esc back";
         if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY)
             return "Up/Down correction | v before/after | h/l scroll text | Esc";
         if (state->screen == SHELL_SCREEN_EVENT_LIST)
             return "n new event | Enter open | Esc back";
         if (state->screen == SHELL_SCREEN_EVENT_DETAIL)
             return "n new session | e edit event | s edit session | Enter open | Esc back";
-        return "a enter/edit outcome | Enter history | Esc back";
+        return "a enter/edit outcome | b batch | Enter history | Esc back";
     }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
@@ -458,6 +464,7 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_EVENT_DETAIL:
     case SHELL_SCREEN_SESSION_DETAIL:
     case SHELL_SCREEN_OUTCOME_HISTORY:
+    case SHELL_SCREEN_OUTCOME_REVIEW:
         break;
     }
     return ", . views | : commands | m menu | q quit";
@@ -765,6 +772,7 @@ static void draw_screen(shell_state *const state)
         case SHELL_SCREEN_EVENT_DETAIL:
         case SHELL_SCREEN_SESSION_DETAIL:
         case SHELL_SCREEN_OUTCOME_HISTORY:
+        case SHELL_SCREEN_OUTCOME_REVIEW:
             draw_placeholder(state);
             break;
         }
@@ -2537,6 +2545,7 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     case SHELL_SCREEN_EVENT_DETAIL:
     case SHELL_SCREEN_SESSION_DETAIL:
     case SHELL_SCREEN_OUTCOME_HISTORY:
+    case SHELL_SCREEN_OUTCOME_REVIEW:
         if (id == 'q' || id == 'Q') {
             state->quit = true;
         }

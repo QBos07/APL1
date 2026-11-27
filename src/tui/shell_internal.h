@@ -71,6 +71,7 @@ typedef enum shell_screen {
     SHELL_SCREEN_EVENT_DETAIL,
     SHELL_SCREEN_SESSION_DETAIL,
     SHELL_SCREEN_OUTCOME_HISTORY,
+    SHELL_SCREEN_OUTCOME_REVIEW,
     SHELL_SCREEN_PLACEHOLDER,
 } shell_screen;
 
@@ -164,6 +165,10 @@ typedef struct shell_state {
     size_t event_return_index, session_return_index, outcome_return_index;
     size_t outcome_history_offset;
     bool outcome_history_after;
+    apl_outcome_batch_row *outcome_batch;
+    bool *outcome_batch_selected;
+    size_t outcome_batch_size, outcome_batch_count;
+    bool outcome_batch_active;
     apl_ledger_entry *entries;
     size_t entry_count;
     apl_ledger_entry entry_detail;
@@ -349,6 +354,7 @@ void open_session_form(shell_state *state, bool edit);
 bool save_event_form(shell_state *state, apl_error *error);
 void open_outcome_form(shell_state *state);
 bool save_outcome_form(shell_state *state, apl_error *error);
+void clear_outcome_batch(shell_state *state);
 void append_filter_button(char *out, size_t out_size, unsigned *cursor, unsigned starts[4],
                           unsigned ends[4], unsigned index, const char *label);
 bool is_enter_key(uint32_t id);

@@ -248,6 +248,7 @@ int64_t active_team_id(const shell_state *const state)
 
 void free_reference_lists(shell_state *const state)
 {
+    clear_outcome_batch(state);
     apl_event_repository_free_list(state->race_events);
     state->race_events = nullptr;
     state->race_event_count = 0;

@@ -4,12 +4,49 @@
 
 #include "db/season_repository.h"
 
+void clear_outcome_batch(shell_state *state)
+{
+    free(state->outcome_batch);
+    free(state->outcome_batch_selected);
+    state->outcome_batch = nullptr;
+    state->outcome_batch_selected = nullptr;
+    state->outcome_batch_size = 0;
+    state->outcome_batch_count = 0;
+    state->outcome_batch_active = false;
+}
+
+static void begin_outcome_batch(shell_state *state)
+{
+    size_t count = state->race_session_detail.row_count;
+    if (!count) {
+        set_status_warning(state, "No team drivers are available for batch entry.");
+        return;
+    }
+    apl_outcome_batch_row *rows = calloc(count, sizeof(*rows));
+    bool *selected = calloc(count, sizeof(*selected));
+    if (!rows || !selected) {
+        free(rows);
+        free(selected);
+        set_status_warning(state, "Cannot allocate the outcome batch.");
+        return;
+    }
+    clear_outcome_batch(state);
+    state->outcome_batch = rows;
+    state->outcome_batch_selected = selected;
+    state->outcome_batch_size = count;
+    state->outcome_batch_active = true;
+    set_status(state, "Batch started. Select a driver and press a to stage values.");
+}
+
 void open_outcome_form(shell_state *state)
 {
     if (state->list.selected >= state->race_session_detail.row_count)
         return;
     const apl_session_outcome_row *row = &state->race_session_detail.rows[state->list.selected];
-    const apl_outcome *outcome = row->has_outcome ? &row->outcome : nullptr;
+    const apl_outcome *outcome =
+        state->outcome_batch_active && state->outcome_batch_selected[state->list.selected]
+            ? &state->outcome_batch[state->list.selected].input
+            : (row->has_outcome ? &row->outcome : nullptr);
     if (outcome &&
         ((outcome->has_status && strlen(outcome->status) >= APL_TUI_DIALOG_FIELD_VALUE_MAX) ||
          (outcome->has_notes && strlen(outcome->notes) >= APL_TUI_DIALOG_FIELD_VALUE_MAX))) {
@@ -81,6 +118,23 @@ bool save_outcome_form(shell_state *state, apl_error *error)
     input.has_notes = state->dialog.fields[4].value[0] != '\0';
     (void)snprintf(input.status, sizeof(input.status), "%s", state->dialog.fields[3].value);
     (void)snprintf(input.notes, sizeof(input.notes), "%s", state->dialog.fields[4].value);
+    if (state->outcome_batch_active) {
+        size_t index = state->list.selected;
+        if (index >= state->outcome_batch_size ||
+            state->race_session_detail.rows[index].driver.id != input.driver_id) {
+            apl_tui_dialog_set_field_error(&state->dialog, 0,
+                                           "Batch target changed; cancel entry.");
+            return false;
+        }
+        if (!state->outcome_batch_selected[index]) {
+            state->outcome_batch_selected[index] = true;
+            ++state->outcome_batch_count;
+        }
+        state->outcome_batch[index] = (apl_outcome_batch_row){
+            .mode = input.id ? APL_OUTCOME_EDIT : APL_OUTCOME_CREATE, .input = input};
+        set_status(state, "Row staged, not saved. Press r to review the batch.");
+        return true;
+    }
     apl_outcome saved = {};
     apl_status status = apl_outcome_service_save(
         state->app, input.id ? APL_OUTCOME_EDIT : APL_OUTCOME_CREATE, &input, &saved, error);
@@ -271,6 +325,62 @@ static void draw_history_values(struct ncplane *body, int row, const char *label
     apl_tui_frame_draw_line(body, row + 2, text);
 }
 
+static void save_outcome_batch(shell_state *state)
+{
+    size_t count = state->outcome_batch_count;
+    apl_outcome_batch_row *rows = calloc(count, sizeof(*rows));
+    apl_outcome *saved = calloc(count, sizeof(*saved));
+    apl_error *errors = calloc(count, sizeof(*errors));
+    size_t *indices = calloc(count, sizeof(*indices));
+    if (!rows || !saved || !errors || !indices) {
+        free(rows);
+        free(saved);
+        free(errors);
+        free(indices);
+        set_status_warning(state, "Cannot allocate batch save buffers; staged rows are unchanged.");
+        return;
+    }
+    size_t next = 0;
+    for (size_t i = 0; i < state->outcome_batch_size; ++i) {
+        if (state->outcome_batch_selected[i]) {
+            rows[next] = state->outcome_batch[i];
+            indices[next++] = i;
+        }
+    }
+    apl_error error;
+    apl_error_init(&error);
+    apl_status status =
+        apl_outcome_service_save_batch(state->app, rows, count, saved, errors, &error);
+    if (status != APL_OK) {
+        for (size_t i = 0; i < count; ++i) {
+            if (errors[i].code != APL_OK) {
+                apl_tui_list_select(&state->list, indices[i]);
+                break;
+            }
+        }
+        set_status_from_error(state, "Batch not saved; staged rows retained", &error);
+    } else {
+        apl_session_detail detail = {};
+        status = apl_session_detail_load(state->app, active_team_id(state),
+                                         state->race_session_detail.event.id,
+                                         state->race_session_detail.session.id, &detail, &error);
+        clear_outcome_batch(state);
+        state->screen = SHELL_SCREEN_SESSION_DETAIL;
+        if (status == APL_OK) {
+            apl_session_detail_free(&state->race_session_detail);
+            state->race_session_detail = detail;
+            apl_tui_list_set_count(&state->list, detail.row_count);
+            set_status_success(state, "Saved %zu outcomes atomically.", count);
+        } else {
+            set_status_warning(state, "Batch saved, but the session could not be refreshed.");
+        }
+    }
+    free(rows);
+    free(saved);
+    free(errors);
+    free(indices);
+}
+
 void draw_events_screen(shell_state *state)
 {
     struct ncplane *body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
@@ -281,6 +391,29 @@ void draw_events_screen(shell_state *state)
     char line[1024];
     if (active_team_id(state) == 0) {
         apl_tui_frame_draw_line(body, 0, "No active team. Select a team to review events.");
+        return;
+    }
+    if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW) {
+        const size_t index = state->list.selected;
+        const apl_session_outcome_row *driver = &state->race_session_detail.rows[index];
+        (void)snprintf(line, sizeof(line), "Review %zu staged | Team: %s | Event: %s | Session: %s",
+                       state->outcome_batch_count, state->active_team.name,
+                       state->race_session_detail.event.name,
+                       state->race_session_detail.session.label);
+        apl_tui_frame_draw_line(body, 0, line);
+        (void)snprintf(line, sizeof(line), "Driver %zu/%zu: %s", index + 1,
+                       state->outcome_batch_size, driver->driver.name);
+        apl_tui_frame_draw_line(body, 1, line);
+        if (!state->outcome_batch_selected[index]) {
+            apl_tui_frame_draw_line(body, 3, "Not staged; this driver will not be changed.");
+        } else {
+            const apl_outcome_batch_row *row = &state->outcome_batch[index];
+            apl_tui_frame_draw_line(body, 3,
+                                    row->mode == APL_OUTCOME_EDIT
+                                        ? "Edit existing outcome (staged, not saved)"
+                                        : "Create outcome (staged, not saved)");
+            draw_history_values(body, 4, "Values:", &row->input, state->outcome_history_offset);
+        }
         return;
     }
     if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY) {
@@ -370,7 +503,10 @@ void draw_events_screen(shell_state *state)
             line_value(finish_pos, sizeof(finish_pos), r->outcome.has_finish_position,
                        r->outcome.finish_position);
             line_value(laps, sizeof(laps), r->outcome.has_laps, r->outcome.laps);
-            if (!r->has_outcome)
+            if (state->outcome_batch_active && state->outcome_batch_selected[index])
+                (void)snprintf(line, sizeof(line), "%c %s | staged (not saved)",
+                               selected ? '>' : ' ', r->driver.name);
+            else if (!r->has_outcome)
                 (void)snprintf(line, sizeof(line), "%c %s | no outcome record",
                                selected ? '>' : ' ', r->driver.name);
             else
@@ -388,23 +524,62 @@ void draw_events_screen(shell_state *state)
 
 void handle_events_input(shell_state *state, uint32_t id)
 {
+    if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW && (id == 's' || id == 'S')) {
+        save_outcome_batch(state);
+        return;
+    }
+    if (state->outcome_batch_active && (id == 'x' || id == 'X')) {
+        clear_outcome_batch(state);
+        state->screen = SHELL_SCREEN_SESSION_DETAIL;
+        set_status(state, "Batch cancelled without writing.");
+        return;
+    }
+    if (state->screen == SHELL_SCREEN_SESSION_DETAIL && !state->outcome_batch_active &&
+        (id == 'b' || id == 'B')) {
+        begin_outcome_batch(state);
+        return;
+    }
+    if (state->screen == SHELL_SCREEN_SESSION_DETAIL && state->outcome_batch_active &&
+        (id == 'r' || id == 'R')) {
+        if (!state->outcome_batch_count) {
+            set_status_warning(state, "Stage at least one driver before review.");
+        } else {
+            state->screen = SHELL_SCREEN_OUTCOME_REVIEW;
+            state->outcome_history_offset = 0;
+        }
+        return;
+    }
+    if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW && is_enter_key(id)) {
+        state->screen = SHELL_SCREEN_SESSION_DETAIL;
+        open_outcome_form(state);
+        return;
+    }
+    if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW && id == NCKEY_ESC) {
+        state->screen = SHELL_SCREEN_SESSION_DETAIL;
+        return;
+    }
     if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY && (id == 'v' || id == 'V')) {
         state->outcome_history_after = !state->outcome_history_after;
         state->outcome_history_offset = 0;
         return;
     }
-    if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY && (id == 'h' || id == 'H')) {
+    if ((state->screen == SHELL_SCREEN_OUTCOME_HISTORY ||
+         state->screen == SHELL_SCREEN_OUTCOME_REVIEW) &&
+        (id == 'h' || id == 'H')) {
         if (state->outcome_history_offset > 0)
             --state->outcome_history_offset;
         return;
     }
-    if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY && (id == 'l' || id == 'L')) {
+    if ((state->screen == SHELL_SCREEN_OUTCOME_HISTORY ||
+         state->screen == SHELL_SCREEN_OUTCOME_REVIEW) &&
+        (id == 'l' || id == 'L')) {
         if (state->outcome_history_offset < 4096)
             ++state->outcome_history_offset;
         return;
     }
     if (handle_body_list_navigation(state, id)) {
-        if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY)
+        if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY ||
+            state->screen == SHELL_SCREEN_OUTCOME_REVIEW)
             state->outcome_history_offset = 0;
         return;
     }
@@ -436,6 +611,7 @@ void handle_events_input(shell_state *state, uint32_t id)
             apl_tui_list_set_count(&state->list, state->race_session_detail.row_count);
             apl_tui_list_select(&state->list, state->outcome_return_index);
         } else if (state->screen == SHELL_SCREEN_SESSION_DETAIL) {
+            clear_outcome_batch(state);
             state->screen = SHELL_SCREEN_EVENT_DETAIL;
             apl_tui_list_set_count(&state->list, state->race_event_detail.session_count);
             apl_tui_list_select(&state->list, state->session_return_index);
