@@ -392,7 +392,7 @@ static const char *context_key_hint(const shell_state *const state)
             return "n new event | Enter open | Esc back";
         if (state->screen == SHELL_SCREEN_EVENT_DETAIL)
             return "n new session | e edit event | s edit session | Enter open | Esc back";
-        return "a enter/edit outcome | b batch | Enter history | Esc back";
+        return "a enter/edit | b batch | u summary | Enter history | Esc";
     }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {

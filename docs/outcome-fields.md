@@ -27,9 +27,16 @@ calculations, or generated results. Additional typed nullable fields can be
 introduced through later migrations; configurable custom fields are not part
 of this initial set.
 
-For future recorded-value summaries, a count of recorded outcomes and a sum of
+For recorded-value summaries, a count of recorded outcomes and a sum of
 recorded laps have clear meanings. The sum must exclude NULL laps and report
 the number of outcomes with and without a recorded lap count; if none have a
 lap count, the sum is not recorded rather than zero. Any summary must identify
 its team and active event, session, season, and date filters. Positions and
 free-form status/notes are not summed or used to infer rankings.
+
+The session's **u summary** action shows this recorded-value count and lap sum.
+It fixes the team, event, and session to the current view, and accepts optional
+season and inclusive event-date filters. Its output repeats the active scope and
+reports both recorded and missing lap counts. An empty or entirely missing-laps
+scope displays the lap total as “not recorded”; explicitly entered zero laps
+remains a recorded zero.

@@ -4,6 +4,78 @@
 
 #include "db/season_repository.h"
 
+static void open_summary_filter(shell_state *state)
+{
+    apl_tui_dialog_open_form(&state->dialog, "Recorded-value summary",
+                             "Current event and session are fixed. Blank filters mean all.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Season (optional)", "", false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "From date (YYYY-MM-DD)", "", false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "To date (YYYY-MM-DD)", "", false);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_OUTCOME_SUMMARY;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+}
+
+bool show_outcome_summary(shell_state *state, apl_error *error)
+{
+    apl_outcome_summary_filter filter = {.team_id = active_team_id(state),
+                                         .event_id = state->race_session_detail.event.id,
+                                         .session_id = state->race_session_detail.session.id};
+    apl_status status =
+        project_resolve_season(state, state->dialog.fields[0].value, &filter.season_id, error);
+    if (status != APL_OK) {
+        apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(error));
+        return false;
+    }
+    status = apl_reference_date_normalize(state->dialog.fields[1].value, "from date",
+                                          filter.from_date, sizeof(filter.from_date), error);
+    if (status != APL_OK) {
+        apl_tui_dialog_set_field_error(&state->dialog, 1, apl_error_message(error));
+        return false;
+    }
+    status = apl_reference_date_normalize(state->dialog.fields[2].value, "to date", filter.to_date,
+                                          sizeof(filter.to_date), error);
+    if (status == APL_OK)
+        status =
+            apl_reference_date_range_validate(filter.from_date, filter.to_date, "summary", error);
+    if (status != APL_OK) {
+        apl_tui_dialog_set_field_error(&state->dialog, 2, apl_error_message(error));
+        return false;
+    }
+    apl_outcome_summary result = {};
+    status = apl_outcome_summary_query(state->app, &filter, &result, error);
+    if (status != APL_OK) {
+        apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(error));
+        return false;
+    }
+    char season[APL_TUI_DIALOG_FIELD_VALUE_MAX], from[APL_REFERENCE_DATE_MAX],
+        to[APL_REFERENCE_DATE_MAX];
+    (void)snprintf(season, sizeof(season), "%s",
+                   filter.season_id ? state->dialog.fields[0].value : "all");
+    (void)snprintf(from, sizeof(from), "%s", filter.from_date);
+    (void)snprintf(to, sizeof(to), "%s", filter.to_date);
+    char total[64];
+    if (result.has_laps_total)
+        (void)snprintf(total, sizeof(total), "%lld", (long long)result.laps_total);
+    else
+        (void)snprintf(total, sizeof(total), "not recorded");
+    char message[APL_TUI_DIALOG_MESSAGE_MAX];
+    (void)snprintf(message, sizeof(message),
+                   "Based on recorded values only.\nTeam: %s\nEvent: %s\nSession: %s\n"
+                   "Season filter: %s\nEvent date from: %s\nEvent date to: %s\n\n"
+                   "Outcome records: %lld\nLaps total: %s\n"
+                   "Outcomes with laps recorded: %lld\nOutcomes with laps missing: %lld\n"
+                   "Missing laps are excluded, not treated as zero. No ranking or points.",
+                   state->active_team.name, state->race_session_detail.event.name,
+                   state->race_session_detail.session.label, season, from[0] ? from : "any",
+                   to[0] ? to : "any", (long long)result.outcome_count, total,
+                   (long long)result.laps_recorded_count, (long long)result.laps_missing_count);
+    close_shell_dialog(state);
+    apl_tui_dialog_open_error(&state->dialog, "Recorded-value summary", message);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_ACTIVITY_DETAIL;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    return true;
+}
+
 void clear_outcome_batch(shell_state *state)
 {
     free(state->outcome_batch);
@@ -537,6 +609,11 @@ void handle_events_input(shell_state *state, uint32_t id)
     if (state->screen == SHELL_SCREEN_SESSION_DETAIL && !state->outcome_batch_active &&
         (id == 'b' || id == 'B')) {
         begin_outcome_batch(state);
+        return;
+    }
+    if (state->screen == SHELL_SCREEN_SESSION_DETAIL && !state->outcome_batch_active &&
+        (id == 'u' || id == 'U')) {
+        open_summary_filter(state);
         return;
     }
     if (state->screen == SHELL_SCREEN_SESSION_DETAIL && state->outcome_batch_active &&

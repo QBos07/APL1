@@ -289,6 +289,16 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         return;
     }
 
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_OUTCOME_SUMMARY) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Summary cancelled.");
+        } else {
+            (void)show_outcome_summary(state, &error);
+        }
+        return;
+    }
+
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_OUTCOME_FORM) {
         if (result == APL_TUI_DIALOG_DISMISSED) {
             close_shell_dialog(state);
