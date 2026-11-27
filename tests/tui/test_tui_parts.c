@@ -432,8 +432,11 @@ Test(tui_parts, register_forms_create_edit_and_confirm_archive_without_seed_data
     state.active_team = team;
     state.active_status = APL_ACTIVE_TEAM_ACTIVE;
     state.section = APL_TUI_SECTION_PARTS;
-    state.screen = SHELL_SCREEN_PART_TYPE_LIST;
+    state.screen = SHELL_SCREEN_PARTS_FITMENT;
     apl_tui_list_init(&state.list, 8);
+
+    handle_parts_fitment_input(&state, 'y');
+    cr_assert_eq(state.screen, SHELL_SCREEN_PART_TYPE_LIST);
 
     open_part_type_dialog(&state, false);
     apl_tui_dialog_set_field_value(&state.dialog, 0, "Aero");
@@ -445,6 +448,10 @@ Test(tui_parts, register_forms_create_edit_and_confirm_archive_without_seed_data
     cr_assert_eq(state.part_type_count, 1);
     const apl_part_type type = state.part_types[0];
 
+    handle_part_type_list_input(&state, 'u');
+    cr_assert_eq(state.screen, SHELL_SCREEN_PART_UNIT_LIST);
+    handle_part_unit_list_input(&state, 'y');
+    cr_assert_eq(state.screen, SHELL_SCREEN_PART_TYPE_LIST);
     handle_part_type_list_input(&state, NCKEY_ENTER);
     handle_part_type_detail_input(&state, 'n');
     cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE);

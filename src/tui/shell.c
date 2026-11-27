@@ -389,12 +389,12 @@ static const char *context_key_hint(const shell_state *const state)
             return "e edit | x archive | n add unit | Esc types";
         }
         if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
-            return "n type | Enter open | a archived";
+            return "n type | u units | Enter open | a archived";
         }
         if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
-            return "n unit | Enter open | f filters | a archived | C clear";
+            return "n unit | y types | Enter open | f filters | a archived | C clear";
         }
-        return "n unit | t types | f filters | C clear filters";
+        return "n unit | u units | y types | Enter open | f filters | C clear";
     }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {

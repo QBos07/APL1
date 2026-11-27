@@ -660,6 +660,25 @@ void handle_parts_fitment_input(shell_state *const state, const uint32_t id)
     case NCKEY_ESC:
         set_section(state, APL_TUI_SECTION_OVERVIEW);
         return;
+    case 'y':
+    case 'Y':
+        state->screen = SHELL_SCREEN_PART_TYPE_LIST;
+        if (load_part_types(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Part types for the active team.");
+        }
+        return;
+    case 'u':
+    case 'U':
+        state->screen = SHELL_SCREEN_PART_UNIT_LIST;
+        state->part_unit_type_filter = 0;
+        if (!reload_parts_with_filters(state, &error)) {
+            show_error_dialog(state, &error);
+        } else {
+            set_status(state, "Individual part units for the active team.");
+        }
+        return;
     case 'f':
     case 'F':
         open_parts_filter_dialog(state);
@@ -708,7 +727,10 @@ void handle_part_type_list_input(shell_state *const state, const uint32_t id)
     }
     switch (id) {
     case NCKEY_ESC:
-        set_section(state, APL_TUI_SECTION_OVERVIEW);
+        state->screen = SHELL_SCREEN_PARTS_FITMENT;
+        if (!reload_parts_with_filters(state, &error)) {
+            show_error_dialog(state, &error);
+        }
         return;
     case 'n':
     case 'N':
@@ -716,6 +738,14 @@ void handle_part_type_list_input(shell_state *const state, const uint32_t id)
             set_status_warning(state, "Select an active team before creating a part type.");
         } else {
             open_part_type_dialog(state, false);
+        }
+        return;
+    case 'u':
+    case 'U':
+        state->screen = SHELL_SCREEN_PART_UNIT_LIST;
+        state->part_unit_type_filter = 0;
+        if (!reload_parts_with_filters(state, &error)) {
+            show_error_dialog(state, &error);
         }
         return;
     case 'a':
@@ -838,7 +868,19 @@ void handle_part_unit_list_input(shell_state *const state, const uint32_t id)
     }
     switch (id) {
     case NCKEY_ESC:
-        set_section(state, APL_TUI_SECTION_OVERVIEW);
+        state->screen = SHELL_SCREEN_PARTS_FITMENT;
+        state->part_unit_type_filter = 0;
+        if (!reload_parts_with_filters(state, &error)) {
+            show_error_dialog(state, &error);
+        }
+        return;
+    case 'y':
+    case 'Y':
+        state->screen = SHELL_SCREEN_PART_TYPE_LIST;
+        state->part_unit_type_filter = 0;
+        if (load_part_types(state, 0, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
         return;
     case 'n':
     case 'N':
