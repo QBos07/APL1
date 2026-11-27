@@ -147,6 +147,29 @@ static void restore_replace_form(shell_state *const state, const apl_error *cons
     apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(error));
 }
 
+static void begin_replace_review(shell_state *const state)
+{
+    state->pending = SHELL_PENDING_APPLY_REPLACE;
+    char message[APL_TUI_DIALOG_MESSAGE_MAX];
+    char cost_summary[128];
+    if (state->replace_transaction[0] != '\0') {
+        (void)snprintf(cost_summary, sizeof(cost_summary),
+                       " Expense transaction #%s will be linked.", state->replace_transaction);
+    } else {
+        (void)snprintf(cost_summary, sizeof(cost_summary), " No cost link will be added.");
+    }
+    (void)snprintf(message, sizeof(message),
+                   "Replace old unit %s with new unit %s%s%s on %s%s%s.%s Confirm to save "
+                   "atomically; the old unit's history and the new unit remain inspectable.",
+                   state->replace_old_unit, state->replace_new_unit,
+                   state->replace_car[0] != '\0' ? " at car " : "",
+                   state->replace_car[0] != '\0' ? state->replace_car : "", state->replace_date,
+                   state->replace_position[0] != '\0' ? " position " : "",
+                   state->replace_position[0] != '\0' ? state->replace_position : "", cost_summary);
+    apl_tui_dialog_open_confirm(&state->dialog, "Confirm replacement", message);
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+}
+
 void handle_dialog_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
@@ -386,7 +409,12 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         const shell_dialog_context context = state->dialog_context;
         if (result == APL_TUI_DIALOG_DISMISSED) {
             close_shell_dialog(state);
-            set_status(state, "Part unit cancelled without writing.");
+            if (state->replacement_create_pending) {
+                state->replacement_create_pending = false;
+                set_status(state, "Inline unit creation cancelled; no replacement was recorded.");
+            } else {
+                set_status(state, "Part unit cancelled without writing.");
+            }
             return;
         }
         if (context == SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE) {
@@ -402,6 +430,12 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                 dialog_value(state, 3), dialog_value(state, 4), &error);
             if (saved) {
                 close_shell_dialog(state);
+                if (state->replacement_create_pending) {
+                    (void)snprintf(state->replace_new_unit, sizeof(state->replace_new_unit), "%lld",
+                                   (long long)state->part_unit_detail.id);
+                    state->replacement_create_pending = false;
+                    begin_replace_review(state);
+                }
             } else if (state->dialog_context == context) {
                 apl_tui_dialog_set_field_error(&state->dialog, part_unit_form_error_field(&error),
                                                apl_error_message(&error));
@@ -490,27 +524,16 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             (void)snprintf(state->replace_transaction, sizeof(state->replace_transaction), "%s",
                            dialog_value(state, 9));
             close_shell_dialog(state);
-            state->pending = SHELL_PENDING_APPLY_REPLACE;
-            char message[APL_TUI_DIALOG_MESSAGE_MAX];
-            char cost_summary[128];
-            if (state->replace_transaction[0] != '\0') {
-                (void)snprintf(cost_summary, sizeof(cost_summary),
-                               " Expense transaction #%s will be linked.",
-                               state->replace_transaction);
+            if (apl_tui_text_equal_ci(state->replace_new_unit, "new")) {
+                state->replacement_create_pending = true;
+                state->part_unit_type_filter = state->part_unit_detail.type_id;
+                open_part_unit_dialog(state, false);
+                set_status(
+                    state,
+                    "Create the replacement unit first. It will be reviewed before fitment changes.");
             } else {
-                (void)snprintf(cost_summary, sizeof(cost_summary), " No cost link will be added.");
+                begin_replace_review(state);
             }
-            (void)snprintf(
-                message, sizeof(message),
-                "Replace old unit %s with new unit %s%s%s on %s%s%s.%s Confirm to save "
-                "atomically; the old unit's history and the new unit remain inspectable.",
-                state->replace_old_unit, state->replace_new_unit,
-                state->replace_car[0] != '\0' ? " at car " : "",
-                state->replace_car[0] != '\0' ? state->replace_car : "", state->replace_date,
-                state->replace_position[0] != '\0' ? " position " : "",
-                state->replace_position[0] != '\0' ? state->replace_position : "", cost_summary);
-            apl_tui_dialog_open_confirm(&state->dialog, "Confirm replacement", message);
-            apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }
         return;
     }

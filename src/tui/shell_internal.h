@@ -272,6 +272,7 @@ typedef struct shell_state {
     char replace_usage[APL_LIFECYCLE_USAGE_MAX];
     char replace_notes[APL_REFERENCE_NOTES_MAX];
     char replace_transaction[32];
+    bool replacement_create_pending;
     apl_lifecycle_action pending_lifecycle_action;
     char pending_lifecycle_unit[APL_TUI_DIALOG_FIELD_VALUE_MAX];
     char pending_lifecycle_car[APL_REFERENCE_LABEL_MAX];

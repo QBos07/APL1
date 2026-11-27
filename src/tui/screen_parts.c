@@ -1350,10 +1350,10 @@ void open_replace_dialog_direct(shell_state *const state)
     (void)snprintf(old_text, sizeof(old_text), "%lld", (long long)state->part_unit_detail.id);
     apl_tui_dialog_open_form(
         &state->dialog, "Replace unit",
-        "Enter old (currently-fitted) and new unit IDs, an optional car/position, and a required "
-        "date. You review the result before the atomic save.");
+        "Enter old (currently-fitted) and new unit IDs; enter 'new' to create a unit inline. "
+        "Car/position and date are reviewed before the atomic replacement.");
     (void)apl_tui_dialog_add_field(&state->dialog, "Old unit ID", old_text, true);
-    (void)apl_tui_dialog_add_field(&state->dialog, "New unit ID", new_text, true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "New unit ID or 'new'", new_text, true);
     (void)apl_tui_dialog_add_field(&state->dialog, "Car (optional)", "", false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Position (optional)", "", false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Date (YYYY-MM-DD)", "", true);

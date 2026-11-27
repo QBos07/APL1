@@ -367,3 +367,73 @@ Test(tui_parts, register_forms_create_edit_and_confirm_archive_without_seed_data
     apl_lifecycle_service_free_fitment(state.fitment_rows);
     close_parts_test_app(&app, dir, &error);
 }
+
+Test(tui_parts, replacement_can_create_new_unit_inline_before_review)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error error;
+    apl_error_init(&error);
+    apl_app app = {};
+    open_parts_test_app(&app, dir, sizeof(dir), path, sizeof(path), &error);
+
+    apl_team team = {};
+    cr_assert_eq(apl_team_service_create(&app, "Inline Replacement Team", "", &team, &error),
+                 APL_OK);
+    apl_car car = {};
+    cr_assert_eq(apl_car_service_create(&app, team.id, "SF-26", "", "", &car, &error), APL_OK);
+    apl_part_type type = {};
+    cr_assert_eq(apl_part_type_service_create(&app, team.id, "Aero", "Wing", "", "", &type, &error),
+                 APL_OK);
+    apl_part_unit old_unit = {};
+    cr_assert_eq(
+        apl_part_unit_service_create(&app, team.id, type.id, "OLD", "", "", "", &old_unit, &error),
+        APL_OK);
+    apl_lifecycle_event event = {};
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, old_unit.id, car.id, "front",
+                                               "2026-01-01", "", "", "", "", &event, &error),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_PARTS;
+    state.screen = SHELL_SCREEN_PART_UNIT_DETAIL;
+    apl_tui_list_init(&state.list, 8);
+    open_part_unit_detail(&state, old_unit);
+    open_replace_dialog_direct(&state);
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "new");
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "SF-26");
+    apl_tui_dialog_set_field_value(&state.dialog, 3, "front");
+    apl_tui_dialog_set_field_value(&state.dialog, 4, "2026-02-01");
+
+    ncinput input = {.id = NCKEY_ENTER};
+    handle_dialog_input(&state, &input);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE);
+    char type_id[32];
+    (void)snprintf(type_id, sizeof(type_id), "%lld", (long long)type.id);
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 0)->value, type_id);
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "NEW-INLINE");
+    handle_dialog_input(&state, &input);
+    cr_assert_eq(state.dialog.kind, APL_TUI_DIALOG_CONFIRM);
+    cr_assert_eq(state.pending, SHELL_PENDING_APPLY_REPLACE);
+    cr_assert_neq(strcmp(state.replace_new_unit, "new"), 0);
+    state.dialog.focus = 1;
+    handle_dialog_input(&state, &input);
+
+    apl_fitment_row *fitment = nullptr;
+    size_t fitment_count = 0;
+    cr_assert_eq(
+        apl_lifecycle_service_current_fitment(&app, team.id, &fitment, &fitment_count, &error),
+        APL_OK);
+    cr_assert_eq(fitment_count, 1);
+    cr_assert_eq(fitment[0].unit_id, state.part_unit_detail.id);
+    cr_assert_neq(fitment[0].unit_id, old_unit.id);
+    apl_lifecycle_service_free_fitment(fitment);
+
+    apl_part_unit_service_free_list(state.part_units);
+    apl_lifecycle_service_free_fitment(state.fitment_rows);
+    apl_lifecycle_service_free_history(state.unit_events);
+    close_parts_test_app(&app, dir, &error);
+}
