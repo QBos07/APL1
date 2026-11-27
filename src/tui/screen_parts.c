@@ -372,8 +372,15 @@ void draw_parts_fitment(shell_state *const state)
     apl_tui_frame_draw_line(body, 2, filters);
 
     if (state->fitment_count == 0) {
-        apl_tui_frame_draw_line(body, 4,
-                                "No lifecycle fitment history; positions are unknown, not empty.");
+        const bool filters_set =
+            state->parts_action_filter[0] != '\0' || state->parts_car_filter > 0 ||
+            state->parts_position_filter[0] != '\0' || state->parts_from_date[0] != '\0' ||
+            state->parts_to_date[0] != '\0' || state->parts_search[0] != '\0' ||
+            state->parts_type_filter[0] != '\0';
+        apl_tui_frame_draw_line(
+            body, 4,
+            filters_set ? "No recorded fitment slots match these filters."
+                        : "No lifecycle fitment history; positions are unknown, not empty.");
         return;
     }
     const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);

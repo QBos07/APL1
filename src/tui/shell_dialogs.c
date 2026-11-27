@@ -434,6 +434,7 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                     (void)snprintf(state->replace_new_unit, sizeof(state->replace_new_unit), "%lld",
                                    (long long)state->part_unit_detail.id);
                     state->replacement_create_pending = false;
+                    state->replacement_unit_created_inline = true;
                     begin_replace_review(state);
                 }
             } else if (state->dialog_context == context) {
@@ -497,7 +498,15 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REPLACE) {
         if (result == APL_TUI_DIALOG_DISMISSED) {
             close_shell_dialog(state);
-            set_status(state, "Replacement cancelled; no change was saved.");
+            if (state->replacement_unit_created_inline) {
+                set_status(
+                    state,
+                    "Replacement cancelled; the new unit remains registered, but fitment and "
+                    "cost were unchanged.");
+                state->replacement_unit_created_inline = false;
+            } else {
+                set_status(state, "Replacement cancelled; no change was saved.");
+            }
             return;
         }
         if (result == APL_TUI_DIALOG_ACCEPTED) {
@@ -827,9 +836,19 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                                  state->replace_event, state->replace_reason, state->replace_usage,
                                  state->replace_notes, state->replace_transaction, &error)) {
                 restore_replace_form(state, &error);
+            } else {
+                state->replacement_unit_created_inline = false;
             }
         } else {
-            set_status(state, "Replacement cancelled; no change was saved.");
+            if (state->replacement_unit_created_inline) {
+                set_status(
+                    state,
+                    "Replacement cancelled; the new unit remains registered, but fitment and "
+                    "cost were unchanged.");
+                state->replacement_unit_created_inline = false;
+            } else {
+                set_status(state, "Replacement cancelled; no change was saved.");
+            }
         }
     } else if (result == APL_TUI_DIALOG_DISMISSED) {
         set_status(state, "Cancelled.");
