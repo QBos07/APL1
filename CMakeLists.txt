@@ -145,6 +145,7 @@ if(BUILD_TESTING)
         tests/tui/test_tui_command.c
         tests/tui/test_tui_command_line.c
         tests/tui/test_tui_development.c
+        tests/tui/test_tui_events.c
         tests/tui/test_tui_dialog.c
         tests/tui/test_tui_focus.c
         tests/tui/test_tui_frame.c
@@ -280,6 +281,7 @@ add_library(apl_tui STATIC
     src/tui/screen_history.c
     src/tui/screen_money.c
     src/tui/screen_development.c
+    src/tui/screen_events.c
     src/tui/screen_parts.c
 )
 

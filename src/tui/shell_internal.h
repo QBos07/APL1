@@ -15,6 +15,7 @@
 #include "app/budget_service.h"
 #include "app/car_service.h"
 #include "app/driver_service.h"
+#include "app/event_detail.h"
 #include "app/ledger_service.h"
 #include "app/lifecycle_service.h"
 #include "app/membership_service.h"
@@ -24,6 +25,7 @@
 #include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
+#include "db/outcome_correction_repository.h"
 #include "core/util.h"
 #include "domain/ledger.h"
 #include "domain/money.h"
@@ -63,6 +65,10 @@ typedef enum shell_screen {
     SHELL_SCREEN_PART_TYPE_DETAIL,
     SHELL_SCREEN_PART_UNIT_LIST,
     SHELL_SCREEN_PART_UNIT_DETAIL,
+    SHELL_SCREEN_EVENT_LIST,
+    SHELL_SCREEN_EVENT_DETAIL,
+    SHELL_SCREEN_SESSION_DETAIL,
+    SHELL_SCREEN_OUTCOME_HISTORY,
     SHELL_SCREEN_PLACEHOLDER,
 } shell_screen;
 
@@ -142,6 +148,15 @@ typedef struct shell_state {
     size_t membership_count;
     apl_activity_event *events;
     size_t event_count;
+    apl_event *race_events;
+    size_t race_event_count;
+    apl_event_detail race_event_detail;
+    apl_session_detail race_session_detail;
+    apl_outcome_correction *outcome_corrections;
+    size_t outcome_correction_count;
+    size_t event_return_index, session_return_index, outcome_return_index;
+    size_t outcome_history_offset;
+    bool outcome_history_after;
     apl_ledger_entry *entries;
     size_t entry_count;
     apl_ledger_entry entry_detail;
@@ -319,6 +334,9 @@ void show_error_dialog(shell_state *state, const apl_error *error);
 void show_info_dialog(shell_state *state, const char *title, const char *message);
 void close_shell_dialog(shell_state *state);
 bool handle_body_list_navigation(shell_state *state, uint32_t id);
+apl_status load_race_events(shell_state *state, apl_error *error);
+void draw_events_screen(shell_state *state);
+void handle_events_input(shell_state *state, uint32_t id);
 void append_filter_button(char *out, size_t out_size, unsigned *cursor, unsigned starts[4],
                           unsigned ends[4], unsigned index, const char *label);
 bool is_enter_key(uint32_t id);

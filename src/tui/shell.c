@@ -68,6 +68,12 @@ void set_section(shell_state *const state, const apl_tui_section section)
             show_error_dialog(state, &error);
         }
         break;
+    case APL_TUI_SECTION_EVENTS:
+        state->screen = SHELL_SCREEN_EVENT_LIST;
+        if (load_race_events(state, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+        }
+        break;
     case APL_TUI_SECTION_HISTORY:
         state->screen = SHELL_SCREEN_HISTORY_LIST;
         if (load_history(state, &error) != APL_OK) {
@@ -373,6 +379,11 @@ static const char *context_key_hint(const shell_state *const state)
     if (state->section == APL_TUI_SECTION_HISTORY) {
         return "a scope | f entity | g action | d dates | c clear | Enter detail";
     }
+    if (state->section == APL_TUI_SECTION_EVENTS) {
+        return state->screen == SHELL_SCREEN_OUTCOME_HISTORY
+                   ? "Up/Down correction | v before/after | h/l scroll text | Esc"
+                   : "Up/Down select | Enter open | Esc back";
+    }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
             return "u update | e edit | x archive | c cost | b budgets | Enter linked cost | "
@@ -439,6 +450,10 @@ static const char *context_key_hint(const shell_state *const state)
     case SHELL_SCREEN_PART_TYPE_DETAIL:
     case SHELL_SCREEN_PART_UNIT_LIST:
     case SHELL_SCREEN_PART_UNIT_DETAIL:
+    case SHELL_SCREEN_EVENT_LIST:
+    case SHELL_SCREEN_EVENT_DETAIL:
+    case SHELL_SCREEN_SESSION_DETAIL:
+    case SHELL_SCREEN_OUTCOME_HISTORY:
         break;
     }
     return ", . views | : commands | m menu | q quit";
@@ -667,6 +682,8 @@ static void draw_screen(shell_state *const state)
         } else {
             draw_people_list(state);
         }
+    } else if (state->section == APL_TUI_SECTION_EVENTS) {
+        draw_events_screen(state);
     } else if (state->section == APL_TUI_SECTION_HISTORY) {
         draw_history_list(state);
     } else if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
@@ -740,6 +757,10 @@ static void draw_screen(shell_state *const state)
         case SHELL_SCREEN_PART_TYPE_DETAIL:
         case SHELL_SCREEN_PART_UNIT_LIST:
         case SHELL_SCREEN_PART_UNIT_DETAIL:
+        case SHELL_SCREEN_EVENT_LIST:
+        case SHELL_SCREEN_EVENT_DETAIL:
+        case SHELL_SCREEN_SESSION_DETAIL:
+        case SHELL_SCREEN_OUTCOME_HISTORY:
             draw_placeholder(state);
             break;
         }
@@ -2419,6 +2440,10 @@ static void handle_input(shell_state *const state, const ncinput *const input)
         handle_history_input(state, id);
         return;
     }
+    if (state->section == APL_TUI_SECTION_EVENTS) {
+        handle_events_input(state, id);
+        return;
+    }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {
             handle_project_detail_input(state, id);
@@ -2504,6 +2529,10 @@ static void handle_input(shell_state *const state, const ncinput *const input)
     case SHELL_SCREEN_PART_TYPE_DETAIL:
     case SHELL_SCREEN_PART_UNIT_LIST:
     case SHELL_SCREEN_PART_UNIT_DETAIL:
+    case SHELL_SCREEN_EVENT_LIST:
+    case SHELL_SCREEN_EVENT_DETAIL:
+    case SHELL_SCREEN_SESSION_DETAIL:
+    case SHELL_SCREEN_OUTCOME_HISTORY:
         if (id == 'q' || id == 'Q') {
             state->quit = true;
         }

@@ -147,6 +147,22 @@ void perform_set_active(shell_state *const state, const int64_t team_id, apl_err
             return;
         }
     }
+    if (state->section == APL_TUI_SECTION_EVENTS) {
+        state->screen = SHELL_SCREEN_EVENT_LIST;
+        apl_event_repository_free_list(state->race_events);
+        state->race_events = nullptr;
+        state->race_event_count = 0;
+        apl_event_detail_free(&state->race_event_detail);
+        apl_session_detail_free(&state->race_session_detail);
+        apl_outcome_correction_free_list(state->outcome_corrections);
+        state->outcome_corrections = nullptr;
+        state->outcome_correction_count = 0;
+        apl_tui_list_set_count(&state->list, 0);
+        if (load_race_events(state, error) != APL_OK) {
+            show_error_dialog(state, error);
+            return;
+        }
+    }
     sync_status_context(state);
     set_status_success(state, "Active team: %s", state->active_team.name);
 }

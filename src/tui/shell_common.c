@@ -248,6 +248,14 @@ int64_t active_team_id(const shell_state *const state)
 
 void free_reference_lists(shell_state *const state)
 {
+    apl_event_repository_free_list(state->race_events);
+    state->race_events = nullptr;
+    state->race_event_count = 0;
+    apl_event_detail_free(&state->race_event_detail);
+    apl_session_detail_free(&state->race_session_detail);
+    apl_outcome_correction_free_list(state->outcome_corrections);
+    state->outcome_corrections = nullptr;
+    state->outcome_correction_count = 0;
     apl_season_service_free_list(state->seasons);
     state->seasons = nullptr;
     state->season_count = 0;
