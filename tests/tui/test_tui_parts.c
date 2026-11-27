@@ -425,6 +425,21 @@ Test(tui_parts, register_forms_create_edit_and_confirm_archive_without_seed_data
     cr_assert_eq(apl_part_type_service_get(&app, team.id, type.id, &fetched_type, &error), APL_OK);
     cr_assert(fetched_type.meta.archived);
 
+    open_part_unit_dialog(&state, false);
+    handle_dialog_input(&state, &input);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE);
+    cr_assert(apl_tui_dialog_field_at(&state.dialog, 0)->invalid);
+    apl_part_unit_filter unit_filter = {.team_id = team.id, .include_archived = true};
+    apl_part_unit *listed_units = nullptr;
+    size_t listed_count = 0;
+    cr_assert_eq(
+        apl_part_unit_service_list(&app, &unit_filter, &listed_units, &listed_count, &error),
+        APL_OK);
+    cr_assert_eq(listed_count, 1);
+    apl_part_unit_service_free_list(listed_units);
+    input.id = NCKEY_ESC;
+    handle_dialog_input(&state, &input);
+
     apl_part_type_service_free_list(state.part_types);
     apl_part_unit_service_free_list(state.part_units);
     apl_lifecycle_service_free_history(state.unit_events);

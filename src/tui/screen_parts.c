@@ -1276,6 +1276,11 @@ apl_status part_resolve_type_id_for_dialog(shell_state *const state, const char 
         apl_error_set_field(error, APL_FIELD_CATEGORY);
         return status;
     }
+    if (type.meta.archived) {
+        apl_error_set(error, APL_ERR_CONFLICT, "archived part types are not offered for new units");
+        apl_error_set_field(error, APL_FIELD_CATEGORY);
+        return APL_ERR_CONFLICT;
+    }
     *out = value;
     return APL_OK;
 }
