@@ -459,6 +459,28 @@ static const apl_db_migration apl_migrations[] = {
          "SELECT 1 FROM ledger_entries WHERE ledger_entries.id = NEW.transaction_id "
          "AND ledger_entries.team_id = NEW.team_id) "
          "BEGIN SELECT RAISE(ABORT, 'lifecycle transaction must belong to the same team'); END;\n"},
+    /* Version 20: events are explicitly entered, never generated. */
+    {20, "CREATE TABLE events ("
+         "id INTEGER PRIMARY KEY,"
+         "team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE RESTRICT,"
+         "season_id INTEGER REFERENCES seasons(id) ON DELETE RESTRICT,"
+         "name TEXT NOT NULL CHECK(length(trim(name)) > 0),"
+         "event_date TEXT NOT NULL CHECK(event_date GLOB "
+         "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),"
+         "location TEXT NOT NULL DEFAULT '',"
+         "notes TEXT NOT NULL DEFAULT '',"
+         "created_at TEXT NOT NULL,"
+         "updated_at TEXT NOT NULL"
+         ");"
+         "CREATE INDEX idx_events_team_date ON events(team_id, event_date, id);"
+         "CREATE TRIGGER events_season_team_insert BEFORE INSERT ON events "
+         "WHEN NEW.season_id IS NOT NULL AND NOT EXISTS "
+         "(SELECT 1 FROM seasons WHERE id=NEW.season_id AND team_id=NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'event season must belong to the same team'); END;"
+         "CREATE TRIGGER events_season_team_update BEFORE UPDATE OF season_id, team_id ON events "
+         "WHEN NEW.season_id IS NOT NULL AND NOT EXISTS "
+         "(SELECT 1 FROM seasons WHERE id=NEW.season_id AND team_id=NEW.team_id) "
+         "BEGIN SELECT RAISE(ABORT, 'event season must belong to the same team'); END;"},
 };
 
 const apl_db_migration *apl_db_migrations_list(size_t *const out_count)
