@@ -622,10 +622,15 @@ void draw_part_unit_detail(shell_state *const state)
                     }
                     char amount[64] = "unavailable";
                     if (net_valid) {
-                        (void)apl_money_format(&net, amount, sizeof(amount));
+                        if (net.minor_units == INT64_MIN) {
+                            net_valid = false;
+                        } else {
+                            net.minor_units = -net.minor_units;
+                            (void)apl_money_format(&net, amount, sizeof(amount));
+                        }
                     }
                     (void)snprintf(line, sizeof(line),
-                                   "      Expense #%lld: %s  %s  %s  net %s (c to open)",
+                                   "      Expense #%lld: %s  %s  %s  net cost %s (c to open)",
                                    (long long)linked->id, linked->entry_date, linked->category,
                                    linked->description, amount);
                 } else {

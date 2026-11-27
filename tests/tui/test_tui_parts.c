@@ -234,6 +234,72 @@ Test(tui_parts, lifecycle_form_requires_review_and_cancel_writes_nothing)
     close_parts_test_app(&app, dir, &error);
 }
 
+Test(tui_parts, rejected_lifecycle_review_restores_entered_values)
+{
+    char dir[APL_TEST_DIR_MAX];
+    char path[APL_TEST_PATH_MAX];
+    apl_error error;
+    apl_error_init(&error);
+    apl_app app = {};
+    open_parts_test_app(&app, dir, sizeof(dir), path, sizeof(path), &error);
+
+    apl_team team = {};
+    cr_assert_eq(apl_team_service_create(&app, "Invalid Transition Team", "", &team, &error),
+                 APL_OK);
+    apl_car car = {};
+    cr_assert_eq(apl_car_service_create(&app, team.id, "SF-26", "", "", &car, &error), APL_OK);
+    apl_part_type type = {};
+    cr_assert_eq(apl_part_type_service_create(&app, team.id, "Aero", "Wing", "", "", &type, &error),
+                 APL_OK);
+    apl_part_unit unit = {};
+    cr_assert_eq(
+        apl_part_unit_service_create(&app, team.id, type.id, "FW-1", "", "", "", &unit, &error),
+        APL_OK);
+    apl_lifecycle_event event = {};
+    cr_assert_eq(apl_lifecycle_service_install(&app, team.id, unit.id, car.id, "front",
+                                               "2026-01-01", "", "", "", "", &event, &error),
+                 APL_OK);
+
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_PARTS;
+    state.screen = SHELL_SCREEN_PART_UNIT_DETAIL;
+    apl_tui_list_init(&state.list, 8);
+    open_part_unit_detail(&state, unit);
+    open_lifecycle_dialog(&state, APL_LIFECYCLE_INSTALL);
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "SF-26");
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "front");
+    apl_tui_dialog_set_field_value(&state.dialog, 3, "2026-02-01");
+    ncinput input = {.id = NCKEY_ENTER};
+    handle_dialog_input(&state, &input);
+    state.dialog.focus = 1;
+    handle_dialog_input(&state, &input);
+
+    cr_assert_eq(state.dialog.kind, APL_TUI_DIALOG_FORM);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_PART_INSTALL);
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 1)->value, "SF-26");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 2)->value, "front");
+    cr_assert_str_eq(apl_tui_dialog_field_at(&state.dialog, 3)->value, "2026-02-01");
+    cr_assert(apl_tui_dialog_field_at(&state.dialog, state.dialog.focus)->invalid);
+
+    apl_lifecycle_history_entry *history = nullptr;
+    size_t history_count = 0;
+    cr_assert_eq(
+        apl_lifecycle_service_list_unit(&app, team.id, unit.id, &history, &history_count, &error),
+        APL_OK);
+    cr_assert_eq(history_count, 1);
+    apl_lifecycle_service_free_history(history);
+    input.id = NCKEY_ESC;
+    handle_dialog_input(&state, &input);
+
+    apl_part_unit_service_free_list(state.part_units);
+    apl_lifecycle_service_free_fitment(state.fitment_rows);
+    apl_lifecycle_service_free_history(state.unit_events);
+    close_parts_test_app(&app, dir, &error);
+}
+
 Test(tui_parts, replacement_review_links_an_existing_expense)
 {
     char dir[APL_TEST_DIR_MAX];
