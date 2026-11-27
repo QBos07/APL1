@@ -147,6 +147,7 @@ if(BUILD_TESTING)
         tests/tui/test_tui_list.c
         tests/tui/test_tui_menu.c
         tests/tui/test_tui_navigation.c
+        tests/tui/test_tui_parts.c
         tests/tui/test_tui_record_route.c
         tests/tui/test_tui_shell.c
         tests/tui/test_tui_shell_controller.c

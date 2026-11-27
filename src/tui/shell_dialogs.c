@@ -6,6 +6,24 @@ static const char *dialog_value(const shell_state *const state, const unsigned i
     return field != nullptr ? field->value : "";
 }
 
+static unsigned parts_filter_error_field(const apl_error *const error)
+{
+    switch (apl_error_field_id(error)) {
+    case APL_FIELD_LIFECYCLE_ACTION:
+        return 0;
+    case APL_FIELD_CAR:
+        return 1;
+    case APL_FIELD_POSITION:
+        return 2;
+    case APL_FIELD_DATE:
+        return 3;
+    case APL_FIELD_CATEGORY:
+        return 6;
+    default:
+        return 5;
+    }
+}
+
 void handle_dialog_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
@@ -256,10 +274,9 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                 apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
                 return;
             }
-            const bool saved =
-                perform_part_unit_create(state, dialog_value(state, 0), dialog_value(state, 1),
-                                         dialog_value(state, 2), dialog_value(state, 3),
-                                         dialog_value(state, 4), &error);
+            const bool saved = perform_part_unit_create(
+                state, dialog_value(state, 0), dialog_value(state, 1), dialog_value(state, 2),
+                dialog_value(state, 3), dialog_value(state, 4), &error);
             if (saved) {
                 close_shell_dialog(state);
             } else if (state->dialog_context == context) {
@@ -267,10 +284,9 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                                                apl_error_message(&error));
             }
         } else {
-            const bool saved =
-                perform_part_unit_update(state, state->dialog_part_type_id, dialog_value(state, 1),
-                                         dialog_value(state, 2), dialog_value(state, 3),
-                                         dialog_value(state, 4), &error);
+            const bool saved = perform_part_unit_update(
+                state, state->dialog_part_type_id, dialog_value(state, 1), dialog_value(state, 2),
+                dialog_value(state, 3), dialog_value(state, 4), &error);
             if (saved) {
                 close_shell_dialog(state);
             } else if (state->dialog_context == context) {
@@ -287,9 +303,12 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             set_status(state, "Parts filters unchanged.");
             return;
         }
-        if (!apply_parts_filter(state, dialog_value(state, 0), "", dialog_value(state, 1),
-                                dialog_value(state, 2), dialog_value(state, 3), &error)) {
-            apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));
+        if (!apply_parts_filter(state, dialog_value(state, 0), dialog_value(state, 1),
+                                dialog_value(state, 2), dialog_value(state, 3),
+                                dialog_value(state, 4), dialog_value(state, 5),
+                                dialog_value(state, 6), &error)) {
+            apl_tui_dialog_set_field_error(&state->dialog, parts_filter_error_field(&error),
+                                           apl_error_message(&error));
             return;
         }
         close_shell_dialog(state);
@@ -313,11 +332,10 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             set_status(state, "Lifecycle action cancelled; nothing was written.");
             return;
         }
-        if (!perform_lifecycle_action(state, action, dialog_value(state, 0),
-                                      dialog_value(state, 1), dialog_value(state, 2),
-                                      dialog_value(state, 3), dialog_value(state, 4),
-                                      dialog_value(state, 5), dialog_value(state, 6),
-                                      dialog_value(state, 7), &error)) {
+        if (!perform_lifecycle_action(state, action, dialog_value(state, 0), dialog_value(state, 1),
+                                      dialog_value(state, 2), dialog_value(state, 3),
+                                      dialog_value(state, 4), dialog_value(state, 5),
+                                      dialog_value(state, 6), dialog_value(state, 7), &error)) {
             apl_tui_dialog_set_field_error(&state->dialog, lifecycle_form_error_field(&error),
                                            apl_error_message(&error));
             return;
@@ -356,15 +374,15 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             close_shell_dialog(state);
             state->pending = SHELL_PENDING_APPLY_REPLACE;
             char message[APL_TUI_DIALOG_MESSAGE_MAX];
-            (void)snprintf(message, sizeof(message),
-                           "Replace old unit %s with new unit %s%s%s on %s%s%s. Confirm to save "
-                           "atomically; the old unit's history and the new unit remain inspectable.",
-                           state->replace_old_unit, state->replace_new_unit,
-                           state->replace_car[0] != '\0' ? " at car " : "",
-                           state->replace_car[0] != '\0' ? state->replace_car : "",
-                           state->replace_date,
-                           state->replace_position[0] != '\0' ? " position " : "",
-                           state->replace_position[0] != '\0' ? state->replace_position : "");
+            (void)snprintf(
+                message, sizeof(message),
+                "Replace old unit %s with new unit %s%s%s on %s%s%s. Confirm to save "
+                "atomically; the old unit's history and the new unit remain inspectable.",
+                state->replace_old_unit, state->replace_new_unit,
+                state->replace_car[0] != '\0' ? " at car " : "",
+                state->replace_car[0] != '\0' ? state->replace_car : "", state->replace_date,
+                state->replace_position[0] != '\0' ? " position " : "",
+                state->replace_position[0] != '\0' ? state->replace_position : "");
             apl_tui_dialog_open_confirm(&state->dialog, "Confirm replacement", message);
             apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }

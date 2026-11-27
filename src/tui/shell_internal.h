@@ -251,9 +251,11 @@ typedef struct shell_state {
     int64_t part_unit_type_filter;
     char parts_action_filter[APL_LIFECYCLE_EVENT_MAX];
     int64_t parts_car_filter;
+    char parts_position_filter[APL_LIFECYCLE_POSITION_MAX];
     char parts_from_date[APL_REFERENCE_DATE_MAX];
     char parts_to_date[APL_REFERENCE_DATE_MAX];
     char parts_search[APL_PART_UNIT_SERIAL_MAX];
+    char parts_type_filter[APL_PART_TYPE_CATEGORY_MAX];
     char replace_old_unit[APL_TUI_DIALOG_FIELD_VALUE_MAX];
     char replace_new_unit[APL_TUI_DIALOG_FIELD_VALUE_MAX];
     char replace_car[APL_REFERENCE_LABEL_MAX];
@@ -523,8 +525,8 @@ bool perform_replace(shell_state *state, const char *old_unit, const char *new_u
                      const char *event_label, const char *reason, const char *usage,
                      const char *notes, apl_error *error);
 bool apply_parts_filter(shell_state *state, const char *action, const char *car,
-                        const char *from_date, const char *to_date, const char *search,
-                        apl_error *error);
+                        const char *position, const char *from_date, const char *to_date,
+                        const char *search, const char *type, apl_error *error);
 unsigned part_type_form_error_field(const apl_error *error);
 unsigned part_unit_form_error_field(const apl_error *error);
 unsigned lifecycle_form_error_field(const apl_error *error);

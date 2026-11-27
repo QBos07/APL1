@@ -389,12 +389,12 @@ static const char *context_key_hint(const shell_state *const state)
             return "e edit | x archive | n add unit | Esc types";
         }
         if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
-            return "n type | Enter open | f filters | a archived";
+            return "n type | Enter open | a archived";
         }
         if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
-            return "n unit | Enter open | a archived";
+            return "n unit | Enter open | f filters | a archived | C clear";
         }
-        return "n unit | t types | f filters | a archived";
+        return "n unit | t types | f filters | C clear filters";
     }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
@@ -1751,6 +1751,8 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
             count = state->part_type_count;
         } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
             count = state->part_unit_count;
+        } else if (state->screen == SHELL_SCREEN_PARTS_FITMENT) {
+            count = state->fitment_count;
         } else {
             return;
         }
@@ -1784,6 +1786,44 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
             return;
         }
         row_offset = 3;
+    }
+    if (state->section == APL_TUI_SECTION_PARTS) {
+        const bool fitment = state->screen == SHELL_SCREEN_PARTS_FITMENT;
+        const unsigned filter_row = fitment ? 2 : 1;
+        if ((state->screen == SHELL_SCREEN_PART_UNIT_LIST || fitment) && row == filter_row) {
+            unsigned starts[6] = {};
+            unsigned ends[6] = {};
+            char filters[512];
+            build_parts_filter_bar(state, filters, sizeof(filters), starts, ends);
+            const unsigned column = (unsigned)(input->x - (int)layout->body.x);
+            for (unsigned button = 0; button < 6; ++button) {
+                if (column >= starts[button] && column < ends[button] + 2) {
+                    if (fitment) {
+                        handle_parts_fitment_input(state, 'f');
+                    } else {
+                        handle_part_unit_list_input(state, 'f');
+                    }
+                    return;
+                }
+            }
+            return;
+        }
+        if (fitment) {
+            if (row < 5) {
+                return;
+            }
+            row_offset = 5;
+        } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
+            if (row < 3) {
+                return;
+            }
+            row_offset = 3;
+        } else if (state->screen == SHELL_SCREEN_PART_TYPE_LIST) {
+            if (row < 2) {
+                return;
+            }
+            row_offset = 2;
+        }
     }
     if (state->section == APL_TUI_SECTION_MONEY) {
         if (state->screen == SHELL_SCREEN_MONEY_DETAIL) {
@@ -1869,6 +1909,8 @@ static void handle_list_mouse(shell_state *const state, const ncinput *const inp
             record_id = state->part_types[index].id;
         } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
             record_id = state->part_units[index].id;
+        } else if (state->screen == SHELL_SCREEN_PARTS_FITMENT) {
+            record_id = state->fitment_rows[index].unit_id;
         } else {
             record_id = 0;
         }
@@ -2129,6 +2171,18 @@ static void open_current_list_record(shell_state *const state)
             }
         } else if (state->screen == SHELL_SCREEN_PART_UNIT_LIST) {
             open_selected_part_unit(state);
+        } else if (state->screen == SHELL_SCREEN_PARTS_FITMENT &&
+                   state->list.selected < state->fitment_count) {
+            const int64_t unit_id = state->fitment_rows[state->list.selected].unit_id;
+            apl_part_unit unit = {};
+            apl_error error;
+            apl_error_init(&error);
+            if (apl_part_unit_service_get(state->app, active_team_id(state), unit_id, &unit,
+                                          &error) == APL_OK) {
+                open_part_unit_detail(state, unit);
+            } else {
+                show_error_dialog(state, &error);
+            }
         }
     } else if (state->screen == SHELL_SCREEN_SEASON_LIST) {
         open_selected_season(state);

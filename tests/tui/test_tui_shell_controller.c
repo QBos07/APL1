@@ -166,8 +166,8 @@ Test(shell_controller, parts_filter_bar_and_form_error_fields_are_stable)
     unsigned starts[6] = {};
     unsigned ends[6] = {};
     build_parts_filter_bar(&state, out, sizeof(out), starts, ends);
-    cr_assert_str_eq(out,
-                     "Action:replace  From:2026-01-01  To:any  Search:any  Archived:yes  Clear  ");
+    cr_assert_str_eq(out, "Action:replace  Car:any  Position:any  Dates:2026-01-01..any  "
+                          "Search:any  Type:any  ");
     for (unsigned index = 0; index + 1 < 6; ++index) {
         cr_assert_lt(ends[index], starts[index + 1]);
     }
