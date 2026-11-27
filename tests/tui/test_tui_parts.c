@@ -101,6 +101,13 @@ Test(tui_parts, filters_compose_against_lifecycle_and_user_entered_part_details)
     cr_assert_eq(state.part_unit_count, 1);
     cr_assert_eq(state.part_units[0].id, wheel_unit.id);
 
+    cr_assert(apply_parts_filter(&state, "install", "SF-26", "front", "2026-01-01", "2026-01-31",
+                                 "", "aero", &error));
+    state.screen = SHELL_SCREEN_PARTS_FITMENT;
+    cr_assert(reload_parts_with_filters(&state, &error));
+    cr_assert_eq(state.fitment_count, 1);
+    cr_assert_eq(state.fitment_rows[0].unit_id, front_wing.id);
+
     apl_part_unit_service_free_list(state.part_units);
     apl_lifecycle_service_free_fitment(state.fitment_rows);
     close_parts_test_app(&app, dir, &error);

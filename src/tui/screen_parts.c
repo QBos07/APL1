@@ -80,7 +80,7 @@ static void car_label(const shell_state *const state, const int64_t car_id, char
     }
 }
 
-static bool reapply_parts_filters(shell_state *const state, apl_error *const error)
+bool reload_parts_with_filters(shell_state *const state, apl_error *const error)
 {
     char car[APL_REFERENCE_LABEL_MAX];
     car_label(state, state->parts_car_filter, car, sizeof(car));
@@ -821,7 +821,7 @@ void handle_part_unit_list_input(shell_state *const state, const uint32_t id)
     case 'a':
     case 'A': {
         state->include_archived_part_units = !state->include_archived_part_units;
-        if (reapply_parts_filters(state, &error)) {
+        if (reload_parts_with_filters(state, &error)) {
             set_status(state, state->include_archived_part_units ? "Including archived part units."
                                                                  : "Hiding archived part units.");
         }
@@ -852,7 +852,7 @@ void handle_part_unit_detail_input(shell_state *const state, const uint32_t id)
     switch (id) {
     case NCKEY_ESC:
         state->screen = SHELL_SCREEN_PART_UNIT_LIST;
-        if (!reapply_parts_filters(state, &error)) {
+        if (!reload_parts_with_filters(state, &error)) {
             show_error_dialog(state, &error);
         }
         return;

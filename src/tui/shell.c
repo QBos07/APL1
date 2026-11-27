@@ -88,7 +88,7 @@ void set_section(shell_state *const state, const apl_tui_section section)
         break;
     case APL_TUI_SECTION_PARTS:
         state->screen = SHELL_SCREEN_PARTS_FITMENT;
-        if (load_parts_fitment(state, &error) != APL_OK) {
+        if (!reload_parts_with_filters(state, &error)) {
             show_error_dialog(state, &error);
         }
         break;

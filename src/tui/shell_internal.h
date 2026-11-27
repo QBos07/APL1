@@ -498,6 +498,7 @@ apl_status project_resolve_title(shell_state *state, const char *text, int64_t *
 
 /* --- Parts (Phase 6) --- */
 apl_status load_parts_fitment(shell_state *state, apl_error *error);
+bool reload_parts_with_filters(shell_state *state, apl_error *error);
 apl_status load_part_units(shell_state *state, int64_t preferred_id, apl_error *error);
 apl_status load_part_types(shell_state *state, int64_t preferred_id, apl_error *error);
 apl_status load_part_unit_detail(shell_state *state, int64_t unit_id, apl_error *error);
