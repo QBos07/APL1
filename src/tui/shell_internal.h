@@ -17,6 +17,7 @@
 #include "app/driver_service.h"
 #include "app/event_detail.h"
 #include "app/event_service.h"
+#include "app/outcome_service.h"
 #include "app/ledger_service.h"
 #include "app/lifecycle_service.h"
 #include "app/membership_service.h"
@@ -129,6 +130,7 @@ typedef enum shell_dialog_context {
     SHELL_DIALOG_CONTEXT_EVENT_EDIT,
     SHELL_DIALOG_CONTEXT_SESSION_CREATE,
     SHELL_DIALOG_CONTEXT_SESSION_EDIT,
+    SHELL_DIALOG_CONTEXT_OUTCOME_FORM,
 } shell_dialog_context;
 
 static constexpr int APL_TUI_SCROLL_STEP = 3;
@@ -345,6 +347,8 @@ void handle_events_input(shell_state *state, uint32_t id);
 void open_event_form(shell_state *state, bool edit);
 void open_session_form(shell_state *state, bool edit);
 bool save_event_form(shell_state *state, apl_error *error);
+void open_outcome_form(shell_state *state);
+bool save_outcome_form(shell_state *state, apl_error *error);
 void append_filter_button(char *out, size_t out_size, unsigned *cursor, unsigned starts[4],
                           unsigned ends[4], unsigned index, const char *label);
 bool is_enter_key(uint32_t id);

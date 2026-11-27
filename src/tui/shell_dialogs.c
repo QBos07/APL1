@@ -289,6 +289,16 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         return;
     }
 
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_OUTCOME_FORM) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Outcome entry cancelled without writing.");
+        } else if (save_outcome_form(state, &error)) {
+            close_shell_dialog(state);
+        }
+        return;
+    }
+
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_EVENT_CREATE ||
         state->dialog_context == SHELL_DIALOG_CONTEXT_EVENT_EDIT ||
         state->dialog_context == SHELL_DIALOG_CONTEXT_SESSION_CREATE ||

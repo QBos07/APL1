@@ -1,6 +1,111 @@
 #include "tui/shell_internal.h"
 
+#include <errno.h>
+
 #include "db/season_repository.h"
+
+void open_outcome_form(shell_state *state)
+{
+    if (state->list.selected >= state->race_session_detail.row_count)
+        return;
+    const apl_session_outcome_row *row = &state->race_session_detail.rows[state->list.selected];
+    const apl_outcome *outcome = row->has_outcome ? &row->outcome : nullptr;
+    if (outcome &&
+        ((outcome->has_status && strlen(outcome->status) >= APL_TUI_DIALOG_FIELD_VALUE_MAX) ||
+         (outcome->has_notes && strlen(outcome->notes) >= APL_TUI_DIALOG_FIELD_VALUE_MAX))) {
+        set_status_warning(state,
+                           "Outcome text exceeds the form limit; editing would truncate it.");
+        return;
+    }
+    char start[32] = "", finish[32] = "", laps[32] = "";
+    if (outcome && outcome->has_start_position)
+        (void)snprintf(start, sizeof(start), "%d", outcome->start_position);
+    if (outcome && outcome->has_finish_position)
+        (void)snprintf(finish, sizeof(finish), "%d", outcome->finish_position);
+    if (outcome && outcome->has_laps)
+        (void)snprintf(laps, sizeof(laps), "%d", outcome->laps);
+    char message[256];
+    (void)snprintf(message, sizeof(message),
+                   "Driver: %.120s. Leave unknown fields blank; zero laps is a recorded value.",
+                   row->driver.name);
+    apl_tui_dialog_open_form(&state->dialog, outcome ? "Edit outcome" : "Enter outcome", message);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Start position", start, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Finish position", finish, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Laps", laps, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Status",
+                                   outcome && outcome->has_status ? outcome->status : "", false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes",
+                                   outcome && outcome->has_notes ? outcome->notes : "", false);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_OUTCOME_FORM;
+    state->dialog_driver_id = row->driver.id;
+    state->dialog_record_id = outcome ? outcome->id : 0;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+}
+
+static bool parse_outcome_number(shell_state *state, unsigned field, bool allow_zero, bool *present,
+                                 int *value)
+{
+    const char *text = state->dialog.fields[field].value;
+    if (!text[0]) {
+        *present = false;
+        return true;
+    }
+    errno = 0;
+    char *end = nullptr;
+    long parsed = strtol(text, &end, 10);
+    if (errno == ERANGE || end == text || *end || parsed > INT_MAX ||
+        parsed < (allow_zero ? 0 : 1)) {
+        apl_tui_dialog_set_field_error(&state->dialog, field,
+                                       allow_zero ? "Enter a nonnegative whole number."
+                                                  : "Enter a positive whole number.");
+        return false;
+    }
+    *present = true;
+    *value = (int)parsed;
+    return true;
+}
+
+bool save_outcome_form(shell_state *state, apl_error *error)
+{
+    apl_outcome input = {.id = state->dialog_record_id,
+                         .team_id = active_team_id(state),
+                         .event_id = state->race_session_detail.event.id,
+                         .session_id = state->race_session_detail.session.id,
+                         .driver_id = state->dialog_driver_id};
+    if (!parse_outcome_number(state, 0, false, &input.has_start_position, &input.start_position) ||
+        !parse_outcome_number(state, 1, false, &input.has_finish_position,
+                              &input.finish_position) ||
+        !parse_outcome_number(state, 2, true, &input.has_laps, &input.laps))
+        return false;
+    input.has_status = state->dialog.fields[3].value[0] != '\0';
+    input.has_notes = state->dialog.fields[4].value[0] != '\0';
+    (void)snprintf(input.status, sizeof(input.status), "%s", state->dialog.fields[3].value);
+    (void)snprintf(input.notes, sizeof(input.notes), "%s", state->dialog.fields[4].value);
+    apl_outcome saved = {};
+    apl_status status = apl_outcome_service_save(
+        state->app, input.id ? APL_OUTCOME_EDIT : APL_OUTCOME_CREATE, &input, &saved, error);
+    if (status != APL_OK) {
+        const char *message =
+            status == APL_ERR_CONFLICT
+                ? "An outcome already exists. Cancel, reopen the session, and edit it."
+                : apl_error_message(error);
+        apl_tui_dialog_set_field_error(&state->dialog, 0, message);
+        return false;
+    }
+    apl_session_detail detail = {};
+    status = apl_session_detail_load(state->app, input.team_id, input.event_id, input.session_id,
+                                     &detail, error);
+    if (status == APL_OK) {
+        size_t selected = state->list.selected;
+        apl_session_detail_free(&state->race_session_detail);
+        state->race_session_detail = detail;
+        apl_tui_list_set_count(&state->list, detail.row_count);
+        apl_tui_list_select(&state->list, selected);
+    } else {
+        set_status_warning(state, "Outcome saved, but the session could not be refreshed.");
+    }
+    return true;
+}
 
 void open_event_form(shell_state *state, bool edit)
 {
@@ -308,6 +413,10 @@ void handle_events_input(shell_state *state, uint32_t id)
             open_event_form(state, false);
         else if (state->screen == SHELL_SCREEN_EVENT_DETAIL)
             open_session_form(state, false);
+        return;
+    }
+    if ((id == 'a' || id == 'A') && state->screen == SHELL_SCREEN_SESSION_DETAIL) {
+        open_outcome_form(state);
         return;
     }
     if (id == 'e' || id == 'E') {

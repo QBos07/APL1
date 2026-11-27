@@ -149,6 +149,42 @@ Test(tui_events, event_and_session_forms_validate_and_cancel_without_losing_inpu
     handle_dialog_input(&state, &enter);
     cr_assert_str_eq(state.race_event_detail.event.name, "Revised event");
     cr_assert_eq(state.list.count, 1);
+    apl_driver driver = {};
+    apl_membership membership = {};
+    cr_assert_eq(apl_driver_repository_create(&app.db, "Driver", "", "", &driver, &error), APL_OK);
+    cr_assert_eq(apl_membership_repository_create(&app.db, team.id, driver.id, "2020-01-01", "", "",
+                                                  "", &membership, &error),
+                 APL_OK);
+    handle_events_input(&state, NCKEY_ENTER);
+    cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
+    handle_events_input(&state, 'a');
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_FORM);
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "0");
+    apl_tui_dialog_set_field_value(&state.dialog, 3, "Finished");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_FORM);
+    cr_assert_str_eq(state.dialog.fields[3].value, "Finished");
+    cr_assert_not(state.race_session_detail.rows[0].has_outcome);
+    handle_dialog_input(&state, &escape);
+    cr_assert_not(state.race_session_detail.rows[0].has_outcome);
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "0");
+    apl_tui_dialog_set_field_value(&state.dialog, 3, "Finished");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert(state.race_session_detail.rows[0].has_outcome);
+    cr_assert(state.race_session_detail.rows[0].outcome.has_laps);
+    cr_assert_eq(state.race_session_detail.rows[0].outcome.laps, 0);
+    cr_assert_not(state.race_session_detail.rows[0].outcome.has_finish_position);
+    handle_events_input(&state, 'a');
+    cr_assert_str_eq(state.dialog.fields[2].value, "0");
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "");
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "3");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_not(state.race_session_detail.rows[0].outcome.has_laps);
+    cr_assert_eq(state.race_session_detail.rows[0].outcome.finish_position, 3);
     free_reference_lists(&state);
     cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
 }
