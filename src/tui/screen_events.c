@@ -1,5 +1,116 @@
 #include "tui/shell_internal.h"
 
+#include "db/season_repository.h"
+
+void open_event_form(shell_state *state, bool edit)
+{
+    if (active_team_id(state) <= 0) {
+        set_status_warning(state, "Select a team before creating an event.");
+        return;
+    }
+    const apl_event *event = edit ? &state->race_event_detail.event : nullptr;
+    if (event && strlen(event->notes) >= APL_TUI_DIALOG_FIELD_VALUE_MAX) {
+        set_status_warning(state,
+                           "Event notes exceed the form limit; editing would truncate them.");
+        return;
+    }
+    char season[APL_REFERENCE_LABEL_MAX] = "";
+    if (event && event->season_id) {
+        apl_season record = {};
+        apl_error error;
+        apl_error_init(&error);
+        if (apl_season_repository_get(&state->app->db, active_team_id(state), event->season_id,
+                                      &record, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        (void)snprintf(season, sizeof(season), "%s", record.label);
+    }
+    apl_tui_dialog_open_form(&state->dialog, edit ? "Edit event" : "Create event",
+                             "Name and date required; season is an optional same-team label.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Name", event ? event->name : "", true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Date (YYYY-MM-DD)", event ? event->date : "",
+                                   true);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Season (optional)", season, false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Location (optional)",
+                                   event ? event->location : "", false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", event ? event->notes : "",
+                                   false);
+    state->dialog_context =
+        edit ? SHELL_DIALOG_CONTEXT_EVENT_EDIT : SHELL_DIALOG_CONTEXT_EVENT_CREATE;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+}
+
+void open_session_form(shell_state *state, bool edit)
+{
+    if (edit && state->list.selected >= state->race_event_detail.session_count)
+        return;
+    const apl_event_session *session =
+        edit ? &state->race_event_detail.sessions[state->list.selected] : nullptr;
+    state->dialog_record_id = session ? session->id : 0;
+    apl_tui_dialog_open_form(&state->dialog, edit ? "Edit session" : "Create session",
+                             "Enter a session label; no sessions are generated.");
+    (void)apl_tui_dialog_add_field(&state->dialog, "Label", session ? session->label : "", true);
+    state->dialog_context =
+        edit ? SHELL_DIALOG_CONTEXT_SESSION_EDIT : SHELL_DIALOG_CONTEXT_SESSION_CREATE;
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+}
+
+bool save_event_form(shell_state *state, apl_error *error)
+{
+    shell_dialog_context context = state->dialog_context;
+    int64_t team = active_team_id(state);
+    const char *first = state->dialog.fields[0].value;
+    apl_status status;
+    if (context == SHELL_DIALOG_CONTEXT_EVENT_CREATE ||
+        context == SHELL_DIALOG_CONTEXT_EVENT_EDIT) {
+        int64_t season = 0;
+        status = project_resolve_season(state, state->dialog.fields[2].value, &season, error);
+        apl_event event = {};
+        if (status == APL_OK)
+            status = context == SHELL_DIALOG_CONTEXT_EVENT_CREATE
+                         ? apl_event_service_create(state->app, team, season, first,
+                                                    state->dialog.fields[1].value,
+                                                    state->dialog.fields[3].value,
+                                                    state->dialog.fields[4].value, &event, error)
+                         : apl_event_service_update(
+                               state->app, team, state->race_event_detail.event.id, season, first,
+                               state->dialog.fields[1].value, state->dialog.fields[3].value,
+                               state->dialog.fields[4].value, &event, error);
+        if (status != APL_OK)
+            return false;
+        if (context == SHELL_DIALOG_CONTEXT_EVENT_EDIT)
+            state->race_event_detail.event = event;
+        if (load_race_events(state, error) != APL_OK)
+            set_status_warning(state, "Event saved, but the event list could not be refreshed.");
+        if (context == SHELL_DIALOG_CONTEXT_EVENT_EDIT)
+            apl_tui_list_set_count(&state->list, state->race_event_detail.session_count);
+    } else {
+        apl_event_session session = {};
+        status =
+            context == SHELL_DIALOG_CONTEXT_SESSION_CREATE
+                ? apl_session_service_create(state->app, team, state->race_event_detail.event.id,
+                                             first, &session, error)
+                : apl_session_service_update(state->app, team, state->race_event_detail.event.id,
+                                             state->dialog_record_id, first, &session, error);
+        if (status != APL_OK)
+            return false;
+        apl_event_detail detail = {};
+        if (apl_event_detail_load(state->app, team, state->race_event_detail.event.id, &detail,
+                                  error) == APL_OK) {
+            apl_event_detail_free(&state->race_event_detail);
+            state->race_event_detail = detail;
+            apl_tui_list_set_count(&state->list, detail.session_count);
+            for (size_t i = 0; i < detail.session_count; ++i)
+                if (detail.sessions[i].id == session.id)
+                    apl_tui_list_select(&state->list, i);
+        } else
+            set_status_warning(state,
+                               "Session saved, but the session list could not be refreshed.");
+    }
+    return true;
+}
+
 apl_status load_race_events(shell_state *state, apl_error *error)
 {
     apl_event *events = nullptr;
@@ -190,6 +301,22 @@ void handle_events_input(shell_state *state, uint32_t id)
     if (handle_body_list_navigation(state, id)) {
         if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY)
             state->outcome_history_offset = 0;
+        return;
+    }
+    if (id == 'n' || id == 'N') {
+        if (state->screen == SHELL_SCREEN_EVENT_LIST)
+            open_event_form(state, false);
+        else if (state->screen == SHELL_SCREEN_EVENT_DETAIL)
+            open_session_form(state, false);
+        return;
+    }
+    if (id == 'e' || id == 'E') {
+        if (state->screen == SHELL_SCREEN_EVENT_DETAIL)
+            open_event_form(state, true);
+        return;
+    }
+    if ((id == 's' || id == 'S') && state->screen == SHELL_SCREEN_EVENT_DETAIL) {
+        open_session_form(state, true);
         return;
     }
     apl_error error;

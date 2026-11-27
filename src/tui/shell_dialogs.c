@@ -289,6 +289,26 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         return;
     }
 
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_EVENT_CREATE ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_EVENT_EDIT ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_SESSION_CREATE ||
+        state->dialog_context == SHELL_DIALOG_CONTEXT_SESSION_EDIT) {
+        if (result == APL_TUI_DIALOG_DISMISSED) {
+            close_shell_dialog(state);
+            set_status(state, "Cancelled without writing.");
+            return;
+        }
+        if (save_event_form(state, &error)) {
+            close_shell_dialog(state);
+        } else {
+            unsigned field = 0;
+            if (apl_error_field_id(&error) == APL_FIELD_DATE) field = 1;
+            if (apl_error_field_id(&error) == APL_FIELD_SEASON) field = 2;
+            apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
+        }
+        return;
+    }
+
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_CREATE ||
         state->dialog_context == SHELL_DIALOG_CONTEXT_PROJECT_EDIT) {
         const shell_dialog_context context = state->dialog_context;

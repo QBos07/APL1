@@ -380,9 +380,13 @@ static const char *context_key_hint(const shell_state *const state)
         return "a scope | f entity | g action | d dates | c clear | Enter detail";
     }
     if (state->section == APL_TUI_SECTION_EVENTS) {
-        return state->screen == SHELL_SCREEN_OUTCOME_HISTORY
-                   ? "Up/Down correction | v before/after | h/l scroll text | Esc"
-                   : "Up/Down select | Enter open | Esc back";
+        if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY)
+            return "Up/Down correction | v before/after | h/l scroll text | Esc";
+        if (state->screen == SHELL_SCREEN_EVENT_LIST)
+            return "n new event | Enter open | Esc back";
+        if (state->screen == SHELL_SCREEN_EVENT_DETAIL)
+            return "n new session | e edit event | s edit session | Enter open | Esc back";
+        return "Up/Down select | Enter history | Esc back";
     }
     if (state->section == APL_TUI_SECTION_DEVELOPMENT) {
         if (state->screen == SHELL_SCREEN_PROJECT_DETAIL) {

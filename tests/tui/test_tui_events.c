@@ -89,3 +89,66 @@ Test(tui_events, navigation_scopes_outcomes_and_correction_history)
     free_reference_lists(&state);
     cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
 }
+
+Test(tui_events, event_and_session_forms_validate_and_cancel_without_losing_input)
+{
+    apl_test_db db = {};
+    apl_error error;
+    apl_error_init(&error);
+    cr_assert_eq(apl_test_db_open(&db, &error), APL_OK);
+    apl_app app = {.db = db.connection};
+    apl_team team = {};
+    cr_assert_eq(apl_team_repository_create(&app.db, "Team", "", &team, &error), APL_OK);
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_EVENTS;
+    state.screen = SHELL_SCREEN_EVENT_LIST;
+    apl_tui_list_init(&state.list, 8);
+    apl_tui_focus_init(&state.focus);
+    handle_events_input(&state, 'n');
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_EVENT_CREATE);
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "Race weekend");
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "2026-02-30");
+    apl_tui_dialog_set_field_value(&state.dialog, 3, "Circuit");
+    state.dialog.focus = state.dialog.field_count;
+    ncinput enter = {.id = NCKEY_ENTER};
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_EVENT_CREATE);
+    cr_assert_str_eq(state.dialog.fields[0].value, "Race weekend");
+    cr_assert_str_eq(state.dialog.fields[3].value, "Circuit");
+    cr_assert_eq(state.race_event_count, 0);
+    apl_tui_dialog_set_field_value(&state.dialog, 1, "2026-02-28");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.race_event_count, 1);
+    cr_assert_str_eq(state.race_events[0].location, "Circuit");
+    handle_events_input(&state, NCKEY_ENTER);
+    cr_assert_eq(state.screen, SHELL_SCREEN_EVENT_DETAIL);
+    handle_events_input(&state, 'n');
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "Practice");
+    ncinput escape = {.id = NCKEY_ESC};
+    handle_dialog_input(&state, &escape);
+    cr_assert_eq(state.race_event_detail.session_count, 0);
+    handle_events_input(&state, 'n');
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "Practice");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.race_event_detail.session_count, 1);
+    handle_events_input(&state, 's');
+    cr_assert_str_eq(state.dialog.fields[0].value, "Practice");
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "Qualifying");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_str_eq(state.race_event_detail.sessions[0].label, "Qualifying");
+    handle_events_input(&state, 'e');
+    cr_assert_str_eq(state.dialog.fields[0].value, "Race weekend");
+    apl_tui_dialog_set_field_value(&state.dialog, 0, "Revised event");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_str_eq(state.race_event_detail.event.name, "Revised event");
+    cr_assert_eq(state.list.count, 1);
+    free_reference_lists(&state);
+    cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
+}
