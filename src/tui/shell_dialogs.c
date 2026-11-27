@@ -327,8 +327,10 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             close_shell_dialog(state);
         } else {
             unsigned field = 0;
-            if (apl_error_field_id(&error) == APL_FIELD_DATE) field = 1;
-            if (apl_error_field_id(&error) == APL_FIELD_SEASON) field = 2;
+            if (apl_error_field_id(&error) == APL_FIELD_DATE)
+                field = 1;
+            if (apl_error_field_id(&error) == APL_FIELD_SEASON)
+                field = 2;
             apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(&error));
         }
         return;
