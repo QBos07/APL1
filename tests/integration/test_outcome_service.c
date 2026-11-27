@@ -105,3 +105,103 @@ Test(outcome_service, validation_duplicate_edit_and_rollback)
     apl_outcome_repository_free_list(rows);
     cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
 }
+
+Test(outcome_service, batch_validates_all_rows_and_rolls_back_writes)
+{
+    apl_test_db db = {};
+    apl_error err;
+    apl_error_init(&err);
+    cr_assert_eq(apl_test_db_open(&db, &err), APL_OK);
+    apl_app app = {.db = db.connection};
+    apl_team team = {};
+    cr_assert_eq(apl_team_repository_create(&app.db, "Batch", "", &team, &err), APL_OK);
+    apl_event event = {};
+    cr_assert_eq(apl_event_repository_create(&app.db, team.id, 0, "Event", "2026-01-01", "", "",
+                                             &event, &err),
+                 APL_OK);
+    apl_event_session session = {};
+    cr_assert_eq(apl_session_repository_create(&app.db, team.id, event.id, "Race", &session, &err),
+                 APL_OK);
+    apl_driver drivers[2] = {};
+    apl_membership member = {};
+    cr_assert_eq(apl_driver_repository_create(&app.db, "First", "", "", &drivers[0], &err), APL_OK);
+    cr_assert_eq(apl_driver_repository_create(&app.db, "Second", "", "", &drivers[1], &err),
+                 APL_OK);
+    for (size_t i = 0; i < 2; ++i)
+        cr_assert_eq(apl_membership_repository_create(&app.db, team.id, drivers[i].id, "2020-01-01",
+                                                      "", "", "", &member, &err),
+                     APL_OK);
+    apl_outcome_batch_row rows[2] = {};
+    for (size_t i = 0; i < 2; ++i) {
+        rows[i].mode = APL_OUTCOME_CREATE;
+        rows[i].input.team_id = team.id;
+        rows[i].input.event_id = event.id;
+        rows[i].input.session_id = session.id;
+        rows[i].input.driver_id = drivers[i].id;
+    }
+    apl_outcome saved[2] = {{.id = 123}, {.id = 456}};
+    apl_error errors[2];
+    rows[1].input.has_laps = true;
+    rows[1].input.laps = -1;
+    cr_assert_eq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err),
+                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(errors[0].code, APL_OK);
+    cr_assert_eq(errors[1].code, APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(saved[0].id, 123);
+    apl_outcome *list = nullptr;
+    size_t count = 0;
+    cr_assert_eq(
+        apl_outcome_repository_list(&app.db, team.id, event.id, session.id, &list, &count, &err),
+        APL_OK);
+    cr_assert_eq(count, 0);
+    apl_outcome_repository_free_list(list);
+    rows[1].input.laps = 0;
+    rows[1].input.driver_id = drivers[0].id;
+    cr_assert_eq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err),
+                 APL_ERR_CONFLICT);
+    cr_assert_eq(errors[0].code, APL_ERR_CONFLICT);
+    cr_assert_eq(errors[1].code, APL_ERR_CONFLICT);
+    rows[1].input.driver_id = drivers[1].id;
+    cr_assert_eq(
+        sqlite3_exec(app.db.handle,
+                     "CREATE TRIGGER fail_second_outcome BEFORE INSERT ON driver_outcomes "
+                     "WHEN NEW.driver_id=2 BEGIN SELECT RAISE(ABORT,'write failure'); END;",
+                     nullptr, nullptr, nullptr),
+        SQLITE_OK);
+    cr_assert_neq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err), APL_OK);
+    cr_assert_neq(errors[1].code, APL_OK);
+    cr_assert_eq(saved[0].id, 123);
+    cr_assert_eq(
+        apl_outcome_repository_list(&app.db, team.id, event.id, session.id, &list, &count, &err),
+        APL_OK);
+    cr_assert_eq(count, 0);
+    apl_outcome_repository_free_list(list);
+    sqlite3_stmt *activity = nullptr;
+    cr_assert_eq(sqlite3_prepare_v2(app.db.handle,
+                                    "SELECT count(*) FROM activity_events "
+                                    "WHERE entity_type='driver_outcome'",
+                                    -1, &activity, nullptr),
+                 SQLITE_OK);
+    cr_assert_eq(sqlite3_step(activity), SQLITE_ROW);
+    cr_assert_eq(sqlite3_column_int(activity, 0), 0);
+    sqlite3_finalize(activity);
+    cr_assert_eq(
+        sqlite3_exec(app.db.handle, "DROP TRIGGER fail_second_outcome", nullptr, nullptr, nullptr),
+        SQLITE_OK);
+    cr_assert_eq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err), APL_OK);
+    cr_assert_not(saved[0].has_laps);
+    cr_assert(saved[1].has_laps);
+    cr_assert_eq(saved[1].laps, 0);
+    rows[0].mode = APL_OUTCOME_EDIT;
+    rows[0].input = saved[0];
+    rows[0].input.has_laps = true;
+    rows[0].input.laps = 12;
+    rows[1].mode = APL_OUTCOME_EDIT;
+    rows[1].input = saved[1];
+    rows[1].input.has_finish_position = true;
+    rows[1].input.finish_position = 1;
+    cr_assert_eq(apl_outcome_service_save_batch(&app, rows, 2, saved, errors, &err), APL_OK);
+    cr_assert_eq(saved[0].laps, 12);
+    cr_assert_eq(saved[1].finish_position, 1);
+    cr_assert_eq(apl_test_db_close(&db, &err), APL_OK);
+}
