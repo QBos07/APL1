@@ -87,6 +87,74 @@ void clear_outcome_batch(shell_state *state)
     state->outcome_batch_active = false;
 }
 
+static bool prompt_outcome_conflict(shell_state *state, const apl_outcome *input, bool batch,
+                                    size_t index)
+{
+    apl_outcome *existing = nullptr;
+    size_t count = 0;
+    apl_error error;
+    apl_error_init(&error);
+    if (apl_outcome_repository_list(&state->app->db, input->team_id, input->event_id,
+                                    input->session_id, &existing, &count, &error) != APL_OK)
+        return false;
+    int64_t existing_id = 0;
+    for (size_t i = 0; i < count; ++i) {
+        if (existing[i].driver_id == input->driver_id) {
+            existing_id = existing[i].id;
+            break;
+        }
+    }
+    apl_outcome_repository_free_list(existing);
+    if (existing_id == 0)
+        return false;
+    state->outcome_conflict_id = existing_id;
+    state->outcome_conflict_index = index;
+    state->outcome_conflict_batch = batch;
+    if (!batch)
+        state->outcome_conflict_form = state->dialog;
+    apl_tui_dialog_open_choice(
+        &state->dialog, "Outcome already exists",
+        "This driver already has an outcome in this session. Edit existing will use your "
+        "entered values (blank fields become missing). You must save again to confirm. "
+        "Cancel returns without writing and keeps your values.");
+    (void)apl_tui_dialog_add_option(&state->dialog, "Cancel / keep entered values", true, false);
+    (void)apl_tui_dialog_add_option(&state->dialog, "Edit existing outcome", true, false);
+    state->dialog_context = SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT;
+    if (batch)
+        apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+    return true;
+}
+
+void finish_outcome_conflict(shell_state *state, apl_tui_dialog_result result)
+{
+    bool edit =
+        result == APL_TUI_DIALOG_ACCEPTED && apl_tui_dialog_selected_option(&state->dialog) == 1;
+    if (state->outcome_conflict_batch) {
+        if (edit && state->outcome_batch_active &&
+            state->outcome_conflict_index < state->outcome_batch_size &&
+            state->outcome_batch_selected[state->outcome_conflict_index]) {
+            apl_outcome_batch_row *row = &state->outcome_batch[state->outcome_conflict_index];
+            row->mode = APL_OUTCOME_EDIT;
+            row->input.id = state->outcome_conflict_id;
+        }
+        close_shell_dialog(state);
+        set_status(state, edit ? "Existing outcome selected; review and save the batch again."
+                               : "Batch unchanged; staged values retained.");
+    } else {
+        state->dialog = state->outcome_conflict_form;
+        state->dialog_context = SHELL_DIALOG_CONTEXT_OUTCOME_FORM;
+        if (edit) {
+            state->dialog_record_id = state->outcome_conflict_id;
+            (void)snprintf(state->dialog.title, sizeof(state->dialog.title),
+                           "Edit existing outcome");
+            set_status(state, "Existing outcome selected; review values and save again.");
+        } else {
+            set_status(state, "No change made; entered values retained.");
+        }
+    }
+    state->outcome_conflict_id = 0;
+}
+
 static void begin_outcome_batch(shell_state *state)
 {
     size_t count = state->race_session_detail.row_count;
@@ -211,11 +279,10 @@ bool save_outcome_form(shell_state *state, apl_error *error)
     apl_status status = apl_outcome_service_save(
         state->app, input.id ? APL_OUTCOME_EDIT : APL_OUTCOME_CREATE, &input, &saved, error);
     if (status != APL_OK) {
-        const char *message =
-            status == APL_ERR_CONFLICT
-                ? "An outcome already exists. Cancel, reopen the session, and edit it."
-                : apl_error_message(error);
-        apl_tui_dialog_set_field_error(&state->dialog, 0, message);
+        if (status == APL_ERR_CONFLICT &&
+            prompt_outcome_conflict(state, &input, false, state->list.selected))
+            return false;
+        apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(error));
         return false;
     }
     apl_session_detail detail = {};
@@ -424,13 +491,17 @@ static void save_outcome_batch(shell_state *state)
     apl_status status =
         apl_outcome_service_save_batch(state->app, rows, count, saved, errors, &error);
     if (status != APL_OK) {
+        bool prompted = false;
         for (size_t i = 0; i < count; ++i) {
             if (errors[i].code != APL_OK) {
                 apl_tui_list_select(&state->list, indices[i]);
+                if (errors[i].code == APL_ERR_CONFLICT)
+                    prompted = prompt_outcome_conflict(state, &rows[i].input, true, indices[i]);
                 break;
             }
         }
-        set_status_from_error(state, "Batch not saved; staged rows retained", &error);
+        if (!prompted)
+            set_status_from_error(state, "Batch not saved; staged rows retained", &error);
     } else {
         apl_session_detail detail = {};
         status = apl_session_detail_load(state->app, active_team_id(state),

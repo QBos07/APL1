@@ -289,6 +289,11 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         return;
     }
 
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT) {
+        finish_outcome_conflict(state, result);
+        return;
+    }
+
     if (state->dialog_context == SHELL_DIALOG_CONTEXT_OUTCOME_SUMMARY) {
         if (result == APL_TUI_DIALOG_DISMISSED) {
             close_shell_dialog(state);

@@ -313,3 +313,138 @@ Test(tui_events, staged_batch_review_and_failed_save_are_atomic)
     free_reference_lists(&state);
     cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
 }
+
+Test(tui_events, duplicate_choices_preserve_single_and_batch_values)
+{
+    apl_test_db db = {};
+    apl_error error;
+    apl_error_init(&error);
+    cr_assert_eq(apl_test_db_open(&db, &error), APL_OK);
+    apl_app app = {.db = db.connection};
+    apl_team team = {};
+    apl_event event = {};
+    apl_event_session session = {};
+    cr_assert_eq(apl_team_repository_create(&app.db, "Team", "", &team, &error), APL_OK);
+    cr_assert_eq(apl_event_repository_create(&app.db, team.id, 0, "Event", "2026-01-01", "", "",
+                                             &event, &error),
+                 APL_OK);
+    cr_assert_eq(
+        apl_session_repository_create(&app.db, team.id, event.id, "Race", &session, &error),
+        APL_OK);
+    apl_driver drivers[2] = {};
+    apl_membership member = {};
+    cr_assert_eq(apl_driver_repository_create(&app.db, "First", "", "", &drivers[0], &error),
+                 APL_OK);
+    cr_assert_eq(apl_driver_repository_create(&app.db, "Second", "", "", &drivers[1], &error),
+                 APL_OK);
+    for (size_t i = 0; i < 2; ++i)
+        cr_assert_eq(apl_membership_repository_create(&app.db, team.id, drivers[i].id, "2020-01-01",
+                                                      "", "", "", &member, &error),
+                     APL_OK);
+    shell_state state = {};
+    state.app = &app;
+    state.active_team = team;
+    state.active_status = APL_ACTIVE_TEAM_ACTIVE;
+    state.section = APL_TUI_SECTION_EVENTS;
+    state.screen = SHELL_SCREEN_SESSION_DETAIL;
+    apl_tui_list_init(&state.list, 8);
+    apl_tui_focus_init(&state.focus);
+    cr_assert_eq(apl_session_detail_load(&app, team.id, event.id, session.id,
+                                         &state.race_session_detail, &error),
+                 APL_OK);
+    apl_tui_list_set_count(&state.list, 2);
+    ncinput enter = {.id = NCKEY_ENTER};
+    ncinput escape = {.id = NCKEY_ESC};
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "5");
+    apl_tui_dialog_set_field_value(&state.dialog, 4, "single preserved");
+    apl_outcome concurrent = {.team_id = team.id,
+                              .event_id = event.id,
+                              .session_id = session.id,
+                              .driver_id = drivers[0].id};
+    apl_outcome existing = {};
+    cr_assert_eq(apl_outcome_repository_create(&app.db, &concurrent, &existing, &error), APL_OK);
+    int64_t first_id = existing.id;
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT);
+    handle_dialog_input(&state, &escape);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_FORM);
+    cr_assert_str_eq(state.dialog.fields[2].value, "5");
+    cr_assert_str_eq(state.dialog.fields[4].value, "single preserved");
+    cr_assert_eq(state.dialog_record_id, 0);
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT);
+    apl_tui_dialog_select_option(&state.dialog, 1);
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_FORM);
+    cr_assert_eq(state.dialog_record_id, first_id);
+    cr_assert_str_eq(state.dialog.fields[4].value, "single preserved");
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, first_id, &existing, &error), APL_OK);
+    cr_assert_not(existing.has_laps);
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, first_id, &existing, &error), APL_OK);
+    cr_assert_eq(existing.laps, 5);
+    cr_assert_str_eq(existing.notes, "single preserved");
+    apl_outcome_correction *history = nullptr;
+    size_t history_count = 0;
+    cr_assert_eq(
+        apl_outcome_correction_list(&app.db, team.id, first_id, &history, &history_count, &error),
+        APL_OK);
+    cr_assert_eq(history_count, 1);
+    cr_assert_not(history[0].before.has_laps);
+    cr_assert_eq(history[0].after.laps, 5);
+    apl_outcome_correction_free_list(history);
+
+    handle_events_input(&state, 'b');
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 2, "7");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    apl_tui_list_select(&state.list, 1);
+    handle_events_input(&state, 'a');
+    apl_tui_dialog_set_field_value(&state.dialog, 4, "batch preserved");
+    state.dialog.focus = state.dialog.field_count;
+    handle_dialog_input(&state, &enter);
+    concurrent.driver_id = drivers[1].id;
+    cr_assert_eq(apl_outcome_repository_create(&app.db, &concurrent, &existing, &error), APL_OK);
+    int64_t second_id = existing.id;
+    handle_events_input(&state, 'r');
+    handle_events_input(&state, 's');
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT);
+    handle_dialog_input(&state, &escape);
+    cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_REVIEW);
+    cr_assert_eq(state.outcome_batch[1].mode, APL_OUTCOME_CREATE);
+    cr_assert_str_eq(state.outcome_batch[1].input.notes, "batch preserved");
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, first_id, &existing, &error), APL_OK);
+    cr_assert_eq(existing.laps, 5);
+    handle_events_input(&state, 's');
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT);
+    apl_tui_dialog_select_option(&state.dialog, 1);
+    handle_dialog_input(&state, &enter);
+    cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_REVIEW);
+    cr_assert_eq(state.outcome_batch[1].mode, APL_OUTCOME_EDIT);
+    cr_assert_eq(state.outcome_batch[1].input.id, second_id);
+    cr_assert_str_eq(state.outcome_batch[1].input.notes, "batch preserved");
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, second_id, &existing, &error),
+                 APL_OK);
+    cr_assert_not(existing.has_notes);
+    handle_events_input(&state, 's');
+    cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, first_id, &existing, &error), APL_OK);
+    cr_assert_eq(existing.laps, 7);
+    cr_assert_eq(apl_outcome_repository_get(&app.db, team.id, second_id, &existing, &error),
+                 APL_OK);
+    cr_assert_str_eq(existing.notes, "batch preserved");
+    cr_assert_eq(
+        apl_outcome_correction_list(&app.db, team.id, second_id, &history, &history_count, &error),
+        APL_OK);
+    cr_assert_eq(history_count, 1);
+    cr_assert_not(history[0].before.has_notes);
+    cr_assert_str_eq(history[0].after.notes, "batch preserved");
+    apl_outcome_correction_free_list(history);
+    free_reference_lists(&state);
+    cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);
+}

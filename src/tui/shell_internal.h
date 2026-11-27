@@ -134,6 +134,7 @@ typedef enum shell_dialog_context {
     SHELL_DIALOG_CONTEXT_SESSION_EDIT,
     SHELL_DIALOG_CONTEXT_OUTCOME_FORM,
     SHELL_DIALOG_CONTEXT_OUTCOME_SUMMARY,
+    SHELL_DIALOG_CONTEXT_OUTCOME_CONFLICT,
 } shell_dialog_context;
 
 static constexpr int APL_TUI_SCROLL_STEP = 3;
@@ -171,6 +172,10 @@ typedef struct shell_state {
     bool *outcome_batch_selected;
     size_t outcome_batch_size, outcome_batch_count;
     bool outcome_batch_active;
+    apl_tui_dialog outcome_conflict_form;
+    int64_t outcome_conflict_id;
+    size_t outcome_conflict_index;
+    bool outcome_conflict_batch;
     apl_ledger_entry *entries;
     size_t entry_count;
     apl_ledger_entry entry_detail;
@@ -358,6 +363,7 @@ void open_outcome_form(shell_state *state);
 bool save_outcome_form(shell_state *state, apl_error *error);
 bool show_outcome_summary(shell_state *state, apl_error *error);
 void clear_outcome_batch(shell_state *state);
+void finish_outcome_conflict(shell_state *state, apl_tui_dialog_result result);
 void append_filter_button(char *out, size_t out_size, unsigned *cursor, unsigned starts[4],
                           unsigned ends[4], unsigned index, const char *label);
 bool is_enter_key(uint32_t id);
