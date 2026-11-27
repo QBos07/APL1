@@ -45,13 +45,13 @@ static int64_t make_unit(apl_app *const app, const int64_t team_id, const char *
     char type_name[64];
     (void)snprintf(type_name, sizeof(type_name), "Wing %s", serial);
     apl_part_type typed = {};
-    cr_assert_eq(apl_part_type_service_create(app, team_id, "Aero", type_name, "", "", &typed,
-                                              error),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_type_service_create(app, team_id, "Aero", type_name, "", "", &typed, error),
+        APL_OK);
     apl_part_unit unit = {};
-    cr_assert_eq(apl_part_unit_service_create(app, team_id, typed.id, serial, "", "", "", &unit,
-                                              error),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_unit_service_create(app, team_id, typed.id, serial, "", "", "", &unit, error),
+        APL_OK);
     return unit.id;
 }
 
@@ -70,7 +70,7 @@ static int64_t set_currency_and_expense(apl_app *const app, const int64_t team_i
     cr_assert_eq(apl_team_service_set_currency(app, team_id, "EUR", &team, error), APL_OK);
     apl_ledger_entry expense = {};
     cr_assert_eq(apl_ledger_service_post_expense(app, team_id, "1200.50", "2026-01-20", "Parts",
-                                                "replacement wing", &expense, error),
+                                                 "replacement wing", &expense, error),
                  APL_OK, "expense failed: %s", apl_error_message(error));
     return expense.id;
 }
@@ -103,9 +103,9 @@ Test(lifecycle_cost_link, links_replacement_to_expense_without_double_counting)
 
     /* Link the expense. */
     apl_lifecycle_event linked = {};
-    cr_assert_eq(apl_lifecycle_service_set_cost(&app, team.id, replaced.id, expense_id, &linked,
-                                                &err),
-                 APL_OK, "cost link failed: %s", apl_error_message(&err));
+    cr_assert_eq(
+        apl_lifecycle_service_set_cost(&app, team.id, replaced.id, expense_id, &linked, &err),
+        APL_OK, "cost link failed: %s", apl_error_message(&err));
     cr_assert_eq(linked.transaction_id, expense_id);
 
     /* The link persists and is readable. */
@@ -165,9 +165,9 @@ Test(lifecycle_cost_link, rejects_non_expense_and_cross_team_links)
 
     /* Income cannot be linked as a replacement cost. */
     apl_lifecycle_event linked = {};
-    cr_assert_eq(apl_lifecycle_service_set_cost(&app, team.id, replaced.id, income.id, &linked,
-                                                &err),
-                 APL_ERR_INVALID_ARGUMENT);
+    cr_assert_eq(
+        apl_lifecycle_service_set_cost(&app, team.id, replaced.id, income.id, &linked, &err),
+        APL_ERR_INVALID_ARGUMENT);
 
     /* Cross-team expense is rejected. */
     cr_assert_eq(
@@ -179,9 +179,9 @@ Test(lifecycle_cost_link, rejects_non_expense_and_cross_team_links)
     cr_assert_eq(apl_ledger_service_post_expense(&app, team.id, "800.00", "2026-01-07", "Parts",
                                                  "wing", &expense, &err),
                  APL_OK);
-    cr_assert_eq(apl_lifecycle_service_set_cost(&app, team.id, replaced.id, expense.id, &linked,
-                                                &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_service_set_cost(&app, team.id, replaced.id, expense.id, &linked, &err),
+        APL_OK);
     cr_assert_eq(linked.transaction_id, expense.id);
 
     close_test_app(&app, dir, &err);

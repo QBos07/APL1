@@ -94,14 +94,14 @@ Test(part_type_service, update_records_only_changed_fields)
     const apl_team team = make_team(&app, "Ferrari", &err);
 
     apl_part_type type = {};
-    cr_assert_eq(apl_part_type_service_create(&app, team.id, "Aero", "Front Wing", "", "", &type,
-                                              &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_type_service_create(&app, team.id, "Aero", "Front Wing", "", "", &type, &err),
+        APL_OK);
 
     /* No-op update writes no audit event. */
     apl_part_type unchanged = {};
-    cr_assert_eq(apl_part_type_service_update(&app, team.id, type.id, "Aero", "Front Wing", "",
-                                              "", &unchanged, &err),
+    cr_assert_eq(apl_part_type_service_update(&app, team.id, type.id, "Aero", "Front Wing", "", "",
+                                              &unchanged, &err),
                  APL_OK);
     cr_assert_eq(count_events(&app, "part_type_updated", &err), 0);
 
@@ -122,9 +122,9 @@ Test(part_type_service, update_records_only_changed_fields)
     cr_assert_eq(event_count, 1);
     apl_activity_change *changes = nullptr;
     size_t change_count = 0;
-    cr_assert_eq(apl_activity_repository_list_changes(&app.db, events[0].id, &changes,
-                                                      &change_count, &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_activity_repository_list_changes(&app.db, events[0].id, &changes, &change_count, &err),
+        APL_OK);
     cr_assert_eq(change_count, 2);
     cr_assert_str_eq(changes[0].field, "name");
     cr_assert_str_eq(changes[1].field, "description");
@@ -145,17 +145,18 @@ Test(part_type_service, rejects_duplicate_and_unknown_and_rolls_back_atomically)
     const apl_team team = make_team(&app, "Ferrari", &err);
 
     apl_part_type type = {};
-    cr_assert_eq(apl_part_type_service_create(&app, team.id, "Aero", "Front Wing", "", "", &type,
-                                              &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_type_service_create(&app, team.id, "Aero", "Front Wing", "", "", &type, &err),
+        APL_OK);
 
     apl_part_type dup = {};
-    cr_assert_eq(apl_part_type_service_create(&app, team.id, "aero", "front wing", "", "", &dup,
-                                              &err),
-                 APL_ERR_CONFLICT);
+    cr_assert_eq(
+        apl_part_type_service_create(&app, team.id, "aero", "front wing", "", "", &dup, &err),
+        APL_ERR_CONFLICT);
 
     apl_part_type missing = {};
-    cr_assert_eq(apl_part_type_service_get(&app, team.id, 99999, &missing, &err), APL_ERR_NOT_FOUND);
+    cr_assert_eq(apl_part_type_service_get(&app, team.id, 99999, &missing, &err),
+                 APL_ERR_NOT_FOUND);
 
     /* Inject a failing audit trigger and confirm the write rolls back. */
     char trigger[512];

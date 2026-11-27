@@ -47,11 +47,12 @@ static int insert_event(apl_test_db *const db, const int64_t team_id, const char
     const char *const columns =
         "team_id, action, event_date, unit_id, old_unit_id, new_unit_id, position, event_label, "
         "reason, usage, notes, created_at";
-    (void)snprintf(sql, sizeof(sql),
-                   "INSERT INTO lifecycle_events (%s) VALUES (%lld, '%s', '2026-01-01', %s, %s, %s, "
-                   "'', '', '', '', '', strftime('%%Y-%%m-%%dT%%H:%%M:%%fZ', 'now'));",
-                   columns, (long long)team_id, action,
-                   unit_id > 0 ? "?1" : "NULL", old_unit > 0 ? "?2" : "NULL", new_unit > 0 ? "?3" : "NULL");
+    (void)snprintf(
+        sql, sizeof(sql),
+        "INSERT INTO lifecycle_events (%s) VALUES (%lld, '%s', '2026-01-01', %s, %s, %s, "
+        "'', '', '', '', '', strftime('%%Y-%%m-%%dT%%H:%%M:%%fZ', 'now'));",
+        columns, (long long)team_id, action, unit_id > 0 ? "?1" : "NULL",
+        old_unit > 0 ? "?2" : "NULL", new_unit > 0 ? "?3" : "NULL");
     sqlite3_stmt *statement = nullptr;
     if (sqlite3_prepare_v2(apl_db_handle(&db->connection), sql, -1, &statement, nullptr) !=
         SQLITE_OK) {

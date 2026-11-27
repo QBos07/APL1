@@ -36,12 +36,14 @@ static apl_status validate_type(const apl_app *const app, const int64_t team_id,
                                 const int64_t type_id, apl_error *const error)
 {
     if (type_id <= 0) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "a part unit requires a same-team part type");
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "a part unit requires a same-team part type");
         apl_error_set_field(error, APL_FIELD_CATEGORY);
         return APL_ERR_INVALID_ARGUMENT;
     }
     apl_part_type type = {};
-    const apl_status status = apl_part_type_repository_get(&app->db, team_id, type_id, &type, error);
+    const apl_status status =
+        apl_part_type_repository_get(&app->db, team_id, type_id, &type, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_CATEGORY);
         return status;
@@ -211,7 +213,8 @@ apl_status apl_part_unit_service_update(const apl_app *const app, const int64_t 
         char summary[APL_ACTIVITY_SUMMARY_MAX];
         (void)snprintf(summary, sizeof(summary), "Updated part unit #%lld",
                        (long long)out_unit->id);
-        status = append_event(app, team_id, "part_unit_updated", id, summary, changes, count, error);
+        status =
+            append_event(app, team_id, "part_unit_updated", id, summary, changes, count, error);
     }
     if (status != APL_OK) {
         return apl_use_case_rollback(&transaction, status, "cannot update part unit", error);

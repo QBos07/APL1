@@ -58,8 +58,8 @@ Test(part_unit_repository, lists_by_serial_and_scopes_by_type)
     apl_part_unit rear_unit = {.team_id = team.id, .type_id = rear};
     (void)snprintf(rear_unit.serial_number, sizeof(rear_unit.serial_number), "RW-001");
     apl_part_unit created_rear = {};
-    cr_assert_eq(
-        apl_part_unit_repository_create(&db.connection, &rear_unit, &created_rear, &err), APL_OK);
+    cr_assert_eq(apl_part_unit_repository_create(&db.connection, &rear_unit, &created_rear, &err),
+                 APL_OK);
 
     const apl_part_unit_filter all = {.team_id = team.id};
     apl_part_unit *units = nullptr;

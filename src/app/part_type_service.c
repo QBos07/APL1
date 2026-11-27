@@ -14,9 +14,9 @@ static apl_status normalize_fields(const char *const category, const char *const
                                    const char *const description, const char *const notes,
                                    apl_part_type *const type, apl_error *const error)
 {
-    apl_status result = apl_part_type_category_normalize(
-        category, type->category, sizeof(type->category), type->category_key,
-        sizeof(type->category_key), error);
+    apl_status result =
+        apl_part_type_category_normalize(category, type->category, sizeof(type->category),
+                                         type->category_key, sizeof(type->category_key), error);
     if (result == APL_OK) {
         result = apl_part_type_name_normalize(name, type->name, sizeof(type->name), type->name_key,
                                               sizeof(type->name_key), error);
@@ -29,8 +29,7 @@ static apl_status normalize_fields(const char *const category, const char *const
                                                      sizeof(type->description), error);
     }
     if (result == APL_OK) {
-        result =
-            apl_part_type_notes_normalize(notes, type->notes, sizeof(type->notes), error);
+        result = apl_part_type_notes_normalize(notes, type->notes, sizeof(type->notes), error);
     }
     return result;
 }
@@ -76,8 +75,8 @@ apl_status apl_part_type_service_create(const apl_app *const app, const int64_t 
         apl_audit_change_text(&changes[3], "notes", nullptr, true, out_type->notes,
                               out_type->notes[0] == '\0');
         char summary[APL_ACTIVITY_SUMMARY_MAX];
-        (void)snprintf(summary, sizeof(summary), "Created part type '%s' / '%s'",
-                       out_type->name, out_type->category);
+        (void)snprintf(summary, sizeof(summary), "Created part type '%s' / '%s'", out_type->name,
+                       out_type->category);
         result = append_event(app, team_id, "part_type_created", out_type->id, summary, changes,
                               APL_COUNT_OF(changes), error);
     }
@@ -161,7 +160,8 @@ apl_status apl_part_type_service_update(const apl_app *const app, const int64_t 
         char summary[APL_ACTIVITY_SUMMARY_MAX];
         (void)snprintf(summary, sizeof(summary), "Updated part type '%s' / '%s'", out_type->name,
                        out_type->category);
-        status = append_event(app, team_id, "part_type_updated", id, summary, changes, count, error);
+        status =
+            append_event(app, team_id, "part_type_updated", id, summary, changes, count, error);
     }
     if (status != APL_OK) {
         return apl_use_case_rollback(&transaction, status, "cannot update part type", error);

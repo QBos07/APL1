@@ -44,13 +44,13 @@ static int64_t make_unit(apl_app *const app, const int64_t team_id, const char *
     char type_name[64];
     (void)snprintf(type_name, sizeof(type_name), "Wing %s", serial);
     apl_part_type typed = {};
-    cr_assert_eq(apl_part_type_service_create(app, team_id, "Aero", type_name, "", "", &typed,
-                                              error),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_type_service_create(app, team_id, "Aero", type_name, "", "", &typed, error),
+        APL_OK);
     apl_part_unit unit = {};
-    cr_assert_eq(apl_part_unit_service_create(app, team_id, typed.id, serial, "", "", "", &unit,
-                                              error),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_unit_service_create(app, team_id, typed.id, serial, "", "", "", &unit, error),
+        APL_OK);
     return unit.id;
 }
 
@@ -97,15 +97,15 @@ Test(lifecycle_service, replacement_changes_fitment_once_and_appears_in_both_his
 
     /* The replace event appears in both unit histories, once each. */
     apl_lifecycle_history_entry *old_history = nullptr;
-    cr_assert_eq(apl_lifecycle_service_list_unit(&app, team.id, old_unit, &old_history, &count,
-                                                 &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_service_list_unit(&app, team.id, old_unit, &old_history, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 2); /* install + replace */
     apl_lifecycle_service_free_history(old_history);
     apl_lifecycle_history_entry *new_history = nullptr;
-    cr_assert_eq(apl_lifecycle_service_list_unit(&app, team.id, new_unit, &new_history, &count,
-                                                 &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_lifecycle_service_list_unit(&app, team.id, new_unit, &new_history, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 1);
     apl_lifecycle_service_free_history(new_history);
 

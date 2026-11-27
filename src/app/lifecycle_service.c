@@ -45,8 +45,7 @@ static apl_status resolve_unit(const apl_app *const app, const int64_t team_id,
         apl_error_set_field(error, APL_FIELD_NEW_UNIT);
         return APL_ERR_INVALID_ARGUMENT;
     }
-    apl_status status =
-        apl_part_unit_repository_get(&app->db, team_id, unit_id, out_unit, error);
+    apl_status status = apl_part_unit_repository_get(&app->db, team_id, unit_id, out_unit, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_NEW_UNIT);
         return status;
@@ -54,8 +53,9 @@ static apl_status resolve_unit(const apl_app *const app, const int64_t team_id,
     return APL_OK;
 }
 
-static apl_status validate_car(const apl_app *const app, const int64_t team_id, const int64_t car_id,
-                               const char *const position, apl_error *const error)
+static apl_status validate_car(const apl_app *const app, const int64_t team_id,
+                               const int64_t car_id, const char *const position,
+                               apl_error *const error)
 {
     if (car_id <= 0 || position[0] == '\0') {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
@@ -77,14 +77,15 @@ static apl_status normalize_fields(const char *const event_date, const char *con
                                    const char *const notes, apl_lifecycle_event *const event,
                                    apl_error *const error)
 {
-    apl_status result =
-        apl_lifecycle_date_normalize(event_date, event->event_date, sizeof(event->event_date), error);
+    apl_status result = apl_lifecycle_date_normalize(event_date, event->event_date,
+                                                     sizeof(event->event_date), error);
     if (result == APL_OK) {
-        result = apl_lifecycle_event_label_normalize(
-            event_label, event->event_label, sizeof(event->event_label), error);
+        result = apl_lifecycle_event_label_normalize(event_label, event->event_label,
+                                                     sizeof(event->event_label), error);
     }
     if (result == APL_OK) {
-        result = apl_lifecycle_reason_normalize(reason, event->reason, sizeof(event->reason), error);
+        result =
+            apl_lifecycle_reason_normalize(reason, event->reason, sizeof(event->reason), error);
     }
     if (result == APL_OK) {
         result = apl_lifecycle_usage_normalize(usage, event->usage, sizeof(event->usage), error);
@@ -101,12 +102,10 @@ static apl_status append_event(const apl_app *const app, const int64_t team_id,
                                apl_error *const error)
 {
     char summary[APL_ACTIVITY_SUMMARY_MAX];
-    (void)snprintf(summary, sizeof(summary), "%s %s on %s",
-                   apl_lifecycle_action_label(out->action), out->position[0] != '\0' ? out->position : "unit",
-                   out->event_date);
-    return apl_audit_append(app, team_id, action,
-                            apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out->id, summary,
-                            changes, count, error);
+    (void)snprintf(summary, sizeof(summary), "%s %s on %s", apl_lifecycle_action_label(out->action),
+                   out->position[0] != '\0' ? out->position : "unit", out->event_date);
+    return apl_audit_append(app, team_id, action, apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT),
+                            out->id, summary, changes, count, error);
 }
 
 static apl_status record_simple(const apl_app *const app, const int64_t team_id,
@@ -118,8 +117,8 @@ static apl_status record_simple(const apl_app *const app, const int64_t team_id,
                                 const char *const context, const char *const action_code,
                                 apl_error *const error)
 {
-    apl_lifecycle_event event = {.team_id = team_id, .action = action, .unit_id = unit_id,
-                                 .car_id = car_id};
+    apl_lifecycle_event event = {
+        .team_id = team_id, .action = action, .unit_id = unit_id, .car_id = car_id};
     (void)snprintf(event.position, sizeof(event.position), "%s", position);
     apl_status result =
         normalize_fields(event_date, event_label, reason, usage, notes, &event, error);
@@ -194,8 +193,8 @@ apl_status apl_lifecycle_service_install(const apl_app *const app, const int64_t
                                          apl_error *const error)
 {
     return record_simple(app, team_id, APL_LIFECYCLE_INSTALL, unit_id, car_id, position, event_date,
-                         event_label, reason, usage, notes, out_event,
-                         "cannot record install", "lifecycle_installed", error);
+                         event_label, reason, usage, notes, out_event, "cannot record install",
+                         "lifecycle_installed", error);
 }
 
 apl_status apl_lifecycle_service_remove(const apl_app *const app, const int64_t team_id,
@@ -207,8 +206,8 @@ apl_status apl_lifecycle_service_remove(const apl_app *const app, const int64_t 
                                         apl_error *const error)
 {
     return record_simple(app, team_id, APL_LIFECYCLE_REMOVE, unit_id, car_id, position, event_date,
-                         event_label, reason, usage, notes, out_event,
-                         "cannot record removal", "lifecycle_removed", error);
+                         event_label, reason, usage, notes, out_event, "cannot record removal",
+                         "lifecycle_removed", error);
 }
 
 apl_status apl_lifecycle_service_repair(const apl_app *const app, const int64_t team_id,
@@ -220,8 +219,8 @@ apl_status apl_lifecycle_service_repair(const apl_app *const app, const int64_t 
                                         apl_error *const error)
 {
     return record_simple(app, team_id, APL_LIFECYCLE_REPAIR, unit_id, car_id, position, event_date,
-                         event_label, reason, usage, notes, out_event,
-                         "cannot record repair", "lifecycle_repaired", error);
+                         event_label, reason, usage, notes, out_event, "cannot record repair",
+                         "lifecycle_repaired", error);
 }
 
 apl_status apl_lifecycle_service_dispose(const apl_app *const app, const int64_t team_id,
@@ -231,8 +230,8 @@ apl_status apl_lifecycle_service_dispose(const apl_app *const app, const int64_t
                                          apl_lifecycle_event *const out_event,
                                          apl_error *const error)
 {
-    apl_lifecycle_event event = {.team_id = team_id, .action = APL_LIFECYCLE_DISPOSE,
-                                 .unit_id = unit_id};
+    apl_lifecycle_event event = {
+        .team_id = team_id, .action = APL_LIFECYCLE_DISPOSE, .unit_id = unit_id};
     apl_status result =
         normalize_fields(event_date, event_label, reason, usage, notes, &event, error);
     if (result == APL_OK) {
@@ -292,14 +291,16 @@ apl_status apl_lifecycle_service_dispose(const apl_app *const app, const int64_t
 apl_status apl_lifecycle_service_replace(const apl_app *const app, const int64_t team_id,
                                          const int64_t car_id, const char *const position,
                                          const int64_t old_unit_id, const int64_t new_unit_id,
-                                         const char *const event_date, const char *const event_label,
-                                         const char *const reason, const char *const usage,
-                                         const char *const notes,
+                                         const char *const event_date,
+                                         const char *const event_label, const char *const reason,
+                                         const char *const usage, const char *const notes,
                                          apl_lifecycle_event *const out_event,
                                          apl_error *const error)
 {
-    apl_lifecycle_event event = {.team_id = team_id, .action = APL_LIFECYCLE_REPLACE,
-                                 .car_id = car_id, .old_unit_id = old_unit_id,
+    apl_lifecycle_event event = {.team_id = team_id,
+                                 .action = APL_LIFECYCLE_REPLACE,
+                                 .car_id = car_id,
+                                 .old_unit_id = old_unit_id,
                                  .new_unit_id = new_unit_id};
     (void)snprintf(event.position, sizeof(event.position), "%s", position);
     apl_status status =
@@ -378,10 +379,9 @@ apl_status apl_lifecycle_service_replace(const apl_app *const app, const int64_t
         char summary[APL_ACTIVITY_SUMMARY_MAX];
         (void)snprintf(summary, sizeof(summary), "Replaced unit %lld with %lld on %s",
                        (long long)old_unit_id, (long long)new_unit_id, out_event->event_date);
-        status =
-            apl_audit_append(app, team_id, "lifecycle_replaced",
-                             apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out_event->id,
-                             summary, changes, 4, error);
+        status = apl_audit_append(app, team_id, "lifecycle_replaced",
+                                  apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out_event->id,
+                                  summary, changes, 4, error);
     }
     if (status != APL_OK) {
         return apl_use_case_rollback(&transaction, status, "cannot record replacement", error);
@@ -395,7 +395,8 @@ apl_status apl_lifecycle_service_set_cost(const apl_app *const app, const int64_
                                           apl_error *const error)
 {
     if (app == nullptr || out_event == nullptr || team_id <= 0 || event_id <= 0) {
-        apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "replacement cost-link arguments are invalid");
+        apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                      "replacement cost-link arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
     *out_event = (apl_lifecycle_event){};
@@ -455,10 +456,9 @@ apl_status apl_lifecycle_service_set_cost(const apl_app *const app, const int64_
         } else {
             (void)snprintf(summary, sizeof(summary), "Removed replacement cost link");
         }
-        status =
-            apl_audit_append(app, team_id, "lifecycle_cost_linked",
-                             apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out_event->id,
-                             summary, &change, 1, error);
+        status = apl_audit_append(app, team_id, "lifecycle_cost_linked",
+                                  apl_record_kind_code(APL_RECORD_LIFECYCLE_EVENT), out_event->id,
+                                  summary, &change, 1, error);
     }
     if (status != APL_OK) {
         return apl_use_case_rollback(&transaction, status, "cannot link replacement cost", error);
@@ -503,9 +503,8 @@ apl_status apl_lifecycle_service_list_unit(const apl_app *const app, const int64
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "lifecycle unit list arguments are invalid");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    return apl_use_case_with_context(apl_lifecycle_repository_list_unit(&app->db, team_id, unit_id,
-                                                                        out_entries, out_count,
-                                                                        error),
+    return apl_use_case_with_context(apl_lifecycle_repository_list_unit(
+                                         &app->db, team_id, unit_id, out_entries, out_count, error),
                                      "cannot list unit lifecycle", error);
 }
 

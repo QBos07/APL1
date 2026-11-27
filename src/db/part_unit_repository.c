@@ -6,8 +6,8 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define PART_UNIT_COLUMNS                                                                             \
-    "id, team_id, type_id, serial_number, part_number, condition_label, condition_key, notes, "       \
+#define PART_UNIT_COLUMNS                                                                          \
+    "id, team_id, type_id, serial_number, part_number, condition_label, condition_key, notes, "    \
     "archived, created_at, updated_at, archived_at"
 
 static void read_unit(sqlite3_stmt *const statement, apl_part_unit *const unit)
@@ -68,12 +68,10 @@ static int bind_unit_fields(sqlite3_stmt *const statement, const int first_index
         status = sqlite3_bind_text(statement, index++, unit->part_number, -1, SQLITE_TRANSIENT);
     }
     if (status == SQLITE_OK) {
-        status =
-            sqlite3_bind_text(statement, index++, unit->condition, -1, SQLITE_TRANSIENT);
+        status = sqlite3_bind_text(statement, index++, unit->condition, -1, SQLITE_TRANSIENT);
     }
     if (status == SQLITE_OK) {
-        status =
-            sqlite3_bind_text(statement, index++, unit->condition_key, -1, SQLITE_TRANSIENT);
+        status = sqlite3_bind_text(statement, index++, unit->condition_key, -1, SQLITE_TRANSIENT);
     }
     if (status == SQLITE_OK) {
         status = sqlite3_bind_text(statement, index, unit->notes, -1, SQLITE_TRANSIENT);
@@ -164,9 +162,9 @@ apl_status apl_part_unit_repository_get(const apl_db_connection *const connectio
     *out_unit = (apl_part_unit){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
-        prepare(handle, "SELECT " PART_UNIT_COLUMNS " FROM part_units WHERE id = ?1 AND team_id = ?2;",
-                &statement, error);
+    apl_status status = prepare(
+        handle, "SELECT " PART_UNIT_COLUMNS " FROM part_units WHERE id = ?1 AND team_id = ?2;",
+        &statement, error);
     if (status != APL_OK) {
         return status;
     }

@@ -73,8 +73,8 @@ apl_status apl_part_type_category_normalize(const char *const text, char *const 
                                             const size_t display_size, char *const out_key,
                                             const size_t key_size, apl_error *const error)
 {
-    const apl_status status = label_normalize(text, "part category", out_display, display_size,
-                                              out_key, key_size, error);
+    const apl_status status =
+        label_normalize(text, "part category", out_display, display_size, out_key, key_size, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_CATEGORY);
     }
@@ -205,8 +205,7 @@ apl_status apl_part_unit_notes_normalize(const char *const text, char *const out
 }
 
 static const char *const LIFECYCLE_CODES[] = {"install", "remove", "replace", "repair", "dispose"};
-static const char *const LIFECYCLE_LABELS[] = {"Install", "Remove", "Replace", "Repair",
-                                               "Dispose"};
+static const char *const LIFECYCLE_LABELS[] = {"Install", "Remove", "Replace", "Repair", "Dispose"};
 
 const char *apl_lifecycle_action_code(const apl_lifecycle_action action)
 {
@@ -278,7 +277,8 @@ apl_status apl_lifecycle_event_label_normalize(const char *const text, char *con
 apl_status apl_lifecycle_reason_normalize(const char *const text, char *const out,
                                           const size_t out_size, apl_error *const error)
 {
-    const apl_status status = apl_reference_optional_normalize(text, "reason", out, out_size, error);
+    const apl_status status =
+        apl_reference_optional_normalize(text, "reason", out, out_size, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_REASON);
     }

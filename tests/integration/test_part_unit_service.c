@@ -125,9 +125,9 @@ Test(part_unit_service, update_archive_and_archive_preserves_history)
     const apl_part_type other_type = make_type(&app, team.id, "Rear Wing", &err);
 
     apl_part_unit unit = {};
-    cr_assert_eq(apl_part_unit_service_create(&app, team.id, type.id, "FW-001", "", "", "", &unit,
-                                              &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_unit_service_create(&app, team.id, type.id, "FW-001", "", "", "", &unit, &err),
+        APL_OK);
 
     /* Archiving a type keeps its existing units readable. */
     apl_part_type archived_type = {};
@@ -181,9 +181,9 @@ Test(part_unit_service, rolls_back_atomically_when_audit_fails)
                    "BEGIN SELECT RAISE(ABORT, 'injected'); END;");
     cr_assert_eq(sqlite3_exec(app.db.handle, trigger, nullptr, nullptr, nullptr), SQLITE_OK);
     apl_part_unit failed = {};
-    cr_assert_eq(apl_part_unit_service_create(&app, team.id, type.id, "FW-001", "", "", "", &failed,
-                                              &err),
-                 APL_ERR_DB_QUERY);
+    cr_assert_eq(
+        apl_part_unit_service_create(&app, team.id, type.id, "FW-001", "", "", "", &failed, &err),
+        APL_ERR_DB_QUERY);
     apl_part_unit_filter filter = {.team_id = team.id, .include_archived = true};
     apl_part_unit *units = nullptr;
     size_t count = 0;

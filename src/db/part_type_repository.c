@@ -6,7 +6,7 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define PART_TYPE_COLUMNS                                                                            \
+#define PART_TYPE_COLUMNS                                                                             \
     "id, team_id, category, category_key, name, name_key, description, notes, archived, created_at, " \
     "updated_at, archived_at"
 
@@ -166,9 +166,9 @@ apl_status apl_part_type_repository_get(const apl_db_connection *const connectio
     *out_type = (apl_part_type){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
-        prepare(handle, "SELECT " PART_TYPE_COLUMNS " FROM part_types WHERE id = ?1 AND team_id = ?2;",
-                &statement, error);
+    apl_status status = prepare(
+        handle, "SELECT " PART_TYPE_COLUMNS " FROM part_types WHERE id = ?1 AND team_id = ?2;",
+        &statement, error);
     if (status != APL_OK) {
         return status;
     }
@@ -182,8 +182,7 @@ apl_status apl_part_type_repository_get(const apl_db_connection *const connectio
         return APL_ERR_NOT_FOUND;
     }
     if (step_status != SQLITE_ROW) {
-        apl_error_set(error, APL_ERR_DB_QUERY, "cannot read part type: %s",
-                      sqlite3_errmsg(handle));
+        apl_error_set(error, APL_ERR_DB_QUERY, "cannot read part type: %s", sqlite3_errmsg(handle));
         sqlite3_finalize(statement);
         return APL_ERR_DB_QUERY;
     }

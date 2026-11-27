@@ -96,9 +96,9 @@ Test(part_type_repository, creates_reads_updates_and_archives_without_seeding)
     apl_part_type_repository_free_list(types);
 
     apl_part_type_filter archived_filter = {.team_id = team.id, .include_archived = true};
-    cr_assert_eq(apl_part_type_repository_list(&db.connection, &archived_filter, &types, &count,
-                                               &err),
-                 APL_OK);
+    cr_assert_eq(
+        apl_part_type_repository_list(&db.connection, &archived_filter, &types, &count, &err),
+        APL_OK);
     cr_assert_eq(count, 1);
     cr_assert_str_eq(types[0].name, "Rear Wing");
     apl_part_type_repository_free_list(types);
@@ -131,8 +131,8 @@ Test(part_type_repository, enforces_duplicate_name_within_team_and_category)
 
     /* Archiving frees the first name without erasing history. */
     apl_part_type archived = {};
-    cr_assert_eq(
-        apl_part_type_repository_archive(&db.connection, team.id, a.id, &archived, &err), APL_OK);
+    cr_assert_eq(apl_part_type_repository_archive(&db.connection, team.id, a.id, &archived, &err),
+                 APL_OK);
     apl_part_type reuse = make_type(team.id, "Aero", "Front Wing");
     apl_part_type created = {};
     cr_assert_eq(apl_part_type_repository_create(&db.connection, &reuse, &created, &err), APL_OK);
@@ -204,8 +204,8 @@ Test(part_type_repository, orders_by_category_then_name)
 
     apl_part_type_filter category = {.team_id = team.id};
     (void)snprintf(category.category_key, sizeof(category.category_key), "aero");
-    cr_assert_eq(
-        apl_part_type_repository_list(&db.connection, &category, &types, &count, &err), APL_OK);
+    cr_assert_eq(apl_part_type_repository_list(&db.connection, &category, &types, &count, &err),
+                 APL_OK);
     cr_assert_eq(count, 2);
     apl_part_type_repository_free_list(types);
 
