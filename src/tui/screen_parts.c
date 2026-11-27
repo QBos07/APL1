@@ -274,6 +274,32 @@ void open_selected_part_unit(shell_state *const state)
     open_part_unit_detail(state, state->part_units[state->list.selected]);
 }
 
+void open_linked_part_transaction(shell_state *const state)
+{
+    for (size_t index = state->unit_event_count; index > 0; --index) {
+        const apl_lifecycle_event *const event = &state->unit_events[index - 1].event;
+        if (event->transaction_id <= 0) {
+            continue;
+        }
+        apl_error error;
+        apl_error_init(&error);
+        if (apl_ledger_service_get(state->app, active_team_id(state), event->transaction_id,
+                                   &state->entry_detail, &error) != APL_OK ||
+            load_entry_activity(state, event->transaction_id, &error) != APL_OK) {
+            show_error_dialog(state, &error);
+            return;
+        }
+        state->parts_return_pending = true;
+        state->parts_return_unit_id = state->part_unit_detail.id;
+        state->section = APL_TUI_SECTION_MONEY;
+        state->screen = SHELL_SCREEN_MONEY_DETAIL;
+        sync_status_context(state);
+        set_status(state, "Linked replacement expense; Esc returns to the part unit.");
+        return;
+    }
+    set_status_warning(state, "This unit has no linked replacement expense.");
+}
+
 void draw_parts_fitment(shell_state *const state)
 {
     struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
@@ -440,6 +466,25 @@ void draw_part_unit_detail(shell_state *const state)
     ++row;
 
     apl_tui_frame_draw_line(body, row++, "Lifecycle history (entered-date order):");
+    apl_ledger_entry *team_entries = nullptr;
+    size_t team_entry_count = 0;
+    bool has_linked_cost = false;
+    for (size_t index = 0; index < state->unit_event_count; ++index) {
+        if (state->unit_events[index].event.transaction_id > 0) {
+            has_linked_cost = true;
+            break;
+        }
+    }
+    if (has_linked_cost) {
+        apl_ledger_filter filter = {.team_id = active_team_id(state)};
+        apl_error error;
+        apl_error_init(&error);
+        if (apl_ledger_service_list(state->app, &filter, &team_entries, &team_entry_count,
+                                    &error) != APL_OK) {
+            team_entries = nullptr;
+            team_entry_count = 0;
+        }
+    }
     if (state->unit_event_count == 0) {
         apl_tui_frame_draw_line(body, row++, "  No lifecycle events recorded.");
     } else {
@@ -454,8 +499,50 @@ void draw_part_unit_detail(shell_state *const state)
                 (void)snprintf(line, sizeof(line), "      %.400s", entry->event.reason);
                 apl_tui_frame_draw_line(body, row++, line);
             }
+            if (entry->event.transaction_id > 0 && row < (int)rows - 1) {
+                const apl_ledger_entry *linked = nullptr;
+                apl_money net = {};
+                bool net_valid = false;
+                for (size_t ledger_index = 0; ledger_index < team_entry_count; ++ledger_index) {
+                    if (team_entries[ledger_index].id == entry->event.transaction_id) {
+                        linked = &team_entries[ledger_index];
+                        net = linked->amount;
+                        net_valid = true;
+                        break;
+                    }
+                }
+                if (linked != nullptr) {
+                    for (size_t ledger_index = 0; ledger_index < team_entry_count; ++ledger_index) {
+                        if (team_entries[ledger_index].corrects_entry_id != linked->id) {
+                            continue;
+                        }
+                        apl_money updated = {};
+                        apl_error money_error;
+                        apl_error_init(&money_error);
+                        if (apl_money_add(&net, &team_entries[ledger_index].amount, &updated,
+                                          &money_error) != APL_OK) {
+                            net_valid = false;
+                            break;
+                        }
+                        net = updated;
+                    }
+                    char amount[64] = "unavailable";
+                    if (net_valid) {
+                        (void)apl_money_format(&net, amount, sizeof(amount));
+                    }
+                    (void)snprintf(line, sizeof(line),
+                                   "      Expense #%lld: %s  %s  %s  net %s (c to open)",
+                                   (long long)linked->id, linked->entry_date, linked->category,
+                                   linked->description, amount);
+                } else {
+                    (void)snprintf(line, sizeof(line), "      Expense #%lld: unavailable",
+                                   (long long)entry->event.transaction_id);
+                }
+                apl_tui_frame_draw_line(body, row++, line);
+            }
         }
     }
+    apl_ledger_service_free_list(team_entries);
     if (row < (int)rows - 1) {
         (void)snprintf(line, sizeof(line), "Created: %s   Updated: %s", unit->meta.created_at,
                        unit->meta.updated_at);
@@ -710,6 +797,10 @@ void handle_part_unit_detail_input(shell_state *const state, const uint32_t id)
     case 'd':
     case 'D':
         open_lifecycle_dialog(state, APL_LIFECYCLE_DISPOSE);
+        return;
+    case 'c':
+    case 'C':
+        open_linked_part_transaction(state);
         return;
     case 'x':
     case 'X':
@@ -1162,7 +1253,7 @@ void open_lifecycle_dialog(shell_state *const state, const apl_lifecycle_action 
         break;
     }
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
-    set_status(state, "Tab moves fields. Enter records the event; Esc writes nothing.");
+    set_status(state, "Tab moves fields. Enter reviews; confirm to record. Esc writes nothing.");
 }
 
 void open_replace_dialog_direct(shell_state *const state)
@@ -1183,6 +1274,7 @@ void open_replace_dialog_direct(shell_state *const state)
     (void)apl_tui_dialog_add_field(&state->dialog, "Reason (optional)", "", false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Usage (optional)", "", false);
     (void)apl_tui_dialog_add_field(&state->dialog, "Notes (optional)", "", false);
+    (void)apl_tui_dialog_add_field(&state->dialog, "Expense transaction ID (optional)", "", false);
     state->dialog_context = SHELL_DIALOG_CONTEXT_PART_REPLACE;
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
     set_status(state, "Enter previews the replacement; confirm the review to save atomically.");
@@ -1454,7 +1546,7 @@ bool perform_replace(shell_state *const state, const char *const old_unit,
                      const char *const new_unit, const char *const car, const char *const position,
                      const char *const event_date, const char *const event_label,
                      const char *const reason, const char *const usage, const char *const notes,
-                     apl_error *const error)
+                     const char *const transaction, apl_error *const error)
 {
     int64_t old_id = 0;
     int64_t new_id = 0;
@@ -1465,6 +1557,64 @@ bool perform_replace(shell_state *const state, const char *const old_unit,
     if (status != APL_OK) {
         set_status_from_error(state, "Cannot record replacement", error);
         return false;
+    }
+    int64_t transaction_id = 0;
+    if (transaction != nullptr && transaction[0] != '\0') {
+        char *endptr = nullptr;
+        const long long parsed_id = strtoll(transaction, &endptr, 10);
+        if (endptr == transaction || *endptr != '\0' || parsed_id <= 0) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "expense transaction must be a positive ledger ID or blank");
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            set_status_from_error(state, "Cannot record replacement", error);
+            return false;
+        }
+        apl_ledger_entry entry = {};
+        status = apl_ledger_service_get(state->app, active_team_id(state), (int64_t)parsed_id,
+                                        &entry, error);
+        if (status != APL_OK || entry.classification != APL_LEDGER_KIND_EXPENSE) {
+            if (status == APL_OK) {
+                apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                              "only an existing expense transaction can be linked");
+                status = APL_ERR_INVALID_ARGUMENT;
+            }
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            set_status_from_error(state, "Cannot record replacement", error);
+            return false;
+        }
+        if (state->active_team.currency[0] != '\0' &&
+            strcmp(state->active_team.currency, entry.amount.currency) != 0) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "expense transaction currency does not match the team's currency");
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            set_status_from_error(state, "Cannot record replacement", error);
+            return false;
+        }
+        apl_lifecycle_filter linked_filter = {.team_id = active_team_id(state)};
+        apl_lifecycle_event *linked_events = nullptr;
+        size_t linked_count = 0;
+        status = apl_lifecycle_service_list(state->app, &linked_filter, &linked_events,
+                                            &linked_count, error);
+        if (status != APL_OK) {
+            set_status_from_error(state, "Cannot record replacement", error);
+            return false;
+        }
+        bool already_linked = false;
+        for (size_t index = 0; index < linked_count; ++index) {
+            if (linked_events[index].transaction_id == (int64_t)parsed_id) {
+                already_linked = true;
+                break;
+            }
+        }
+        apl_lifecycle_service_free_events(linked_events);
+        if (already_linked) {
+            apl_error_set(error, APL_ERR_INVALID_ARGUMENT,
+                          "expense transaction is already linked to a replacement");
+            apl_error_set_field(error, APL_FIELD_TRANSACTION);
+            set_status_from_error(state, "Cannot record replacement", error);
+            return false;
+        }
+        transaction_id = (int64_t)parsed_id;
     }
     int64_t car_id = 0;
     status = part_resolve_car_by_name(state, car, &car_id, error);
@@ -1480,6 +1630,19 @@ bool perform_replace(shell_state *const state, const char *const old_unit,
         set_status_from_error(state, "Cannot record replacement", error);
         return false;
     }
+    char link_warning[APL_TUI_DIALOG_MESSAGE_MAX] = "";
+    if (transaction_id > 0) {
+        apl_lifecycle_event linked = {};
+        status = apl_lifecycle_service_set_cost(state->app, active_team_id(state), stored.id,
+                                                transaction_id, &linked, error);
+        if (status != APL_OK) {
+            (void)snprintf(link_warning, sizeof(link_warning),
+                           "Replacement was recorded, but expense #%lld could not be linked: %s",
+                           (long long)transaction_id, apl_error_message(error));
+        } else {
+            stored = linked;
+        }
+    }
     state->part_unit_detail.id = new_id;
     if (load_part_units(state, 0, error) != APL_OK ||
         load_part_unit_detail(state, new_id, error) != APL_OK) {
@@ -1487,6 +1650,10 @@ bool perform_replace(shell_state *const state, const char *const old_unit,
         return false;
     }
     state->screen = SHELL_SCREEN_PART_UNIT_DETAIL;
-    set_status_success(state, "Replacement recorded on %s.", stored.event_date);
+    if (link_warning[0] != '\0') {
+        set_status_warning(state, "%s", link_warning);
+    } else {
+        set_status_success(state, "Replacement recorded on %s.", stored.event_date);
+    }
     return true;
 }

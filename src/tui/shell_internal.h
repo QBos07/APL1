@@ -76,6 +76,7 @@ typedef enum shell_pending_action {
     SHELL_PENDING_ARCHIVE_BUDGET,
     SHELL_PENDING_ARCHIVE_PART_TYPE,
     SHELL_PENDING_ARCHIVE_PART_UNIT,
+    SHELL_PENDING_APPLY_LIFECYCLE,
     SHELL_PENDING_APPLY_REPLACE,
 } shell_pending_action;
 
@@ -245,6 +246,8 @@ typedef struct shell_state {
     int64_t dialog_part_type_id;
     int64_t dialog_part_unit_id;
     int64_t dialog_car_id;
+    bool parts_return_pending;
+    int64_t parts_return_unit_id;
     bool include_archived_part_types;
     bool include_archived_part_units;
     char part_type_category_filter[APL_PART_TYPE_CATEGORY_MAX];
@@ -265,6 +268,16 @@ typedef struct shell_state {
     char replace_reason[APL_LIFECYCLE_REASON_MAX];
     char replace_usage[APL_LIFECYCLE_USAGE_MAX];
     char replace_notes[APL_REFERENCE_NOTES_MAX];
+    char replace_transaction[32];
+    apl_lifecycle_action pending_lifecycle_action;
+    char pending_lifecycle_unit[APL_TUI_DIALOG_FIELD_VALUE_MAX];
+    char pending_lifecycle_car[APL_REFERENCE_LABEL_MAX];
+    char pending_lifecycle_position[APL_LIFECYCLE_POSITION_MAX];
+    char pending_lifecycle_date[APL_REFERENCE_DATE_MAX];
+    char pending_lifecycle_event[APL_LIFECYCLE_EVENT_MAX];
+    char pending_lifecycle_reason[APL_LIFECYCLE_REASON_MAX];
+    char pending_lifecycle_usage[APL_LIFECYCLE_USAGE_MAX];
+    char pending_lifecycle_notes[APL_REFERENCE_NOTES_MAX];
 } shell_state;
 
 void handle_dialog_input(shell_state *state, const ncinput *input);
@@ -487,6 +500,7 @@ apl_status load_part_unit_detail(shell_state *state, int64_t unit_id, apl_error 
 void open_part_unit_detail(shell_state *state, apl_part_unit unit);
 void open_part_type_detail(shell_state *state, apl_part_type type);
 void open_selected_part_unit(shell_state *state);
+void open_linked_part_transaction(shell_state *state);
 void draw_parts_fitment(shell_state *state);
 void draw_part_type_list(shell_state *state);
 void draw_part_type_detail(shell_state *state);
@@ -523,7 +537,7 @@ bool perform_lifecycle_action(shell_state *state, apl_lifecycle_action action, c
 bool perform_replace(shell_state *state, const char *old_unit, const char *new_unit,
                      const char *car, const char *position, const char *event_date,
                      const char *event_label, const char *reason, const char *usage,
-                     const char *notes, apl_error *error);
+                     const char *notes, const char *transaction, apl_error *error);
 bool apply_parts_filter(shell_state *state, const char *action, const char *car,
                         const char *position, const char *from_date, const char *to_date,
                         const char *search, const char *type, apl_error *error);

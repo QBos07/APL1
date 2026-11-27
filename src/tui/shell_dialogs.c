@@ -24,6 +24,129 @@ static unsigned parts_filter_error_field(const apl_error *const error)
     }
 }
 
+static void begin_lifecycle_review(shell_state *const state)
+{
+    state->pending_lifecycle_action = APL_LIFECYCLE_INSTALL;
+    if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REMOVE) {
+        state->pending_lifecycle_action = APL_LIFECYCLE_REMOVE;
+    } else if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_REPAIR) {
+        state->pending_lifecycle_action = APL_LIFECYCLE_REPAIR;
+    } else if (state->dialog_context == SHELL_DIALOG_CONTEXT_PART_DISPOSE) {
+        state->pending_lifecycle_action = APL_LIFECYCLE_DISPOSE;
+    }
+    (void)snprintf(state->pending_lifecycle_unit, sizeof(state->pending_lifecycle_unit), "%s",
+                   dialog_value(state, 0));
+    (void)snprintf(state->pending_lifecycle_car, sizeof(state->pending_lifecycle_car), "%s",
+                   dialog_value(state, 1));
+    (void)snprintf(state->pending_lifecycle_position, sizeof(state->pending_lifecycle_position),
+                   "%s", dialog_value(state, 2));
+    (void)snprintf(state->pending_lifecycle_date, sizeof(state->pending_lifecycle_date), "%s",
+                   dialog_value(state, 3));
+    (void)snprintf(state->pending_lifecycle_event, sizeof(state->pending_lifecycle_event), "%s",
+                   dialog_value(state, 4));
+    (void)snprintf(state->pending_lifecycle_reason, sizeof(state->pending_lifecycle_reason), "%s",
+                   dialog_value(state, 5));
+    (void)snprintf(state->pending_lifecycle_usage, sizeof(state->pending_lifecycle_usage), "%s",
+                   dialog_value(state, 6));
+    (void)snprintf(state->pending_lifecycle_notes, sizeof(state->pending_lifecycle_notes), "%s",
+                   dialog_value(state, 7));
+
+    const char *effect = "record the lifecycle event";
+    switch (state->pending_lifecycle_action) {
+    case APL_LIFECYCLE_INSTALL:
+        effect = "record this unit as fitted at the selected car/position";
+        break;
+    case APL_LIFECYCLE_REMOVE:
+        effect = "record that no unit remains fitted at the selected car/position";
+        break;
+    case APL_LIFECYCLE_REPAIR:
+        effect = "record work performed without changing current fitment";
+        break;
+    case APL_LIFECYCLE_DISPOSE:
+        effect = "record that the unit leaves service; a fitted unit must be removed first";
+        break;
+    default:
+        break;
+    }
+    char message[APL_TUI_DIALOG_MESSAGE_MAX];
+    (void)snprintf(
+        message, sizeof(message),
+        "%s unit %s on %s%s%s%s%s. Confirm to write the lifecycle and audit event; "
+        "Cancel makes no change. Expected effect: %s.",
+        apl_lifecycle_action_label(state->pending_lifecycle_action), state->pending_lifecycle_unit,
+        state->pending_lifecycle_date[0] != '\0' ? state->pending_lifecycle_date
+                                                 : "(date not entered)",
+        state->pending_lifecycle_car[0] != '\0' ? " at " : "", state->pending_lifecycle_car,
+        state->pending_lifecycle_position[0] != '\0' ? " / " : "",
+        state->pending_lifecycle_position, effect);
+    close_shell_dialog(state);
+    state->pending = SHELL_PENDING_APPLY_LIFECYCLE;
+    apl_tui_dialog_open_confirm(&state->dialog, "Review lifecycle action", message);
+    apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
+}
+
+static void restore_lifecycle_form(shell_state *const state, const apl_error *const error)
+{
+    open_lifecycle_dialog(state, state->pending_lifecycle_action);
+    apl_tui_dialog_set_field_value(&state->dialog, 0, state->pending_lifecycle_unit);
+    apl_tui_dialog_set_field_value(&state->dialog, 1, state->pending_lifecycle_car);
+    apl_tui_dialog_set_field_value(&state->dialog, 2, state->pending_lifecycle_position);
+    apl_tui_dialog_set_field_value(&state->dialog, 3, state->pending_lifecycle_date);
+    apl_tui_dialog_set_field_value(&state->dialog, 4, state->pending_lifecycle_event);
+    apl_tui_dialog_set_field_value(&state->dialog, 5, state->pending_lifecycle_reason);
+    apl_tui_dialog_set_field_value(&state->dialog, 6, state->pending_lifecycle_usage);
+    apl_tui_dialog_set_field_value(&state->dialog, 7, state->pending_lifecycle_notes);
+    const unsigned field = lifecycle_form_error_field(error);
+    state->dialog.focus = field;
+    apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(error));
+}
+
+static unsigned replace_form_error_field(const apl_error *const error)
+{
+    switch (apl_error_field_id(error)) {
+    case APL_FIELD_OLD_UNIT:
+        return 0;
+    case APL_FIELD_NEW_UNIT:
+        return 1;
+    case APL_FIELD_CAR:
+        return 2;
+    case APL_FIELD_POSITION:
+        return 3;
+    case APL_FIELD_DATE:
+        return 4;
+    case APL_FIELD_EVENT_LABEL:
+        return 5;
+    case APL_FIELD_REASON:
+        return 6;
+    case APL_FIELD_USAGE:
+        return 7;
+    case APL_FIELD_NOTES:
+        return 8;
+    case APL_FIELD_TRANSACTION:
+        return 9;
+    default:
+        return 4;
+    }
+}
+
+static void restore_replace_form(shell_state *const state, const apl_error *const error)
+{
+    open_replace_dialog_direct(state);
+    apl_tui_dialog_set_field_value(&state->dialog, 0, state->replace_old_unit);
+    apl_tui_dialog_set_field_value(&state->dialog, 1, state->replace_new_unit);
+    apl_tui_dialog_set_field_value(&state->dialog, 2, state->replace_car);
+    apl_tui_dialog_set_field_value(&state->dialog, 3, state->replace_position);
+    apl_tui_dialog_set_field_value(&state->dialog, 4, state->replace_date);
+    apl_tui_dialog_set_field_value(&state->dialog, 5, state->replace_event);
+    apl_tui_dialog_set_field_value(&state->dialog, 6, state->replace_reason);
+    apl_tui_dialog_set_field_value(&state->dialog, 7, state->replace_usage);
+    apl_tui_dialog_set_field_value(&state->dialog, 8, state->replace_notes);
+    apl_tui_dialog_set_field_value(&state->dialog, 9, state->replace_transaction);
+    const unsigned field = replace_form_error_field(error);
+    state->dialog.focus = field;
+    apl_tui_dialog_set_field_error(&state->dialog, field, apl_error_message(error));
+}
+
 void handle_dialog_input(shell_state *const state, const ncinput *const input)
 {
     const uint32_t id = input->id;
@@ -332,15 +455,8 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
             set_status(state, "Lifecycle action cancelled; nothing was written.");
             return;
         }
-        if (!perform_lifecycle_action(state, action, dialog_value(state, 0), dialog_value(state, 1),
-                                      dialog_value(state, 2), dialog_value(state, 3),
-                                      dialog_value(state, 4), dialog_value(state, 5),
-                                      dialog_value(state, 6), dialog_value(state, 7), &error)) {
-            apl_tui_dialog_set_field_error(&state->dialog, lifecycle_form_error_field(&error),
-                                           apl_error_message(&error));
-            return;
-        }
-        close_shell_dialog(state);
+        (void)action;
+        begin_lifecycle_review(state);
         return;
     }
 
@@ -371,18 +487,28 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
                            dialog_value(state, 7));
             (void)snprintf(state->replace_notes, sizeof(state->replace_notes), "%s",
                            dialog_value(state, 8));
+            (void)snprintf(state->replace_transaction, sizeof(state->replace_transaction), "%s",
+                           dialog_value(state, 9));
             close_shell_dialog(state);
             state->pending = SHELL_PENDING_APPLY_REPLACE;
             char message[APL_TUI_DIALOG_MESSAGE_MAX];
+            char cost_summary[128];
+            if (state->replace_transaction[0] != '\0') {
+                (void)snprintf(cost_summary, sizeof(cost_summary),
+                               " Expense transaction #%s will be linked.",
+                               state->replace_transaction);
+            } else {
+                (void)snprintf(cost_summary, sizeof(cost_summary), " No cost link will be added.");
+            }
             (void)snprintf(
                 message, sizeof(message),
-                "Replace old unit %s with new unit %s%s%s on %s%s%s. Confirm to save "
+                "Replace old unit %s with new unit %s%s%s on %s%s%s.%s Confirm to save "
                 "atomically; the old unit's history and the new unit remain inspectable.",
                 state->replace_old_unit, state->replace_new_unit,
                 state->replace_car[0] != '\0' ? " at car " : "",
                 state->replace_car[0] != '\0' ? state->replace_car : "", state->replace_date,
                 state->replace_position[0] != '\0' ? " position " : "",
-                state->replace_position[0] != '\0' ? state->replace_position : "");
+                state->replace_position[0] != '\0' ? state->replace_position : "", cost_summary);
             apl_tui_dialog_open_confirm(&state->dialog, "Confirm replacement", message);
             apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
         }
@@ -658,15 +784,26 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         } else {
             set_status(state, "Part unit archive cancelled.");
         }
+    } else if (pending == SHELL_PENDING_APPLY_LIFECYCLE) {
+        if (result == APL_TUI_DIALOG_ACCEPTED) {
+            if (!perform_lifecycle_action(
+                    state, state->pending_lifecycle_action, state->pending_lifecycle_unit,
+                    state->pending_lifecycle_car, state->pending_lifecycle_position,
+                    state->pending_lifecycle_date, state->pending_lifecycle_event,
+                    state->pending_lifecycle_reason, state->pending_lifecycle_usage,
+                    state->pending_lifecycle_notes, &error)) {
+                restore_lifecycle_form(state, &error);
+            }
+        } else {
+            set_status(state, "Lifecycle action cancelled; nothing was written.");
+        }
     } else if (pending == SHELL_PENDING_APPLY_REPLACE) {
         if (result == APL_TUI_DIALOG_ACCEPTED) {
             if (!perform_replace(state, state->replace_old_unit, state->replace_new_unit,
                                  state->replace_car, state->replace_position, state->replace_date,
                                  state->replace_event, state->replace_reason, state->replace_usage,
-                                 state->replace_notes, &error)) {
-                if (state->dialog_context == SHELL_DIALOG_CONTEXT_NONE) {
-                    show_error_dialog(state, &error);
-                }
+                                 state->replace_notes, state->replace_transaction, &error)) {
+                restore_replace_form(state, &error);
             }
         } else {
             set_status(state, "Replacement cancelled; no change was saved.");

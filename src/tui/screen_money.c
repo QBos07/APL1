@@ -1053,7 +1053,7 @@ void handle_money_detail_input(shell_state *const state, const uint32_t id)
     switch (id) {
     case NCKEY_UP:
     case NCKEY_DOWN: {
-        if (state->project_return_pending) {
+        if (state->project_return_pending || state->parts_return_pending) {
             return;
         }
         apl_tui_list_move(&state->list, id == NCKEY_UP ? -1 : 1);
@@ -1066,6 +1066,21 @@ void handle_money_detail_input(shell_state *const state, const uint32_t id)
                                   state->entry_detail.category, "");
         return;
     case NCKEY_ESC:
+        if (state->parts_return_pending) {
+            apl_error error;
+            apl_error_init(&error);
+            state->parts_return_pending = false;
+            state->section = APL_TUI_SECTION_PARTS;
+            state->screen = SHELL_SCREEN_PART_UNIT_DETAIL;
+            if (load_part_unit_detail(state, state->parts_return_unit_id, &error) != APL_OK) {
+                show_error_dialog(state, &error);
+                return;
+            }
+            state->parts_return_unit_id = 0;
+            sync_status_context(state);
+            set_status(state, "Back to the part unit; linked cost history reloaded.");
+            return;
+        }
         if (state->project_return_pending) {
             apl_error error;
             apl_error_init(&error);

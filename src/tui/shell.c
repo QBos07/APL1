@@ -382,8 +382,8 @@ static const char *context_key_hint(const shell_state *const state)
     }
     if (state->section == APL_TUI_SECTION_PARTS) {
         if (state->screen == SHELL_SCREEN_PART_UNIT_DETAIL) {
-            return "i install | r remove | p repair | d dispose | R replace | e edit | x archive | "
-                   "Esc register";
+            return "i install | r remove | p repair | d dispose | R replace | c linked cost | e edit | "
+                   "x archive | Esc register";
         }
         if (state->screen == SHELL_SCREEN_PART_TYPE_DETAIL) {
             return "e edit | x archive | n add unit | Esc types";
