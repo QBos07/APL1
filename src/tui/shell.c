@@ -2001,7 +2001,8 @@ static bool handle_key_hint_mouse(shell_state *const state, const apl_tui_layout
             uint32_t key = 0;
             if (strncmp(segment, "Enter ", 6) == 0) {
                 key = NCKEY_ENTER;
-            } else if (strncmp(segment, "Esc ", 4) == 0) {
+            } else if (strncmp(segment, "Esc", 3) == 0 &&
+                       (segment[3] == ' ' || segment[3] == '\0')) {
                 key = NCKEY_ESC;
             } else if (strncmp(segment, ": commands", 10) == 0) {
                 key = ':';
@@ -2144,6 +2145,13 @@ static void handle_mouse(shell_state *const state, const ncinput *const input)
     if (state->section == APL_TUI_SECTION_HISTORY) {
         if (state->screen == SHELL_SCREEN_HISTORY_LIST) {
             handle_list_mouse(state, input);
+        }
+        return;
+    }
+    if (state->section == APL_TUI_SECTION_EVENTS) {
+        if (layout != nullptr && point_in_rect(layout->body, input->y, input->x)) {
+            handle_events_mouse(state, input->id, (unsigned)(input->y - (int)layout->body.y),
+                                layout->body.rows);
         }
         return;
     }

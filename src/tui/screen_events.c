@@ -665,6 +665,52 @@ void draw_events_screen(shell_state *state)
     }
 }
 
+void handle_events_mouse(shell_state *state, uint32_t id, unsigned row, unsigned body_rows)
+{
+    if (id == NCKEY_SCROLL_UP || id == NCKEY_SCROLL_DOWN) {
+        apl_tui_list_move(&state->list,
+                          id == NCKEY_SCROLL_UP ? -APL_TUI_SCROLL_STEP : APL_TUI_SCROLL_STEP);
+        return;
+    }
+    if (id != NCKEY_BUTTON1 || body_rows == 0 || row >= body_rows - 1)
+        return;
+    if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW) {
+        if (row == 1)
+            handle_events_input(state, NCKEY_ENTER);
+        return;
+    }
+
+    unsigned start;
+    size_t count;
+    switch (state->screen) {
+    case SHELL_SCREEN_EVENT_LIST:
+        start = 2;
+        count = state->race_event_count;
+        break;
+    case SHELL_SCREEN_EVENT_DETAIL:
+        start = 4;
+        count = state->race_event_detail.session_count;
+        break;
+    case SHELL_SCREEN_SESSION_DETAIL:
+        start = 3;
+        count = state->race_session_detail.row_count;
+        break;
+    default:
+        return;
+    }
+    if (row < start || row - start >= state->list.viewport_rows)
+        return;
+    size_t index = state->list.offset + row - start;
+    if (index >= count)
+        return;
+    apl_tui_list_select(&state->list, index);
+    if (state->screen == SHELL_SCREEN_SESSION_DETAIL &&
+        (state->outcome_batch_active || !state->race_session_detail.rows[index].has_outcome))
+        open_outcome_form(state);
+    else
+        handle_events_input(state, NCKEY_ENTER);
+}
+
 void handle_events_input(shell_state *state, uint32_t id)
 {
     if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW && (id == 's' || id == 'S')) {

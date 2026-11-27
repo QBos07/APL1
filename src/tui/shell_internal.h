@@ -356,6 +356,7 @@ bool handle_body_list_navigation(shell_state *state, uint32_t id);
 apl_status load_race_events(shell_state *state, apl_error *error);
 void draw_events_screen(shell_state *state);
 void handle_events_input(shell_state *state, uint32_t id);
+void handle_events_mouse(shell_state *state, uint32_t id, unsigned row, unsigned body_rows);
 void open_event_form(shell_state *state, bool edit);
 void open_session_form(shell_state *state, bool edit);
 bool save_event_form(shell_state *state, apl_error *error);

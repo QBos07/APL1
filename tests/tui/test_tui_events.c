@@ -53,17 +53,20 @@ Test(tui_events, navigation_scopes_outcomes_and_correction_history)
     state.section = APL_TUI_SECTION_EVENTS;
     state.screen = SHELL_SCREEN_EVENT_LIST;
     apl_tui_list_init(&state.list, 8);
+    apl_tui_focus_init(&state.focus);
     cr_assert_eq(load_race_events(&state, &error), APL_OK);
     cr_assert_eq(state.race_event_count, 1);
-    handle_events_input(&state, NCKEY_ENTER);
+    handle_events_mouse(&state, NCKEY_BUTTON1, 0, 12);
+    cr_assert_eq(state.screen, SHELL_SCREEN_EVENT_LIST);
+    handle_events_mouse(&state, NCKEY_BUTTON1, 2, 12);
     cr_assert_eq(state.screen, SHELL_SCREEN_EVENT_DETAIL);
     cr_assert_eq(state.race_event_detail.session_count, 1);
-    handle_events_input(&state, NCKEY_ENTER);
+    handle_events_mouse(&state, NCKEY_BUTTON1, 4, 12);
     cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
     cr_assert_eq(state.race_session_detail.row_count, 2);
     cr_assert(state.race_session_detail.rows[0].has_outcome);
     cr_assert_not(state.race_session_detail.rows[1].has_outcome);
-    handle_events_input(&state, NCKEY_ENTER);
+    handle_events_mouse(&state, NCKEY_BUTTON1, 3, 12);
     cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_HISTORY);
     cr_assert_eq(state.outcome_correction_count, 1);
     cr_assert_not(state.outcome_corrections[0].before.has_laps);
@@ -75,6 +78,11 @@ Test(tui_events, navigation_scopes_outcomes_and_correction_history)
     cr_assert_eq(state.outcome_history_offset, 0);
     handle_events_input(&state, NCKEY_ESC);
     cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
+    handle_events_mouse(&state, NCKEY_BUTTON1, 4, 12);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_FORM);
+    cr_assert_eq(state.dialog_driver_id, empty.id);
+    ncinput cancel = {.id = NCKEY_ESC};
+    handle_dialog_input(&state, &cancel);
     apl_tui_list_select(&state.list, 1);
     handle_events_input(&state, NCKEY_ENTER);
     cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
@@ -253,6 +261,14 @@ Test(tui_events, staged_batch_review_and_failed_save_are_atomic)
     handle_events_input(&state, 'r');
     cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_REVIEW);
     cr_assert_str_eq(state.outcome_batch[1].input.notes, "manual note");
+    handle_events_mouse(&state, NCKEY_BUTTON1, 1, 12);
+    cr_assert_eq(state.screen, SHELL_SCREEN_SESSION_DETAIL);
+    cr_assert_eq(state.dialog_context, SHELL_DIALOG_CONTEXT_OUTCOME_FORM);
+    cr_assert_str_eq(state.dialog.fields[4].value, "manual note");
+    ncinput cancel_review_edit = {.id = NCKEY_ESC};
+    handle_dialog_input(&state, &cancel_review_edit);
+    handle_events_input(&state, 'r');
+    cr_assert_eq(state.screen, SHELL_SCREEN_OUTCOME_REVIEW);
     cr_assert_eq(sqlite3_exec(app.db.handle,
                               "CREATE TRIGGER fail_batch_ui BEFORE INSERT ON driver_outcomes "
                               "WHEN NEW.driver_id=2 BEGIN SELECT RAISE(ABORT,'failure'); END;",
