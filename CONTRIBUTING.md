@@ -8,9 +8,20 @@ checks added during foundation hardening.
 
 - C23 with extensions disabled (`CMAKE_C_STANDARD 23`, `CMAKE_C_EXTENSIONS NO`) and
   strict diagnostics as errors: `-Wall -Wextra -Wpedantic -Werror
-  -pedantic-errors` plus `-Wcast-qual -Wformat-security -Wmissing-declarations
+  -pedantic-errors` plus `-Wcast-qual -Wwrite-strings -Wignored-qualifiers
+  -Wunused-const-variable -Wformat-security -Wmissing-declarations
   -Wmissing-prototypes -Wold-style-definition -Wpointer-arith -Wshadow
   -Wstrict-prototypes -Wundef -Wvla`.
+- Clang's `-Wincompatible-pointer-types-discards-qualifiers` is explicit too.
+  GCC diagnoses discarded qualifiers by default; its GCC-only spelling is not
+  added to the compilation database because clang-tidy also consumes it.
+  `-Wwrite-strings` prevents treating string literals as writable buffers;
+  tests that model writable `argv` strings use character-array compound
+  literals, not casts that discard constness.
+- `-Wall -Wextra` already check unused variables, functions, and parameters.
+  These flags do not suggest missing local `const`/`constexpr`, detect unused
+  includes, or reject legal top-level const parameters in prototypes; those
+  remain the responsibility of static checks and code review.
 - Configure/build/test with the commands in the README
   (`cmake -S . -B build -DBUILD_TESTING=ON`, `cmake --build build`,
   `ctest --test-dir build --output-on-failure`).
@@ -37,6 +48,13 @@ checks added during foundation hardening.
   and it only describes the callee's local copy. Definitions keep those
   qualifiers for local immutability; pointee const (`const T *`) is part of the
   interface and stays in both.
+- Qualify pointers at the appropriate level: `const T *` protects the pointee,
+  `T *const` fixes the local pointer, and `const T *const` does both. Output
+  parameters such as `T **const out` must keep the returned pointer writable;
+  do not substitute `const T **` for `T **` or cast away constness. Pointers
+  populated through their address (for example, `sqlite3_prepare_v2(..., &stmt,
+  ...)`) must remain reassignable. Likewise, `va_list` is mutable traversal
+  state and must not be const-qualified.
 - Use standard C23 attributes where they apply, for example
   `[[gnu::format(printf, 3, 4)]]` for printf-like functions and
   `[[maybe_unused]]` for intentionally unused parameters.
@@ -125,6 +143,14 @@ checks added during foundation hardening.
   standard-C false positives documented in the FH-09 work item. Findings should
   be fixed or handled with a narrow, explained exclusion rather than a broad
   “ignore everything” suppression.
+- The static check also rejects unused includes, redundant top-level `const`
+  in prototypes, and pointer parameters that can safely point to const data.
+  Include-cleaner's missing-direct-include warnings are disabled because the
+  project intentionally uses public and internal umbrella headers.
+- clang-tidy 21's `misc-const-correctness` and `modernize-use-nullptr` do not
+  analyze C. General local value/pointer constness, `constexpr` opportunities,
+  and C23 `nullptr` usage therefore still require code review; enabling those
+  C++-only checks would not enforce these rules.
 
 ## Boundaries recap
 

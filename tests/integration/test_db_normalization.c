@@ -152,9 +152,11 @@ Test(db_normalization, normalized_schema_enforces_parent_scope_and_append_only_h
     expect_constraint(&db,
                       "INSERT INTO lifecycle_events(team_id,action,event_date,unit_id,created_at) "
                       "VALUES(2,'repair','2026-01-03',5,'created')");
-    apl_outcome before = {.id = 9, .team_id = 2};
-    apl_outcome after = before;
-    cr_assert_neq(apl_outcome_correction_append(&db.connection, &before, &after, &error), APL_OK);
+    const apl_outcome before = {.id = 9, .team_id = 2};
+    const apl_outcome after = before;
+    cr_assert_eq(apl_outcome_correction_append(&db.connection, &before, &after, &error),
+                 APL_ERR_NOT_FOUND);
+    cr_assert_str_eq(apl_error_message(&error), "outcome not found for this team");
     cr_assert_eq(scalar(&db, "SELECT count(*) FROM outcome_corrections"), 1);
     cr_assert_eq(scalar(&db, "SELECT count(*) FROM pragma_foreign_key_check"), 0);
     cr_assert_eq(apl_test_db_close(&db, &error), APL_OK);

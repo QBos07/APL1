@@ -509,7 +509,7 @@ void handle_budget_list_input(shell_state *state, uint32_t id);
 size_t find_project_index(const shell_state *state, int64_t id);
 apl_status load_projects(shell_state *state, int64_t preferred_id, apl_error *error);
 apl_status load_project_detail(shell_state *state, int64_t project_id, apl_error *error);
-void open_project_detail(shell_state *state, const apl_project project);
+void open_project_detail(shell_state *state, apl_project project);
 void open_selected_project(shell_state *state);
 void draw_project_list(shell_state *state);
 void draw_project_detail(shell_state *state);

@@ -166,7 +166,7 @@ apl_status apl_part_type_repository_get(const apl_db_connection *const connectio
     *out_type = (apl_part_type){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(
+    const apl_status status = prepare(
         handle, "SELECT " PART_TYPE_COLUMNS " FROM part_types WHERE id = ?1 AND team_id = ?2;",
         &statement, error);
     if (status != APL_OK) {
@@ -230,7 +230,7 @@ apl_status apl_part_type_repository_archive(const apl_db_connection *const conne
     *out_type = (apl_part_type){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
+    const apl_status status =
         prepare(handle,
                 "UPDATE part_types SET archived = 1, "
                 "archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), "

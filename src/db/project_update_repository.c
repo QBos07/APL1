@@ -146,11 +146,11 @@ apl_status apl_project_update_repository_get(const apl_db_connection *const conn
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "SELECT " UPDATE_COLUMNS " FROM project_updates u "
-                                "JOIN projects p ON p.id = u.project_id "
-                                "WHERE u.id = ?1 AND p.team_id = ?2;",
-                                &statement, error);
+    const apl_status status = prepare(handle,
+                                      "SELECT " UPDATE_COLUMNS " FROM project_updates u "
+                                      "JOIN projects p ON p.id = u.project_id "
+                                      "WHERE u.id = ?1 AND p.team_id = ?2;",
+                                      &statement, error);
     if (status != APL_OK) {
         return status;
     }

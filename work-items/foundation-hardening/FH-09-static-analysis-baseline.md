@@ -52,6 +52,25 @@
 - Compiler format-string diagnostics remain enabled by the normal build; the
   analyzer covers the same call sites.
 
+## C23 cleanup checks (2026-11-28)
+
+- Added `misc-include-cleaner`, `readability-avoid-const-params-in-decls`,
+  and `readability-non-const-parameter` to the shared `.clang-tidy` configuration.
+  The existing static-check script and CI step treat their findings as errors.
+- Disabled only include-cleaner's missing-direct-include diagnostics: public
+  and internal umbrella headers intentionally expose dependencies. Unused-include
+  diagnostics remain enabled.
+- Verified with a C23 probe that an unused project header, top-level const
+  scalar/pointer prototype parameters, and a read-only non-const pointer
+  parameter each trigger the expected diagnostic and a failing exit status.
+- The new prototype check caught and removed a redundant by-value `const` on
+  `open_project_detail` in `src/tui/shell_internal.h`; its definition remains
+  const-qualified.
+- clang-tidy 21 does not run `misc-const-correctness` or
+  `modernize-use-nullptr` on C. These are deliberately not enabled as empty
+  promises of enforcement: local pointer/value constness, C23 `constexpr`,
+  and `nullptr` conventions still require review.
+
 ## Dependencies / boundaries
 
 - No code feature dependency.

@@ -204,7 +204,7 @@ static apl_status find_oldest_active_team(const apl_db_connection *const connect
     *out_found = false;
     apl_team *teams = nullptr;
     size_t count = 0;
-    apl_status status = apl_team_repository_list(connection, false, &teams, &count, error);
+    const apl_status status = apl_team_repository_list(connection, false, &teams, &count, error);
     if (status != APL_OK) {
         return status;
     }

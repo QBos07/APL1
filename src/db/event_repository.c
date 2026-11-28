@@ -1,5 +1,6 @@
 #include "db/event_repository.h"
 
+#include <sqlite3.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -8,7 +9,7 @@
 
 #define EVENT_COLUMNS "id,team_id,season_id,name,event_date,location,notes,created_at,updated_at"
 
-static void read_event(sqlite3_stmt *s, apl_event *event)
+static void read_event(sqlite3_stmt *const s, apl_event *const event)
 {
     *event = (apl_event){};
     event->id = sqlite3_column_int64(s, 0);
@@ -22,10 +23,10 @@ static void read_event(sqlite3_stmt *s, apl_event *event)
     apl_db_copy_column_text(s, 8, event->updated_at, sizeof(event->updated_at));
 }
 
-static apl_status write_event(const apl_db_connection *connection, int64_t team_id, int64_t id,
-                              int64_t season_id, const char *name, const char *date,
-                              const char *location, const char *notes, apl_event *out,
-                              apl_error *error)
+static apl_status write_event(const apl_db_connection *const connection, const int64_t team_id,
+                              const int64_t id, const int64_t season_id, const char *const name,
+                              const char *const date, const char *const location,
+                              const char *const notes, apl_event *const out, apl_error *const error)
 {
     char checked_name[APL_REFERENCE_LABEL_MAX], checked_date[APL_REFERENCE_DATE_MAX];
     if (!connection || !out || team_id <= 0 || id < 0 || season_id < 0 || !name || !date ||
@@ -44,12 +45,12 @@ static apl_status write_event(const apl_db_connection *connection, int64_t team_
                       "event name and valid ISO date are required");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    sqlite3 *db = apl_db_handle(connection);
+    sqlite3 *const db = apl_db_handle(connection);
     if (!db) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "database connection is closed");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    const char *sql =
+    const char *const sql =
         id == 0
             ? "INSERT INTO events(team_id,season_id,name,event_date,location,notes,created_at,updated_at) "
               "VALUES(?1,?3,?4,?5,?6,?7,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
@@ -73,7 +74,7 @@ static apl_status write_event(const apl_db_connection *connection, int64_t team_
     sqlite3_bind_text(s, 5, date, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(s, 6, location, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(s, 7, notes, -1, SQLITE_TRANSIENT);
-    int rc = sqlite3_step(s);
+    const int rc = sqlite3_step(s);
     apl_status status = APL_OK;
     if (rc == SQLITE_ROW)
         read_event(s, out);
@@ -88,17 +89,20 @@ static apl_status write_event(const apl_db_connection *connection, int64_t team_
     return status;
 }
 
-apl_status apl_event_repository_create(const apl_db_connection *c, int64_t team, int64_t season,
-                                       const char *name, const char *date, const char *location,
-                                       const char *notes, apl_event *out, apl_error *error)
+apl_status apl_event_repository_create(const apl_db_connection *const c, const int64_t team,
+                                       const int64_t season, const char *const name,
+                                       const char *const date, const char *const location,
+                                       const char *const notes, apl_event *const out,
+                                       apl_error *const error)
 {
     return write_event(c, team, 0, season, name, date, location, notes, out, error);
 }
 
-apl_status apl_event_repository_update(const apl_db_connection *c, int64_t team, int64_t id,
-                                       int64_t season, const char *name, const char *date,
-                                       const char *location, const char *notes, apl_event *out,
-                                       apl_error *error)
+apl_status apl_event_repository_update(const apl_db_connection *const c, const int64_t team,
+                                       const int64_t id, const int64_t season,
+                                       const char *const name, const char *const date,
+                                       const char *const location, const char *const notes,
+                                       apl_event *const out, apl_error *const error)
 {
     if (id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid event id");
@@ -107,8 +111,9 @@ apl_status apl_event_repository_update(const apl_db_connection *c, int64_t team,
     return write_event(c, team, id, season, name, date, location, notes, out, error);
 }
 
-apl_status apl_event_repository_list(const apl_db_connection *c, int64_t team, apl_event **out,
-                                     size_t *count, apl_error *error)
+apl_status apl_event_repository_list(const apl_db_connection *const c, const int64_t team,
+                                     apl_event **const out, size_t *const count,
+                                     apl_error *const error)
 {
     if (!c || !out || !count || team <= 0 || !apl_db_handle(c)) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid event list arguments");
@@ -116,7 +121,7 @@ apl_status apl_event_repository_list(const apl_db_connection *c, int64_t team, a
     }
     *out = nullptr;
     *count = 0;
-    sqlite3 *db = apl_db_handle(c);
+    sqlite3 *const db = apl_db_handle(c);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
                            "SELECT " EVENT_COLUMNS " FROM events WHERE team_id=?1 "
@@ -131,7 +136,7 @@ apl_status apl_event_repository_list(const apl_db_connection *c, int64_t team, a
     int rc;
     while ((rc = sqlite3_step(s)) == SQLITE_ROW) {
         if (*count == capacity) {
-            apl_event *grown = apl_grow_array(rows, &capacity, 8, sizeof(*rows));
+            apl_event *const grown = apl_grow_array(rows, &capacity, 8, sizeof(*rows));
             if (!grown) {
                 free(rows);
                 sqlite3_finalize(s);
@@ -155,14 +160,14 @@ apl_status apl_event_repository_list(const apl_db_connection *c, int64_t team, a
     return APL_OK;
 }
 
-apl_status apl_event_repository_get(const apl_db_connection *c, int64_t team, int64_t id,
-                                    apl_event *out, apl_error *error)
+apl_status apl_event_repository_get(const apl_db_connection *const c, const int64_t team,
+                                    const int64_t id, apl_event *const out, apl_error *const error)
 {
     if (!c || !out || team <= 0 || id <= 0 || !apl_db_handle(c)) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid event lookup arguments");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    sqlite3 *db = apl_db_handle(c);
+    sqlite3 *const db = apl_db_handle(c);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db, "SELECT " EVENT_COLUMNS " FROM events WHERE team_id=?1 AND id=?2",
                            -1, &s, nullptr) != SQLITE_OK) {
@@ -172,7 +177,7 @@ apl_status apl_event_repository_get(const apl_db_connection *c, int64_t team, in
     }
     sqlite3_bind_int64(s, 1, team);
     sqlite3_bind_int64(s, 2, id);
-    int rc = sqlite3_step(s);
+    const int rc = sqlite3_step(s);
     apl_status status = APL_OK;
     if (rc == SQLITE_ROW)
         read_event(s, out);
@@ -184,7 +189,7 @@ apl_status apl_event_repository_get(const apl_db_connection *c, int64_t team, in
     return status;
 }
 
-void apl_event_repository_free_list(apl_event *events)
+void apl_event_repository_free_list(apl_event *const events)
 {
     free(events);
 }

@@ -1,5 +1,6 @@
 #include "db/session_repository.h"
 
+#include <sqlite3.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,7 +12,7 @@
 #define SESSION_COLUMNS "id,team_id," SESSION_FIELDS
 #define SESSION_RETURNING "id," SESSION_TEAM "," SESSION_FIELDS
 
-static void read_session(sqlite3_stmt *s, apl_event_session *session)
+static void read_session(sqlite3_stmt *const s, apl_event_session *const session)
 {
     *session = (apl_event_session){};
     session->id = sqlite3_column_int64(s, 0);
@@ -22,9 +23,9 @@ static void read_session(sqlite3_stmt *s, apl_event_session *session)
     apl_db_copy_column_text(s, 5, session->updated_at, sizeof(session->updated_at));
 }
 
-static apl_status write_session(const apl_db_connection *connection, int64_t team_id,
-                                int64_t event_id, int64_t id, const char *label,
-                                apl_event_session *out, apl_error *error)
+static apl_status write_session(const apl_db_connection *const connection, const int64_t team_id,
+                                const int64_t event_id, const int64_t id, const char *const label,
+                                apl_event_session *const out, apl_error *const error)
 {
     char checked[APL_REFERENCE_LABEL_MAX];
     if (!connection || !apl_db_handle(connection) || !out || !label || team_id <= 0 ||
@@ -36,8 +37,8 @@ static apl_status write_session(const apl_db_connection *connection, int64_t tea
         APL_OK) {
         return APL_ERR_INVALID_ARGUMENT;
     }
-    sqlite3 *db = apl_db_handle(connection);
-    const char *sql =
+    sqlite3 *const db = apl_db_handle(connection);
+    const char *const sql =
         id == 0
             ? "INSERT INTO event_sessions(event_id,label,created_at,updated_at) "
               "SELECT ?2,?4,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
@@ -56,7 +57,7 @@ static apl_status write_session(const apl_db_connection *connection, int64_t tea
     sqlite3_bind_int64(s, 2, event_id);
     sqlite3_bind_int64(s, 3, id);
     sqlite3_bind_text(s, 4, label, -1, SQLITE_TRANSIENT);
-    int rc = sqlite3_step(s);
+    const int rc = sqlite3_step(s);
     apl_status status = APL_OK;
     if (rc == SQLITE_ROW) {
         read_session(s, out);
@@ -71,16 +72,18 @@ static apl_status write_session(const apl_db_connection *connection, int64_t tea
     return status;
 }
 
-apl_status apl_session_repository_create(const apl_db_connection *connection, int64_t team_id,
-                                         int64_t event_id, const char *label,
-                                         apl_event_session *out, apl_error *error)
+apl_status apl_session_repository_create(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t event_id,
+                                         const char *const label, apl_event_session *const out,
+                                         apl_error *const error)
 {
     return write_session(connection, team_id, event_id, 0, label, out, error);
 }
 
-apl_status apl_session_repository_update(const apl_db_connection *connection, int64_t team_id,
-                                         int64_t event_id, int64_t id, const char *label,
-                                         apl_event_session *out, apl_error *error)
+apl_status apl_session_repository_update(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t event_id,
+                                         const int64_t id, const char *const label,
+                                         apl_event_session *const out, apl_error *const error)
 {
     if (id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid session id");
@@ -89,16 +92,17 @@ apl_status apl_session_repository_update(const apl_db_connection *connection, in
     return write_session(connection, team_id, event_id, id, label, out, error);
 }
 
-apl_status apl_session_repository_get(const apl_db_connection *connection, int64_t team_id,
-                                      int64_t event_id, int64_t id, apl_event_session *out,
-                                      apl_error *error)
+apl_status apl_session_repository_get(const apl_db_connection *const connection,
+                                      const int64_t team_id, const int64_t event_id,
+                                      const int64_t id, apl_event_session *const out,
+                                      apl_error *const error)
 {
     if (!connection || !apl_db_handle(connection) || team_id <= 0 || event_id <= 0 || id <= 0 ||
         !out) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid session lookup arguments");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    sqlite3 *db = apl_db_handle(connection);
+    sqlite3 *const db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
                            "SELECT " SESSION_COLUMNS " FROM event_sessions_scoped "
@@ -111,7 +115,7 @@ apl_status apl_session_repository_get(const apl_db_connection *connection, int64
     sqlite3_bind_int64(s, 1, team_id);
     sqlite3_bind_int64(s, 2, event_id);
     sqlite3_bind_int64(s, 3, id);
-    int rc = sqlite3_step(s);
+    const int rc = sqlite3_step(s);
     apl_status status = APL_OK;
     if (rc == SQLITE_ROW) {
         read_session(s, out);
@@ -123,9 +127,10 @@ apl_status apl_session_repository_get(const apl_db_connection *connection, int64
     return status;
 }
 
-apl_status apl_session_repository_list(const apl_db_connection *connection, int64_t team_id,
-                                       int64_t event_id, apl_event_session **out, size_t *count,
-                                       apl_error *error)
+apl_status apl_session_repository_list(const apl_db_connection *const connection,
+                                       const int64_t team_id, const int64_t event_id,
+                                       apl_event_session **const out, size_t *const count,
+                                       apl_error *const error)
 {
     if (!connection || !apl_db_handle(connection) || team_id <= 0 || event_id <= 0 || !out ||
         !count) {
@@ -134,7 +139,7 @@ apl_status apl_session_repository_list(const apl_db_connection *connection, int6
     }
     *out = nullptr;
     *count = 0;
-    sqlite3 *db = apl_db_handle(connection);
+    sqlite3 *const db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
                            "SELECT " SESSION_COLUMNS " FROM event_sessions_scoped "
@@ -151,7 +156,7 @@ apl_status apl_session_repository_list(const apl_db_connection *connection, int6
     int rc;
     while ((rc = sqlite3_step(s)) == SQLITE_ROW) {
         if (*count == capacity) {
-            apl_event_session *grown = apl_grow_array(rows, &capacity, 8, sizeof(*rows));
+            apl_event_session *const grown = apl_grow_array(rows, &capacity, 8, sizeof(*rows));
             if (!grown) {
                 free(rows);
                 sqlite3_finalize(s);
@@ -175,7 +180,7 @@ apl_status apl_session_repository_list(const apl_db_connection *connection, int6
     return APL_OK;
 }
 
-void apl_session_repository_free_list(apl_event_session *sessions)
+void apl_session_repository_free_list(apl_event_session *const sessions)
 {
     free(sessions);
 }

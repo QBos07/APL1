@@ -4,9 +4,10 @@
 
 #include "app/args.h"
 
+/* argv models writable process arguments, not pointers into string literals. */
 Test(args, default_invocation_has_no_overrides)
 {
-    char *const argv[] = {"apl1", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -19,7 +20,8 @@ Test(args, default_invocation_has_no_overrides)
 
 Test(args, database_option_captures_path)
 {
-    char *const argv[] = {"apl1", "--database", "/tmp/teams.sqlite3", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--database"}, (char[]){"/tmp/teams.sqlite3"},
+                          nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -32,7 +34,7 @@ Test(args, database_option_captures_path)
 
 Test(args, database_option_equals_form_is_accepted)
 {
-    char *const argv[] = {"apl1", "--database=/tmp/teams.sqlite3", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--database=/tmp/teams.sqlite3"}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -44,8 +46,9 @@ Test(args, database_option_equals_form_is_accepted)
 
 Test(args, last_database_option_wins)
 {
-    char *const argv[] = {"apl1",       "--database",       "/tmp/one.sqlite3",
-                          "--database", "/tmp/two.sqlite3", nullptr};
+    char *const argv[] = {
+        (char[]){"apl1"},       (char[]){"--database"},       (char[]){"/tmp/one.sqlite3"},
+        (char[]){"--database"}, (char[]){"/tmp/two.sqlite3"}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -57,8 +60,8 @@ Test(args, last_database_option_wins)
 
 Test(args, help_flags_are_recognized_without_touching_other_arguments)
 {
-    char *const long_form[] = {"apl1", "--help", nullptr};
-    char *const short_form[] = {"apl1", "-h", nullptr};
+    char *const long_form[] = {(char[]){"apl1"}, (char[]){"--help"}, nullptr};
+    char *const short_form[] = {(char[]){"apl1"}, (char[]){"-h"}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -73,9 +76,9 @@ Test(args, help_flags_are_recognized_without_touching_other_arguments)
 
 Test(args, missing_database_value_is_a_usage_error)
 {
-    char *const no_value[] = {"apl1", "--database", nullptr};
-    char *const empty_value[] = {"apl1", "--database", "", nullptr};
-    char *const empty_equals[] = {"apl1", "--database=", nullptr};
+    char *const no_value[] = {(char[]){"apl1"}, (char[]){"--database"}, nullptr};
+    char *const empty_value[] = {(char[]){"apl1"}, (char[]){"--database"}, (char[]){""}, nullptr};
+    char *const empty_equals[] = {(char[]){"apl1"}, (char[]){"--database="}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -90,7 +93,7 @@ Test(args, missing_database_value_is_a_usage_error)
 
 Test(args, unknown_option_is_rejected)
 {
-    char *const argv[] = {"apl1", "--bogus", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--bogus"}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -102,7 +105,7 @@ Test(args, unknown_option_is_rejected)
 
 Test(args, unexpected_positional_argument_is_rejected)
 {
-    char *const argv[] = {"apl1", "list", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"list"}, nullptr};
 
     apl_app_args args;
     apl_error err;
@@ -114,7 +117,7 @@ Test(args, unexpected_positional_argument_is_rejected)
 
 Test(args, null_output_is_rejected)
 {
-    char *const argv[] = {"apl1", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, nullptr};
     apl_error err;
     apl_error_init(&err);
 

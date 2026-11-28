@@ -188,10 +188,10 @@ apl_status apl_lifecycle_repository_get(const apl_db_connection *const connectio
     }
     *out_event = (apl_lifecycle_event){};
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "SELECT " EVENT_COLUMNS " FROM lifecycle_events e "
-                                "WHERE e.id = ?1 AND e.team_id = ?2;",
-                                &statement, error);
+    const apl_status status = prepare(handle,
+                                      "SELECT " EVENT_COLUMNS " FROM lifecycle_events e "
+                                      "WHERE e.id = ?1 AND e.team_id = ?2;",
+                                      &statement, error);
     if (status != APL_OK) {
         return status;
     }
@@ -335,13 +335,12 @@ apl_status apl_lifecycle_repository_list_unit(const apl_db_connection *const con
     }
     apl_lifecycle_event *events = nullptr;
     size_t count = 0;
-    apl_lifecycle_filter filter = {.team_id = team_id, .unit_id = unit_id};
-    apl_status status = run_event_list(handle, &filter, &events, &count, error);
+    const apl_lifecycle_filter filter = {.team_id = team_id, .unit_id = unit_id};
+    const apl_status status = run_event_list(handle, &filter, &events, &count, error);
     if (status != APL_OK) {
         return status;
     }
     apl_lifecycle_history_entry *entries = nullptr;
-    size_t entry_capacity = 0;
     if (count > 0) {
         entries = calloc(count, sizeof(*entries));
         if (entries == nullptr) {
@@ -349,7 +348,6 @@ apl_status apl_lifecycle_repository_list_unit(const apl_db_connection *const con
             apl_error_set(error, APL_ERR_OUT_OF_MEMORY, "cannot allocate lifecycle history");
             return APL_ERR_OUT_OF_MEMORY;
         }
-        entry_capacity = count;
     }
     for (size_t index = 0; index < count; ++index) {
         entries[index].event = events[index];
@@ -358,7 +356,6 @@ apl_status apl_lifecycle_repository_list_unit(const apl_db_connection *const con
     free(events);
     *out_entries = entries;
     *out_count = count;
-    (void)entry_capacity;
     return APL_OK;
 }
 
@@ -369,7 +366,7 @@ typedef struct fitment_slot {
     int64_t type_id;
 } fitment_slot;
 
-static fitment_slot *find_slot(fitment_slot *const slots, size_t count, const int64_t car_id,
+static fitment_slot *find_slot(fitment_slot *const slots, const size_t count, const int64_t car_id,
                                const char *const position)
 {
     for (size_t index = 0; index < count; ++index) {
@@ -414,8 +411,8 @@ apl_status apl_lifecycle_repository_current_fitment(const apl_db_connection *con
     }
     apl_lifecycle_event *events = nullptr;
     size_t count = 0;
-    apl_lifecycle_filter filter = {.team_id = team_id};
-    apl_status status = run_event_list(handle, &filter, &events, &count, error);
+    const apl_lifecycle_filter filter = {.team_id = team_id};
+    const apl_status status = run_event_list(handle, &filter, &events, &count, error);
     if (status != APL_OK) {
         return status;
     }
@@ -452,13 +449,13 @@ apl_status apl_lifecycle_repository_current_fitment(const apl_db_connection *con
             slot->unit_id = event->unit_id;
             slot->type_id = unit_type(handle, event->unit_id);
         } else if (event->action == APL_LIFECYCLE_REPLACE) {
-            fitment_slot *slot = find_slot(slots, slot_count, event->car_id, event->position);
+            fitment_slot *const slot = find_slot(slots, slot_count, event->car_id, event->position);
             if (slot != nullptr && slot->unit_id == event->old_unit_id) {
                 slot->unit_id = event->new_unit_id;
                 slot->type_id = unit_type(handle, event->new_unit_id);
             }
         } else { /* remove or dispose */
-            fitment_slot *slot = find_slot(slots, slot_count, event->car_id, event->position);
+            fitment_slot *const slot = find_slot(slots, slot_count, event->car_id, event->position);
             if (slot != nullptr && slot->unit_id == event->unit_id) {
                 slot->unit_id = 0;
                 slot->type_id = 0;

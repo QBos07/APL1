@@ -10,19 +10,14 @@
 #include <string.h>
 #include <time.h>
 
-#include "app/activity_service.h"
-#include "app/budget_service.h"
 #include "app/car_service.h"
 #include "app/driver_service.h"
-#include "app/ledger_service.h"
 #include "app/membership_service.h"
 #include "app/project_service.h"
 #include "app/season_service.h"
 #include "app/team_service.h"
 #include "app/version.h"
-#include "core/util.h"
 #include "domain/ledger.h"
-#include "domain/money.h"
 #include "domain/record.h"
 #include "tui/action.h"
 #include "tui/command.h"
@@ -1031,8 +1026,8 @@ static bool dispatch_season_select(shell_state *const state, const char *const t
                                    apl_error *const error)
 {
     char normalized[APL_REFERENCE_LABEL_MAX];
-    apl_status status = apl_reference_optional_normalize(target, "season target", normalized,
-                                                         sizeof(normalized), error);
+    const apl_status status = apl_reference_optional_normalize(target, "season target", normalized,
+                                                               sizeof(normalized), error);
     if (status != APL_OK) {
         return false;
     }

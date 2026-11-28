@@ -308,7 +308,7 @@ apl_status refresh_teams(shell_state *const state, const int64_t preferred_id,
                          apl_error *const error)
 {
     int64_t keep_id = preferred_id;
-    const apl_team *current = selected_team(state);
+    const apl_team *const current = selected_team(state);
     if (keep_id == 0 && current != nullptr) {
         keep_id = current->id;
     }

@@ -167,10 +167,10 @@ apl_status apl_part_unit_repository_get(const apl_db_connection *const connectio
     *out_unit = (apl_part_unit){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "SELECT " PART_UNIT_COLUMNS
-                                " FROM part_units_scoped WHERE id = ?1 AND team_id = ?2;",
-                                &statement, error);
+    const apl_status status = prepare(handle,
+                                      "SELECT " PART_UNIT_COLUMNS
+                                      " FROM part_units_scoped WHERE id = ?1 AND team_id = ?2;",
+                                      &statement, error);
     if (status != APL_OK) {
         return status;
     }
@@ -235,7 +235,7 @@ apl_status apl_part_unit_repository_archive(const apl_db_connection *const conne
     *out_unit = (apl_part_unit){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
+    const apl_status status =
         prepare(handle,
                 "UPDATE part_units SET archived = 1, "
                 "archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), "

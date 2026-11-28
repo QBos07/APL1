@@ -208,7 +208,7 @@ apl_status load_parts_fitment(shell_state *const state, apl_error *const error)
     }
     apl_fitment_row *rows = nullptr;
     size_t count = 0;
-    apl_status status =
+    const apl_status status =
         apl_lifecycle_service_current_fitment(state->app, team_id, &rows, &count, error);
     if (status != APL_OK) {
         return status;
@@ -291,7 +291,7 @@ apl_status load_part_unit_detail(shell_state *const state, const int64_t unit_id
     return APL_OK;
 }
 
-void open_part_unit_detail(shell_state *const state, apl_part_unit unit)
+void open_part_unit_detail(shell_state *const state, const apl_part_unit unit)
 {
     apl_error error;
     apl_error_init(&error);
@@ -1247,7 +1247,7 @@ apl_status part_resolve_unit_by_id(shell_state *const state, const char *const t
     }
     const int64_t team_id = active_team_id(state);
     apl_part_unit unit = {};
-    apl_status result = apl_part_unit_service_get(state->app, team_id, value, &unit, error);
+    const apl_status result = apl_part_unit_service_get(state->app, team_id, value, &unit, error);
     if (result != APL_OK) {
         apl_error_set_field(error, APL_FIELD_NEW_UNIT);
         return result;

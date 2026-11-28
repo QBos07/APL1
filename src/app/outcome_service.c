@@ -49,8 +49,8 @@ static bool valid_utf8(const unsigned char *p)
     return true;
 }
 
-static apl_status validate_text(char *text, size_t size, bool *present, const char *label,
-                                apl_error *error)
+static apl_status validate_text(char *const text, const size_t size, bool *const present,
+                                const char *const label, apl_error *const error)
 {
     if (!*present)
         return APL_OK;
@@ -72,7 +72,7 @@ static apl_status validate_text(char *text, size_t size, bool *present, const ch
     return APL_OK;
 }
 
-static apl_status validate_values(apl_outcome *input, apl_error *error)
+static apl_status validate_values(apl_outcome *const input, apl_error *const error)
 {
     if ((input->has_start_position && input->start_position <= 0) ||
         (input->has_finish_position && input->finish_position <= 0) ||
@@ -89,7 +89,8 @@ static apl_status validate_values(apl_outcome *input, apl_error *error)
     return status;
 }
 
-static apl_status validate_target(const apl_app *app, const apl_outcome *input, apl_error *error)
+static apl_status validate_target(const apl_app *const app, const apl_outcome *const input,
+                                  apl_error *const error)
 {
     apl_event_session session = {};
     apl_status status = apl_session_repository_get(&app->db, input->team_id, input->event_id,
@@ -114,8 +115,8 @@ static apl_status validate_target(const apl_app *app, const apl_outcome *input, 
     return APL_OK;
 }
 
-static apl_status validate_row(const apl_app *app, apl_outcome_save_mode mode, apl_outcome *input,
-                               apl_error *error)
+static apl_status validate_row(const apl_app *const app, const apl_outcome_save_mode mode,
+                               apl_outcome *const input, apl_error *const error)
 {
     if ((mode != APL_OUTCOME_CREATE && mode != APL_OUTCOME_EDIT) || input->team_id <= 0 ||
         input->event_id <= 0 || input->session_id <= 0 || input->driver_id <= 0 ||
@@ -158,12 +159,13 @@ static apl_status validate_row(const apl_app *app, apl_outcome_save_mode mode, a
     return status;
 }
 
-static apl_status write_row(const apl_app *app, apl_outcome_save_mode mode,
-                            const apl_outcome *input, apl_outcome *saved, apl_error *error)
+static apl_status write_row(const apl_app *const app, const apl_outcome_save_mode mode,
+                            const apl_outcome *const input, apl_outcome *const saved,
+                            apl_error *const error)
 {
     apl_outcome before = {};
     if (mode == APL_OUTCOME_EDIT) {
-        apl_status status =
+        const apl_status status =
             apl_outcome_repository_get(&app->db, input->team_id, input->id, &before, error);
         if (status != APL_OK)
             return status;
@@ -199,9 +201,10 @@ static apl_status write_row(const apl_app *app, apl_outcome_save_mode mode,
     return status;
 }
 
-apl_status apl_outcome_service_save_batch(const apl_app *app, const apl_outcome_batch_row *rows,
-                                          size_t count, apl_outcome *out, apl_error *row_errors,
-                                          apl_error *error)
+apl_status apl_outcome_service_save_batch(const apl_app *const app,
+                                          const apl_outcome_batch_row *const rows,
+                                          const size_t count, apl_outcome *const out,
+                                          apl_error *const row_errors, apl_error *const error)
 {
     if (!app || !rows || !out || !row_errors || count == 0 ||
         count > SIZE_MAX / sizeof(apl_outcome)) {
@@ -210,8 +213,8 @@ apl_status apl_outcome_service_save_batch(const apl_app *app, const apl_outcome_
     }
     for (size_t i = 0; i < count; ++i)
         apl_error_init(&row_errors[i]);
-    apl_outcome *normalized = calloc(count, sizeof(*normalized));
-    apl_outcome *saved = calloc(count, sizeof(*saved));
+    apl_outcome *const normalized = calloc(count, sizeof(*normalized));
+    apl_outcome *const saved = calloc(count, sizeof(*saved));
     if (!normalized || !saved) {
         free(normalized);
         free(saved);
@@ -281,14 +284,15 @@ apl_status apl_outcome_service_save_batch(const apl_app *app, const apl_outcome_
     return status;
 }
 
-apl_status apl_outcome_service_save(const apl_app *app, apl_outcome_save_mode mode,
-                                    const apl_outcome *input, apl_outcome *out, apl_error *error)
+apl_status apl_outcome_service_save(const apl_app *const app, const apl_outcome_save_mode mode,
+                                    const apl_outcome *const input, apl_outcome *const out,
+                                    apl_error *const error)
 {
     if (!input) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid outcome save arguments");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    apl_outcome_batch_row row = {.mode = mode, .input = *input};
+    const apl_outcome_batch_row row = {.mode = mode, .input = *input};
     apl_error row_error;
     return apl_outcome_service_save_batch(app, &row, 1, out, &row_error, error);
 }

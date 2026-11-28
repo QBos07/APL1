@@ -1,5 +1,6 @@
 #include "db/outcome_repository.h"
 
+#include <sqlite3.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,7 +16,7 @@
 #define COLUMNS "id,team_id,event_id," OUTCOME_FIELDS
 #define RETURNING_COLUMNS "id," OUTCOME_TEAM "," OUTCOME_EVENT "," OUTCOME_FIELDS
 
-static void read_outcome(sqlite3_stmt *s, apl_outcome *o)
+static void read_outcome(sqlite3_stmt *const s, apl_outcome *const o)
 {
     *o = (apl_outcome){};
     o->id = sqlite3_column_int64(s, 0);
@@ -37,8 +38,9 @@ static void read_outcome(sqlite3_stmt *s, apl_outcome *o)
     apl_db_copy_column_text(s, 11, o->updated_at, sizeof(o->updated_at));
 }
 
-static apl_status write_outcome(const apl_db_connection *connection, int64_t team_id, int64_t id,
-                                const apl_outcome *values, apl_outcome *out, apl_error *error)
+static apl_status write_outcome(const apl_db_connection *const connection, const int64_t team_id,
+                                const int64_t id, const apl_outcome *const values,
+                                apl_outcome *const out, apl_error *const error)
 {
     if (!connection || !apl_db_handle(connection) || !values || !out || team_id <= 0 || id < 0 ||
         (!id && (values->event_id <= 0 || values->session_id <= 0 || values->driver_id <= 0)) ||
@@ -47,8 +49,8 @@ static apl_status write_outcome(const apl_db_connection *connection, int64_t tea
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid outcome arguments");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    sqlite3 *db = apl_db_handle(connection);
-    const char *sql =
+    sqlite3 *const db = apl_db_handle(connection);
+    const char *const sql =
         id ? "UPDATE driver_outcomes SET start_position=?6,finish_position=?7,laps=?8,status=?9,"
              "notes=?10,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
              "WHERE " OUTCOME_TEAM "=?1 AND id=?2 RETURNING " RETURNING_COLUMNS
@@ -79,7 +81,7 @@ static apl_status write_outcome(const apl_db_connection *connection, int64_t tea
         sqlite3_bind_text(s, 9, values->status, -1, SQLITE_TRANSIENT);
     if (values->has_notes)
         sqlite3_bind_text(s, 10, values->notes, -1, SQLITE_TRANSIENT);
-    int rc = sqlite3_step(s);
+    const int rc = sqlite3_step(s);
     apl_status result = APL_OK;
     if (rc == SQLITE_ROW)
         read_outcome(s, out);
@@ -87,7 +89,7 @@ static apl_status write_outcome(const apl_db_connection *connection, int64_t tea
         result = id ? APL_ERR_NOT_FOUND : APL_ERR_INVALID_ARGUMENT;
         apl_error_set(error, result, "outcome not found for this team");
     } else {
-        int extended = sqlite3_extended_errcode(db);
+        const int extended = sqlite3_extended_errcode(db);
         result = extended == SQLITE_CONSTRAINT_UNIQUE ? APL_ERR_CONFLICT
                  : (rc & 0xff) == SQLITE_CONSTRAINT   ? APL_ERR_INVALID_ARGUMENT
                                                       : APL_ERR_DB_QUERY;
@@ -97,16 +99,17 @@ static apl_status write_outcome(const apl_db_connection *connection, int64_t tea
     return result;
 }
 
-apl_status apl_outcome_repository_create(const apl_db_connection *connection,
-                                         const apl_outcome *input, apl_outcome *out,
-                                         apl_error *error)
+apl_status apl_outcome_repository_create(const apl_db_connection *const connection,
+                                         const apl_outcome *const input, apl_outcome *const out,
+                                         apl_error *const error)
 {
     return write_outcome(connection, input ? input->team_id : 0, 0, input, out, error);
 }
 
-apl_status apl_outcome_repository_update(const apl_db_connection *connection, int64_t team_id,
-                                         int64_t id, const apl_outcome *values, apl_outcome *out,
-                                         apl_error *error)
+apl_status apl_outcome_repository_update(const apl_db_connection *const connection,
+                                         const int64_t team_id, const int64_t id,
+                                         const apl_outcome *const values, apl_outcome *const out,
+                                         apl_error *const error)
 {
     if (id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid outcome id");
@@ -115,14 +118,15 @@ apl_status apl_outcome_repository_update(const apl_db_connection *connection, in
     return write_outcome(connection, team_id, id, values, out, error);
 }
 
-apl_status apl_outcome_repository_get(const apl_db_connection *connection, int64_t team_id,
-                                      int64_t id, apl_outcome *out, apl_error *error)
+apl_status apl_outcome_repository_get(const apl_db_connection *const connection,
+                                      const int64_t team_id, const int64_t id,
+                                      apl_outcome *const out, apl_error *const error)
 {
     if (!connection || !apl_db_handle(connection) || team_id <= 0 || id <= 0 || !out) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid outcome lookup arguments");
         return APL_ERR_INVALID_ARGUMENT;
     }
-    sqlite3 *db = apl_db_handle(connection);
+    sqlite3 *const db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(
             db, "SELECT " COLUMNS " FROM driver_outcomes_scoped WHERE team_id=?1 AND id=?2", -1, &s,
@@ -133,7 +137,7 @@ apl_status apl_outcome_repository_get(const apl_db_connection *connection, int64
     }
     sqlite3_bind_int64(s, 1, team_id);
     sqlite3_bind_int64(s, 2, id);
-    int rc = sqlite3_step(s);
+    const int rc = sqlite3_step(s);
     apl_status status = APL_OK;
     if (rc == SQLITE_ROW)
         read_outcome(s, out);
@@ -145,9 +149,10 @@ apl_status apl_outcome_repository_get(const apl_db_connection *connection, int64
     return status;
 }
 
-apl_status apl_outcome_repository_list(const apl_db_connection *connection, int64_t team_id,
-                                       int64_t event_id, int64_t session_id, apl_outcome **out,
-                                       size_t *count, apl_error *error)
+apl_status apl_outcome_repository_list(const apl_db_connection *const connection,
+                                       const int64_t team_id, const int64_t event_id,
+                                       const int64_t session_id, apl_outcome **const out,
+                                       size_t *const count, apl_error *const error)
 {
     if (!connection || !apl_db_handle(connection) || team_id <= 0 || event_id <= 0 ||
         session_id <= 0 || !out || !count) {
@@ -156,7 +161,7 @@ apl_status apl_outcome_repository_list(const apl_db_connection *connection, int6
     }
     *out = nullptr;
     *count = 0;
-    sqlite3 *db = apl_db_handle(connection);
+    sqlite3 *const db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
                            "SELECT " COLUMNS " FROM driver_outcomes_scoped WHERE team_id=?1 "
@@ -174,7 +179,7 @@ apl_status apl_outcome_repository_list(const apl_db_connection *connection, int6
     int rc;
     while ((rc = sqlite3_step(s)) == SQLITE_ROW) {
         if (*count == capacity) {
-            apl_outcome *grown = apl_grow_array(rows, &capacity, 8, sizeof(*rows));
+            apl_outcome *const grown = apl_grow_array(rows, &capacity, 8, sizeof(*rows));
             if (!grown) {
                 free(rows);
                 sqlite3_finalize(s);
@@ -198,7 +203,7 @@ apl_status apl_outcome_repository_list(const apl_db_connection *connection, int6
     return APL_OK;
 }
 
-void apl_outcome_repository_free_list(apl_outcome *outcomes)
+void apl_outcome_repository_free_list(apl_outcome *const outcomes)
 {
     free(outcomes);
 }

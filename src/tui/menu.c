@@ -8,7 +8,7 @@ static const char *const GROUP_LABELS[APL_TUI_MENU_GROUP_COUNT] = {
     "Overview", "Records", "Settings", "Help", "About",
 };
 
-static const unsigned GROUP_OFFSETS[APL_TUI_MENU_GROUP_COUNT] = {
+static constexpr unsigned GROUP_OFFSETS[APL_TUI_MENU_GROUP_COUNT] = {
     1, 11, 20, 30, 36,
 };
 

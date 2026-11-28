@@ -16,7 +16,7 @@
 static apl_status load_team(const apl_app *const app, const int64_t team_id,
                             apl_team *const out_team, apl_error *const error)
 {
-    apl_status status = apl_team_repository_get(&app->db, team_id, out_team, error);
+    const apl_status status = apl_team_repository_get(&app->db, team_id, out_team, error);
     if (status != APL_OK) {
         return apl_use_case_with_context(status, "cannot load team", error);
     }

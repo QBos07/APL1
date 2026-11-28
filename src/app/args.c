@@ -4,7 +4,7 @@
 
 static const char *const APL_APP_USAGE_DATABASE_OPTION = "--database";
 
-apl_status apl_app_args_parse(const int argc, char *const argv[], apl_app_args *const out,
+apl_status apl_app_args_parse(const int argc, char *const *const argv, apl_app_args *const out,
                               apl_error *const error)
 {
     if (out == nullptr || argc < 0 || (argc > 0 && argv == nullptr)) {

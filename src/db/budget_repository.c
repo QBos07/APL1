@@ -180,10 +180,10 @@ apl_status apl_budget_repository_get(const apl_db_connection *const connection,
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "SELECT " PLAN_COLUMNS " FROM budget_plans "
-                                "WHERE id = ?2 AND team_id = ?1;",
-                                &statement, error);
+    const apl_status status = prepare(handle,
+                                      "SELECT " PLAN_COLUMNS " FROM budget_plans "
+                                      "WHERE id = ?2 AND team_id = ?1;",
+                                      &statement, error);
     if (status != APL_OK) {
         return status;
     }
@@ -294,11 +294,12 @@ apl_status apl_budget_repository_find_scope(
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "SELECT " PLAN_COLUMNS " FROM budget_plans "
-                                "WHERE team_id = ?1 AND COALESCE(project_id, 0) = ?2 "
-                                "AND start_date = ?3 AND end_date = ?4 AND category_key = ?5;",
-                                &statement, error);
+    const apl_status status =
+        prepare(handle,
+                "SELECT " PLAN_COLUMNS " FROM budget_plans "
+                "WHERE team_id = ?1 AND COALESCE(project_id, 0) = ?2 "
+                "AND start_date = ?3 AND end_date = ?4 AND category_key = ?5;",
+                &statement, error);
     if (status != APL_OK) {
         return status;
     }
@@ -438,7 +439,7 @@ apl_status apl_budget_repository_archive(const apl_db_connection *const connecti
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
+    const apl_status status =
         prepare(handle,
                 "UPDATE budget_plans SET archived = 1, "
                 "archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), "

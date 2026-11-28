@@ -209,7 +209,7 @@ apl_status apl_project_repository_get(const apl_db_connection *const connection,
     *out_project = (apl_project){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
+    const apl_status status =
         prepare(handle, "SELECT " PROJECT_COLUMNS " FROM projects WHERE id = ?1 AND team_id = ?2;",
                 &statement, error);
     if (status != APL_OK) {
@@ -275,7 +275,7 @@ apl_status apl_project_repository_archive(const apl_db_connection *const connect
     *out_project = (apl_project){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
+    const apl_status status =
         prepare(handle,
                 "UPDATE projects SET archived = 1, "
                 "archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), "

@@ -74,7 +74,7 @@ apl_status apl_reference_optional_normalize(const char *const text, const char *
 /** Return the number of days in a Gregorian month. */
 static int days_in_month(const int year, const int month)
 {
-    static const int DAYS[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    static constexpr int DAYS[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     if (month < 1 || month > 12) {
         return 0;
     }
@@ -128,7 +128,7 @@ apl_status apl_reference_date_normalize(const char *const text, const char *cons
         return APL_ERR_INVALID_ARGUMENT;
     }
     char date[APL_REFERENCE_DATE_MAX];
-    apl_status status = copy_trimmed(begin, length, date, sizeof(date), label, error);
+    const apl_status status = copy_trimmed(begin, length, date, sizeof(date), label, error);
     if (status != APL_OK) {
         return status;
     }
@@ -173,7 +173,7 @@ void apl_reference_date_today_minus_days(const int days, char *const out, const 
 apl_status apl_membership_start_date_normalize(const char *const text, char *const out,
                                                const size_t out_size, apl_error *const error)
 {
-    apl_status status =
+    const apl_status status =
         apl_reference_date_normalize(text, "membership start date", out, out_size, error);
     if (status == APL_OK && out[0] == '\0') {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "membership start date is required");

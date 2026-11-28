@@ -170,7 +170,7 @@ apl_status apl_ledger_repository_get(const apl_db_connection *const connection,
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status =
+    const apl_status status =
         prepare(handle, ENTRY_SELECT "WHERE e.id = ?2 AND e.team_id = ?1;", &statement, error);
     if (status != APL_OK) {
         return status;
@@ -309,7 +309,7 @@ apl_status apl_ledger_repository_find_reversal(const apl_db_connection *const co
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(
+    const apl_status status = prepare(
         handle,
         ENTRY_SELECT "WHERE e.team_id = ?1 AND e.corrects_entry_id = ?2 AND e.kind = 'reversal' "
                      "ORDER BY e.id ASC LIMIT 1;",

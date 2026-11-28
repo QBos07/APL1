@@ -466,7 +466,7 @@ void handle_dialog_input(shell_state *const state, const ncinput *const input)
         }
         if (context == SHELL_DIALOG_CONTEXT_PART_UNIT_CREATE) {
             int64_t type_id = 0;
-            apl_status resolve_status =
+            const apl_status resolve_status =
                 part_resolve_type_id_for_dialog(state, dialog_value(state, 0), &type_id, &error);
             if (resolve_status != APL_OK) {
                 apl_tui_dialog_set_field_error(&state->dialog, 0, apl_error_message(&error));

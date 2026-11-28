@@ -8,6 +8,9 @@
 # Narrow C23 false positive: clang-analyzer-valist.Uninitialized does not
 # recognize C23's __builtin_c23_va_start when a va_list is forwarded to a
 # helper.
+# misc-const-correctness and modernize-use-nullptr do not run on C in
+# clang-tidy 21. Use the C-capable parameter checks below; general local
+# const/constexpr choices still need review.
 Checks: >
   -*,
   clang-analyzer-*,
@@ -21,7 +24,14 @@ Checks: >
   -cert-dcl37-c,
   -cert-dcl51-cpp,
   performance-*,
-  portability-*
+  portability-*,
+  misc-include-cleaner,
+  readability-avoid-const-params-in-decls,
+  readability-non-const-parameter
+CheckOptions:
+  # Enforce unused includes without demanding direct includes for every symbol
+  # intentionally exposed by this project's public and internal umbrella headers.
+  misc-include-cleaner.MissingIncludes: false
 HeaderFilterRegex: '.*/(src|tests)/.*'
 FormatStyle: file
 UseColor: false

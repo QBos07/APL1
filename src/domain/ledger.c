@@ -122,7 +122,7 @@ apl_status apl_ledger_category_normalize(const char *const text, char *const out
 apl_status apl_ledger_date_normalize(const char *const text, char *const out, const size_t out_size,
                                      apl_error *const error)
 {
-    apl_status status =
+    const apl_status status =
         apl_reference_date_normalize(text, "transaction date", out, out_size, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_DATE);
@@ -139,7 +139,8 @@ apl_status apl_ledger_date_normalize(const char *const text, char *const out, co
 apl_status apl_ledger_description_normalize(const char *const text, char *const out,
                                             const size_t out_size, apl_error *const error)
 {
-    apl_status status = apl_reference_label_normalize(text, "description", out, out_size, error);
+    const apl_status status =
+        apl_reference_label_normalize(text, "description", out, out_size, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_DESCRIPTION);
     }

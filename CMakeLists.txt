@@ -12,6 +12,10 @@ add_compile_options(
     -Werror
     -pedantic-errors
     -Wcast-qual
+    -Wwrite-strings
+    -Wignored-qualifiers
+    -Wunused-const-variable
+    $<$<C_COMPILER_ID:Clang,AppleClang>:-Wincompatible-pointer-types-discards-qualifiers>
     -Wformat-security
     -Wmissing-declarations
     -Wmissing-prototypes

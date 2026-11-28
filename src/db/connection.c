@@ -94,7 +94,7 @@ apl_status apl_db_open(apl_db_connection *const connection, const char *const pa
     const int result = sqlite3_open_v2(path, &handle, flags, nullptr);
     if (result != SQLITE_OK) {
         /* Capture the message before releasing the (possibly non-nullptr) handle. */
-        const char *sqlite_message =
+        const char *const sqlite_message =
             (handle != nullptr) ? sqlite3_errmsg(handle) : sqlite3_errstr(result);
         apl_error_set(error, APL_ERR_DB_OPEN, "cannot open database '%s': %s", path,
                       (sqlite_message != nullptr) ? sqlite_message : "unknown error");

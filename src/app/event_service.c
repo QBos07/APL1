@@ -9,8 +9,9 @@
 #include "domain/reference.h"
 
 /* Validate without changing entered text. The repository stores the same bytes. */
-static apl_status validate_event(int64_t season_id, const char *name, const char *date,
-                                 const char *location, const char *notes, apl_error *error)
+static apl_status validate_event(const int64_t season_id, const char *const name,
+                                 const char *const date, const char *const location,
+                                 const char *const notes, apl_error *const error)
 {
     char checked_name[APL_REFERENCE_LABEL_MAX], checked_date[APL_REFERENCE_DATE_MAX];
     if (season_id < 0 || !name || !date || !location || !notes ||
@@ -32,9 +33,10 @@ static apl_status validate_event(int64_t season_id, const char *name, const char
     return APL_OK;
 }
 
-static apl_status save_event(const apl_app *app, int64_t team_id, int64_t id, int64_t season_id,
-                             const char *name, const char *date, const char *location,
-                             const char *notes, apl_event *out, apl_error *error)
+static apl_status save_event(const apl_app *const app, const int64_t team_id, const int64_t id,
+                             const int64_t season_id, const char *const name,
+                             const char *const date, const char *const location,
+                             const char *const notes, apl_event *const out, apl_error *const error)
 {
     if (!app || team_id <= 0 || id < 0 || !out) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid event operation arguments");
@@ -82,17 +84,20 @@ static apl_status save_event(const apl_app *app, int64_t team_id, int64_t id, in
     return status;
 }
 
-apl_status apl_event_service_create(const apl_app *app, int64_t team_id, int64_t season_id,
-                                    const char *name, const char *date, const char *location,
-                                    const char *notes, apl_event *out, apl_error *error)
+apl_status apl_event_service_create(const apl_app *const app, const int64_t team_id,
+                                    const int64_t season_id, const char *const name,
+                                    const char *const date, const char *const location,
+                                    const char *const notes, apl_event *const out,
+                                    apl_error *const error)
 {
     return save_event(app, team_id, 0, season_id, name, date, location, notes, out, error);
 }
 
-apl_status apl_event_service_update(const apl_app *app, int64_t team_id, int64_t id,
-                                    int64_t season_id, const char *name, const char *date,
-                                    const char *location, const char *notes, apl_event *out,
-                                    apl_error *error)
+apl_status apl_event_service_update(const apl_app *const app, const int64_t team_id,
+                                    const int64_t id, const int64_t season_id,
+                                    const char *const name, const char *const date,
+                                    const char *const location, const char *const notes,
+                                    apl_event *const out, apl_error *const error)
 {
     if (id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid event id");
@@ -101,8 +106,9 @@ apl_status apl_event_service_update(const apl_app *app, int64_t team_id, int64_t
     return save_event(app, team_id, id, season_id, name, date, location, notes, out, error);
 }
 
-static apl_status save_session(const apl_app *app, int64_t team_id, int64_t event_id, int64_t id,
-                               const char *label, apl_event_session *out, apl_error *error)
+static apl_status save_session(const apl_app *const app, const int64_t team_id,
+                               const int64_t event_id, const int64_t id, const char *const label,
+                               apl_event_session *const out, apl_error *const error)
 {
     char checked[APL_REFERENCE_LABEL_MAX];
     if (!app || team_id <= 0 || event_id <= 0 || id < 0 || !label || !out ||
@@ -149,15 +155,17 @@ static apl_status save_session(const apl_app *app, int64_t team_id, int64_t even
     return status;
 }
 
-apl_status apl_session_service_create(const apl_app *app, int64_t team_id, int64_t event_id,
-                                      const char *label, apl_event_session *out, apl_error *error)
+apl_status apl_session_service_create(const apl_app *const app, const int64_t team_id,
+                                      const int64_t event_id, const char *const label,
+                                      apl_event_session *const out, apl_error *const error)
 {
     return save_session(app, team_id, event_id, 0, label, out, error);
 }
 
-apl_status apl_session_service_update(const apl_app *app, int64_t team_id, int64_t event_id,
-                                      int64_t id, const char *label, apl_event_session *out,
-                                      apl_error *error)
+apl_status apl_session_service_update(const apl_app *const app, const int64_t team_id,
+                                      const int64_t event_id, const int64_t id,
+                                      const char *const label, apl_event_session *const out,
+                                      apl_error *const error)
 {
     if (id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid session id");

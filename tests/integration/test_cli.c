@@ -62,7 +62,7 @@ static int run_app(char *const argv[])
 
 Test(cli, help_exits_successfully_without_a_database)
 {
-    char *const argv[] = {"apl1", "--help", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--help"}, nullptr};
 
     const int status = run_app(argv);
 
@@ -72,7 +72,7 @@ Test(cli, help_exits_successfully_without_a_database)
 
 Test(cli, unknown_option_exits_with_usage_code)
 {
-    char *const argv[] = {"apl1", "--bogus", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--bogus"}, nullptr};
 
     const int status = run_app(argv);
 
@@ -82,7 +82,7 @@ Test(cli, unknown_option_exits_with_usage_code)
 
 Test(cli, missing_database_value_exits_with_usage_code)
 {
-    char *const argv[] = {"apl1", "--database", nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--database"}, nullptr};
 
     const int status = run_app(argv);
 
@@ -103,7 +103,7 @@ Test(cli, no_terminal_fails_before_creating_the_database)
     cr_assert_gt(written, 0);
     cr_assert_lt((size_t)written, sizeof(path));
 
-    char *const argv[] = {"apl1", "--database", path, nullptr};
+    char *const argv[] = {(char[]){"apl1"}, (char[]){"--database"}, path, nullptr};
     const int status = run_app(argv);
 
     cr_assert(WIFEXITED(status), "app did not exit normally");

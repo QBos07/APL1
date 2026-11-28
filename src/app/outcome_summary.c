@@ -1,9 +1,11 @@
 #include "app/outcome_summary.h"
 
+#include <sqlite3.h>
 #include <string.h>
 
-apl_status apl_outcome_summary_query(const apl_app *app, const apl_outcome_summary_filter *filter,
-                                     apl_outcome_summary *out, apl_error *error)
+apl_status apl_outcome_summary_query(const apl_app *const app,
+                                     const apl_outcome_summary_filter *const filter,
+                                     apl_outcome_summary *const out, apl_error *const error)
 {
     if (!app || !apl_db_handle(&app->db) || !filter || !out || filter->team_id <= 0 ||
         filter->event_id < 0 || filter->session_id < 0 || filter->season_id < 0 ||
@@ -21,14 +23,14 @@ apl_status apl_outcome_summary_query(const apl_app *app, const apl_outcome_summa
         status = apl_reference_date_range_validate(from, to, "summary", error);
     if (status != APL_OK)
         return status;
-    sqlite3 *db = apl_db_handle(&app->db);
+    sqlite3 *const db = apl_db_handle(&app->db);
     sqlite3_stmt *stmt = nullptr;
-    const char *sql = "SELECT count(*),count(o.laps),sum(o.laps) FROM driver_outcomes o "
-                      "JOIN event_sessions s ON s.id=o.session_id "
-                      "JOIN events e ON e.id=s.event_id "
-                      "WHERE e.team_id=?1 AND (?2=0 OR e.id=?2) "
-                      "AND (?3=0 OR o.session_id=?3) AND (?4=0 OR e.season_id=?4) "
-                      "AND (?5='' OR e.event_date>=?5) AND (?6='' OR e.event_date<=?6)";
+    const char *const sql = "SELECT count(*),count(o.laps),sum(o.laps) FROM driver_outcomes o "
+                            "JOIN event_sessions s ON s.id=o.session_id "
+                            "JOIN events e ON e.id=s.event_id "
+                            "WHERE e.team_id=?1 AND (?2=0 OR e.id=?2) "
+                            "AND (?3=0 OR o.session_id=?3) AND (?4=0 OR e.season_id=?4) "
+                            "AND (?5='' OR e.event_date>=?5) AND (?6='' OR e.event_date<=?6)";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare outcome summary: %s",
                       sqlite3_errmsg(db));
@@ -40,7 +42,7 @@ apl_status apl_outcome_summary_query(const apl_app *app, const apl_outcome_summa
     sqlite3_bind_int64(stmt, 4, filter->season_id);
     sqlite3_bind_text(stmt, 5, from, -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 6, to, -1, SQLITE_TRANSIENT);
-    int rc = sqlite3_step(stmt);
+    const int rc = sqlite3_step(stmt);
     if (rc != SQLITE_ROW) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot calculate outcome summary: %s",
                       sqlite3_errmsg(db));

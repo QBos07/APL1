@@ -4,7 +4,7 @@
 
 #include "db/season_repository.h"
 
-static void open_summary_filter(shell_state *state)
+static void open_summary_filter(shell_state *const state)
 {
     apl_tui_dialog_open_form(&state->dialog, "Recorded-value summary",
                              "Current event and session are fixed. Blank filters mean all.");
@@ -15,7 +15,7 @@ static void open_summary_filter(shell_state *state)
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
 }
 
-bool show_outcome_summary(shell_state *state, apl_error *error)
+bool show_outcome_summary(shell_state *const state, apl_error *const error)
 {
     apl_outcome_summary_filter filter = {.team_id = active_team_id(state),
                                          .event_id = state->race_session_detail.event.id,
@@ -76,7 +76,7 @@ bool show_outcome_summary(shell_state *state, apl_error *error)
     return true;
 }
 
-void clear_outcome_batch(shell_state *state)
+void clear_outcome_batch(shell_state *const state)
 {
     free(state->outcome_batch);
     free(state->outcome_batch_selected);
@@ -87,8 +87,8 @@ void clear_outcome_batch(shell_state *state)
     state->outcome_batch_active = false;
 }
 
-static bool prompt_outcome_conflict(shell_state *state, const apl_outcome *input, bool batch,
-                                    size_t index)
+static bool prompt_outcome_conflict(shell_state *const state, const apl_outcome *const input,
+                                    const bool batch, const size_t index)
 {
     apl_outcome *existing = nullptr;
     size_t count = 0;
@@ -125,15 +125,15 @@ static bool prompt_outcome_conflict(shell_state *state, const apl_outcome *input
     return true;
 }
 
-void finish_outcome_conflict(shell_state *state, apl_tui_dialog_result result)
+void finish_outcome_conflict(shell_state *const state, const apl_tui_dialog_result result)
 {
-    bool edit =
+    const bool edit =
         result == APL_TUI_DIALOG_ACCEPTED && apl_tui_dialog_selected_option(&state->dialog) == 1;
     if (state->outcome_conflict_batch) {
         if (edit && state->outcome_batch_active &&
             state->outcome_conflict_index < state->outcome_batch_size &&
             state->outcome_batch_selected[state->outcome_conflict_index]) {
-            apl_outcome_batch_row *row = &state->outcome_batch[state->outcome_conflict_index];
+            apl_outcome_batch_row *const row = &state->outcome_batch[state->outcome_conflict_index];
             row->mode = APL_OUTCOME_EDIT;
             row->input.id = state->outcome_conflict_id;
         }
@@ -155,15 +155,15 @@ void finish_outcome_conflict(shell_state *state, apl_tui_dialog_result result)
     state->outcome_conflict_id = 0;
 }
 
-static void begin_outcome_batch(shell_state *state)
+static void begin_outcome_batch(shell_state *const state)
 {
-    size_t count = state->race_session_detail.row_count;
+    const size_t count = state->race_session_detail.row_count;
     if (!count) {
         set_status_warning(state, "No team drivers are available for batch entry.");
         return;
     }
-    apl_outcome_batch_row *rows = calloc(count, sizeof(*rows));
-    bool *selected = calloc(count, sizeof(*selected));
+    apl_outcome_batch_row *const rows = calloc(count, sizeof(*rows));
+    bool *const selected = calloc(count, sizeof(*selected));
     if (!rows || !selected) {
         free(rows);
         free(selected);
@@ -178,12 +178,13 @@ static void begin_outcome_batch(shell_state *state)
     set_status(state, "Batch started. Select a driver and press a to stage values.");
 }
 
-void open_outcome_form(shell_state *state)
+void open_outcome_form(shell_state *const state)
 {
     if (state->list.selected >= state->race_session_detail.row_count)
         return;
-    const apl_session_outcome_row *row = &state->race_session_detail.rows[state->list.selected];
-    const apl_outcome *outcome =
+    const apl_session_outcome_row *const row =
+        &state->race_session_detail.rows[state->list.selected];
+    const apl_outcome *const outcome =
         state->outcome_batch_active && state->outcome_batch_selected[state->list.selected]
             ? &state->outcome_batch[state->list.selected].input
             : (row->has_outcome ? &row->outcome : nullptr);
@@ -219,17 +220,17 @@ void open_outcome_form(shell_state *state)
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
 }
 
-static bool parse_outcome_number(shell_state *state, unsigned field, bool allow_zero, bool *present,
-                                 int *value)
+static bool parse_outcome_number(shell_state *const state, const unsigned field,
+                                 const bool allow_zero, bool *const present, int *const value)
 {
-    const char *text = state->dialog.fields[field].value;
+    const char *const text = state->dialog.fields[field].value;
     if (!text[0]) {
         *present = false;
         return true;
     }
     errno = 0;
     char *end = nullptr;
-    long parsed = strtol(text, &end, 10);
+    const long parsed = strtol(text, &end, 10);
     if (errno == ERANGE || end == text || *end || parsed > INT_MAX ||
         parsed < (allow_zero ? 0 : 1)) {
         apl_tui_dialog_set_field_error(&state->dialog, field,
@@ -242,7 +243,7 @@ static bool parse_outcome_number(shell_state *state, unsigned field, bool allow_
     return true;
 }
 
-bool save_outcome_form(shell_state *state, apl_error *error)
+bool save_outcome_form(shell_state *const state, apl_error *const error)
 {
     apl_outcome input = {.id = state->dialog_record_id,
                          .team_id = active_team_id(state),
@@ -259,7 +260,7 @@ bool save_outcome_form(shell_state *state, apl_error *error)
     (void)snprintf(input.status, sizeof(input.status), "%s", state->dialog.fields[3].value);
     (void)snprintf(input.notes, sizeof(input.notes), "%s", state->dialog.fields[4].value);
     if (state->outcome_batch_active) {
-        size_t index = state->list.selected;
+        const size_t index = state->list.selected;
         if (index >= state->outcome_batch_size ||
             state->race_session_detail.rows[index].driver.id != input.driver_id) {
             apl_tui_dialog_set_field_error(&state->dialog, 0,
@@ -289,7 +290,7 @@ bool save_outcome_form(shell_state *state, apl_error *error)
     status = apl_session_detail_load(state->app, input.team_id, input.event_id, input.session_id,
                                      &detail, error);
     if (status == APL_OK) {
-        size_t selected = state->list.selected;
+        const size_t selected = state->list.selected;
         apl_session_detail_free(&state->race_session_detail);
         state->race_session_detail = detail;
         apl_tui_list_set_count(&state->list, detail.row_count);
@@ -300,13 +301,13 @@ bool save_outcome_form(shell_state *state, apl_error *error)
     return true;
 }
 
-void open_event_form(shell_state *state, bool edit)
+void open_event_form(shell_state *const state, const bool edit)
 {
     if (active_team_id(state) <= 0) {
         set_status_warning(state, "Select a team before creating an event.");
         return;
     }
-    const apl_event *event = edit ? &state->race_event_detail.event : nullptr;
+    const apl_event *const event = edit ? &state->race_event_detail.event : nullptr;
     if (event && strlen(event->notes) >= APL_TUI_DIALOG_FIELD_VALUE_MAX) {
         set_status_warning(state,
                            "Event notes exceed the form limit; editing would truncate them.");
@@ -339,11 +340,11 @@ void open_event_form(shell_state *state, bool edit)
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
 }
 
-void open_session_form(shell_state *state, bool edit)
+void open_session_form(shell_state *const state, const bool edit)
 {
     if (edit && state->list.selected >= state->race_event_detail.session_count)
         return;
-    const apl_event_session *session =
+    const apl_event_session *const session =
         edit ? &state->race_event_detail.sessions[state->list.selected] : nullptr;
     state->dialog_record_id = session ? session->id : 0;
     apl_tui_dialog_open_form(&state->dialog, edit ? "Edit session" : "Create session",
@@ -354,11 +355,11 @@ void open_session_form(shell_state *state, bool edit)
     apl_tui_focus_push(&state->focus, APL_TUI_FOCUS_DIALOG);
 }
 
-bool save_event_form(shell_state *state, apl_error *error)
+bool save_event_form(shell_state *const state, apl_error *const error)
 {
-    shell_dialog_context context = state->dialog_context;
-    int64_t team = active_team_id(state);
-    const char *first = state->dialog.fields[0].value;
+    const shell_dialog_context context = state->dialog_context;
+    const int64_t team = active_team_id(state);
+    const char *const first = state->dialog.fields[0].value;
     apl_status status;
     if (context == SHELL_DIALOG_CONTEXT_EVENT_CREATE ||
         context == SHELL_DIALOG_CONTEXT_EVENT_EDIT) {
@@ -409,11 +410,11 @@ bool save_event_form(shell_state *state, apl_error *error)
     return true;
 }
 
-apl_status load_race_events(shell_state *state, apl_error *error)
+apl_status load_race_events(shell_state *const state, apl_error *const error)
 {
     apl_event *events = nullptr;
     size_t count = 0;
-    int64_t team = active_team_id(state);
+    const int64_t team = active_team_id(state);
     apl_status status = APL_OK;
     if (team > 0)
         status = apl_event_repository_list(&state->app->db, team, &events, &count, error);
@@ -426,7 +427,7 @@ apl_status load_race_events(shell_state *state, apl_error *error)
     return APL_OK;
 }
 
-static void line_value(char *out, size_t size, bool present, int value)
+static void line_value(char *const out, const size_t size, const bool present, const int value)
 {
     if (present)
         (void)snprintf(out, size, "%d", value);
@@ -434,7 +435,7 @@ static void line_value(char *out, size_t size, bool present, int value)
         (void)snprintf(out, size, "not recorded");
 }
 
-static const char *text_at_offset(const char *text, size_t offset)
+static const char *text_at_offset(const char *const text, size_t offset)
 {
     const unsigned char *p = (const unsigned char *)text;
     while (*p && offset) {
@@ -446,8 +447,8 @@ static const char *text_at_offset(const char *text, size_t offset)
     return (const char *)p;
 }
 
-static void draw_history_values(struct ncplane *body, int row, const char *label,
-                                const apl_outcome *value, size_t offset)
+static void draw_history_values(struct ncplane *const body, const int row, const char *const label,
+                                const apl_outcome *const value, const size_t offset)
 {
     char start[32], finish[32], laps[32], text[1024];
     line_value(start, sizeof(start), value->has_start_position, value->start_position);
@@ -464,13 +465,13 @@ static void draw_history_values(struct ncplane *body, int row, const char *label
     apl_tui_frame_draw_line(body, row + 2, text);
 }
 
-static void save_outcome_batch(shell_state *state)
+static void save_outcome_batch(shell_state *const state)
 {
-    size_t count = state->outcome_batch_count;
-    apl_outcome_batch_row *rows = calloc(count, sizeof(*rows));
-    apl_outcome *saved = calloc(count, sizeof(*saved));
-    apl_error *errors = calloc(count, sizeof(*errors));
-    size_t *indices = calloc(count, sizeof(*indices));
+    const size_t count = state->outcome_batch_count;
+    apl_outcome_batch_row *const rows = calloc(count, sizeof(*rows));
+    apl_outcome *const saved = calloc(count, sizeof(*saved));
+    apl_error *const errors = calloc(count, sizeof(*errors));
+    size_t *const indices = calloc(count, sizeof(*indices));
     if (!rows || !saved || !errors || !indices) {
         free(rows);
         free(saved);
@@ -524,13 +525,13 @@ static void save_outcome_batch(shell_state *state)
     free(indices);
 }
 
-void draw_events_screen(shell_state *state)
+void draw_events_screen(shell_state *const state)
 {
-    struct ncplane *body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
+    struct ncplane *const body = apl_tui_frame_plane(&state->frame, APL_TUI_REGION_BODY);
     if (!body)
         return;
-    const apl_tui_layout *layout = apl_tui_frame_layout(&state->frame);
-    unsigned rows = layout->body.rows;
+    const apl_tui_layout *const layout = apl_tui_frame_layout(&state->frame);
+    const unsigned rows = layout->body.rows;
     char line[1024];
     if (active_team_id(state) == 0) {
         apl_tui_frame_draw_line(body, 0, "No active team. Select a team to review events.");
@@ -538,7 +539,7 @@ void draw_events_screen(shell_state *state)
     }
     if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW) {
         const size_t index = state->list.selected;
-        const apl_session_outcome_row *driver = &state->race_session_detail.rows[index];
+        const apl_session_outcome_row *const driver = &state->race_session_detail.rows[index];
         (void)snprintf(line, sizeof(line), "Review %zu staged | Team: %s | Event: %s | Session: %s",
                        state->outcome_batch_count, state->active_team.name,
                        state->race_session_detail.event.name,
@@ -550,7 +551,7 @@ void draw_events_screen(shell_state *state)
         if (!state->outcome_batch_selected[index]) {
             apl_tui_frame_draw_line(body, 3, "Not staged; this driver will not be changed.");
         } else {
-            const apl_outcome_batch_row *row = &state->outcome_batch[index];
+            const apl_outcome_batch_row *const row = &state->outcome_batch[index];
             apl_tui_frame_draw_line(body, 3,
                                     row->mode == APL_OUTCOME_EDIT
                                         ? "Edit existing outcome (staged, not saved)"
@@ -560,7 +561,7 @@ void draw_events_screen(shell_state *state)
         return;
     }
     if (state->screen == SHELL_SCREEN_OUTCOME_HISTORY) {
-        const apl_session_outcome_row *row =
+        const apl_session_outcome_row *const row =
             &state->race_session_detail.rows[state->outcome_return_index];
         (void)snprintf(line, sizeof(line), "Team: %s | Event: %s | Session: %s",
                        state->active_team.name, state->race_session_detail.event.name,
@@ -574,7 +575,7 @@ void draw_events_screen(shell_state *state)
             draw_history_values(body, 4, "Current:", &row->outcome, state->outcome_history_offset);
             return;
         }
-        const apl_outcome_correction *c = &state->outcome_corrections[state->list.selected];
+        const apl_outcome_correction *const c = &state->outcome_corrections[state->list.selected];
         (void)snprintf(line, sizeof(line), "Correction %zu/%zu | %s | %s", state->list.selected + 1,
                        state->outcome_correction_count, c->occurred_at, c->actor);
         apl_tui_frame_draw_line(body, 2, line);
@@ -594,7 +595,7 @@ void draw_events_screen(shell_state *state)
         if (!count)
             apl_tui_frame_draw_line(body, 2, "No events recorded.");
     } else if (state->screen == SHELL_SCREEN_EVENT_DETAIL) {
-        const apl_event *event = &state->race_event_detail.event;
+        const apl_event *const event = &state->race_event_detail.event;
         (void)snprintf(line, sizeof(line), "Team: %s | Event: %s", state->active_team.name,
                        event->name);
         apl_tui_frame_draw_line(body, 0, line);
@@ -627,19 +628,19 @@ void draw_events_screen(shell_state *state)
     }
     apl_tui_list_set_viewport_rows(&state->list, rows > start + 1 ? rows - start - 1 : 1);
     for (size_t i = 0; i < apl_tui_list_visible_count(&state->list); ++i) {
-        size_t index = state->list.offset + i;
+        const size_t index = state->list.offset + i;
         if (index >= count || start + i >= rows - 1)
             break;
-        bool selected = index == state->list.selected;
+        const bool selected = index == state->list.selected;
         if (state->screen == SHELL_SCREEN_EVENT_LIST) {
-            const apl_event *event = &state->race_events[index];
+            const apl_event *const event = &state->race_events[index];
             (void)snprintf(line, sizeof(line), "%c %s  %s", selected ? '>' : ' ', event->date,
                            event->name);
         } else if (state->screen == SHELL_SCREEN_EVENT_DETAIL) {
             (void)snprintf(line, sizeof(line), "%c %s", selected ? '>' : ' ',
                            state->race_event_detail.sessions[index].label);
         } else {
-            const apl_session_outcome_row *r = &state->race_session_detail.rows[index];
+            const apl_session_outcome_row *const r = &state->race_session_detail.rows[index];
             char start_pos[32], finish_pos[32], laps[32];
             line_value(start_pos, sizeof(start_pos), r->outcome.has_start_position,
                        r->outcome.start_position);
@@ -665,7 +666,8 @@ void draw_events_screen(shell_state *state)
     }
 }
 
-void handle_events_mouse(shell_state *state, uint32_t id, unsigned row, unsigned body_rows)
+void handle_events_mouse(shell_state *const state, const uint32_t id, const unsigned row,
+                         const unsigned body_rows)
 {
     if (id == NCKEY_SCROLL_UP || id == NCKEY_SCROLL_DOWN) {
         apl_tui_list_move(&state->list,
@@ -700,7 +702,7 @@ void handle_events_mouse(shell_state *state, uint32_t id, unsigned row, unsigned
     }
     if (row < start || row - start >= state->list.viewport_rows)
         return;
-    size_t index = state->list.offset + row - start;
+    const size_t index = state->list.offset + row - start;
     if (index >= count)
         return;
     apl_tui_list_select(&state->list, index);
@@ -711,7 +713,7 @@ void handle_events_mouse(shell_state *state, uint32_t id, unsigned row, unsigned
         handle_events_input(state, NCKEY_ENTER);
 }
 
-void handle_events_input(shell_state *state, uint32_t id)
+void handle_events_input(shell_state *const state, const uint32_t id)
 {
     if (state->screen == SHELL_SCREEN_OUTCOME_REVIEW && (id == 's' || id == 'S')) {
         save_outcome_batch(state);
@@ -822,7 +824,7 @@ void handle_events_input(shell_state *state, uint32_t id)
     if (state->screen == SHELL_SCREEN_EVENT_LIST &&
         state->list.selected < state->race_event_count) {
         apl_event_detail detail = {};
-        apl_status status =
+        const apl_status status =
             apl_event_detail_load(state->app, active_team_id(state),
                                   state->race_events[state->list.selected].id, &detail, &error);
         if (status != APL_OK) {
@@ -838,7 +840,7 @@ void handle_events_input(shell_state *state, uint32_t id)
     } else if (state->screen == SHELL_SCREEN_EVENT_DETAIL &&
                state->list.selected < state->race_event_detail.session_count) {
         apl_session_detail detail = {};
-        apl_status status = apl_session_detail_load(
+        const apl_status status = apl_session_detail_load(
             state->app, active_team_id(state), state->race_event_detail.event.id,
             state->race_event_detail.sessions[state->list.selected].id, &detail, &error);
         if (status != APL_OK) {
@@ -853,7 +855,8 @@ void handle_events_input(shell_state *state, uint32_t id)
         apl_tui_list_select(&state->list, 0);
     } else if (state->screen == SHELL_SCREEN_SESSION_DETAIL &&
                state->list.selected < state->race_session_detail.row_count) {
-        const apl_session_outcome_row *row = &state->race_session_detail.rows[state->list.selected];
+        const apl_session_outcome_row *const row =
+            &state->race_session_detail.rows[state->list.selected];
         if (!row->has_outcome) {
             set_status(state, "This driver has no outcome record for this session.");
             return;

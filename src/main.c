@@ -13,7 +13,7 @@
  * is reporting; cleanup always runs through apl_tui_stop and apl_app_stop.
  * Process exit codes come from the stable mapping in app/exit_code.h (FH-11).
  */
-int main(int argc, char *argv[])
+int main(const int argc, char *const *const argv)
 {
     apl_error error;
     apl_error_init(&error);

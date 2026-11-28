@@ -20,7 +20,7 @@ static int64_t find_current_fitment(const apl_app *const app, const int64_t team
 {
     apl_fitment_row *rows = nullptr;
     size_t count = 0;
-    apl_status status =
+    const apl_status status =
         apl_lifecycle_repository_current_fitment(&app->db, team_id, &rows, &count, error);
     if (status != APL_OK) {
         return -1;
@@ -45,7 +45,8 @@ static apl_status resolve_unit(const apl_app *const app, const int64_t team_id,
         apl_error_set_field(error, APL_FIELD_NEW_UNIT);
         return APL_ERR_INVALID_ARGUMENT;
     }
-    apl_status status = apl_part_unit_repository_get(&app->db, team_id, unit_id, out_unit, error);
+    const apl_status status =
+        apl_part_unit_repository_get(&app->db, team_id, unit_id, out_unit, error);
     if (status != APL_OK) {
         apl_error_set_field(error, APL_FIELD_NEW_UNIT);
         return status;
@@ -445,7 +446,7 @@ apl_status apl_lifecycle_service_set_cost(const apl_app *const app, const int64_
                                                       out_event, error);
     if (status == APL_OK) {
         apl_activity_change change = {};
-        const char *new_text = (out_event->transaction_id > 0) ? "linked" : "";
+        const char *const new_text = (out_event->transaction_id > 0) ? "linked" : "";
         apl_audit_change_text(&change, "cost_link", nullptr, true, new_text,
                               out_event->transaction_id == 0);
         char summary[APL_ACTIVITY_SUMMARY_MAX];

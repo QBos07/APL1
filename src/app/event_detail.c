@@ -4,8 +4,9 @@
 
 #include "db/driver_repository.h"
 
-apl_status apl_event_detail_load(const apl_app *app, int64_t team_id, int64_t event_id,
-                                 apl_event_detail *out, apl_error *error)
+apl_status apl_event_detail_load(const apl_app *const app, const int64_t team_id,
+                                 const int64_t event_id, apl_event_detail *const out,
+                                 apl_error *const error)
 {
     if (!app || !out || team_id <= 0 || event_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid event detail arguments");
@@ -21,7 +22,7 @@ apl_status apl_event_detail_load(const apl_app *app, int64_t team_id, int64_t ev
     return status;
 }
 
-void apl_event_detail_free(apl_event_detail *detail)
+void apl_event_detail_free(apl_event_detail *const detail)
 {
     if (!detail)
         return;
@@ -29,8 +30,9 @@ void apl_event_detail_free(apl_event_detail *detail)
     *detail = (apl_event_detail){};
 }
 
-apl_status apl_session_detail_load(const apl_app *app, int64_t team_id, int64_t event_id,
-                                   int64_t session_id, apl_session_detail *out, apl_error *error)
+apl_status apl_session_detail_load(const apl_app *const app, const int64_t team_id,
+                                   const int64_t event_id, const int64_t session_id,
+                                   apl_session_detail *const out, apl_error *const error)
 {
     if (!app || !out || team_id <= 0 || event_id <= 0 || session_id <= 0) {
         apl_error_set(error, APL_ERR_INVALID_ARGUMENT, "invalid session detail arguments");
@@ -77,7 +79,7 @@ apl_status apl_session_detail_load(const apl_app *app, int64_t team_id, int64_t 
     return status;
 }
 
-void apl_session_detail_free(apl_session_detail *detail)
+void apl_session_detail_free(apl_session_detail *const detail)
 {
     if (!detail)
         return;

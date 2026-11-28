@@ -169,7 +169,7 @@ apl_status apl_activity_repository_get(const apl_db_connection *const connection
     *out_event = (apl_activity_event){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(
+    const apl_status status = prepare(
         handle, "SELECT " EVENT_COLUMNS " FROM activity_events WHERE id = ?1;", &statement, error);
     if (status != APL_OK) {
         return status;

@@ -46,7 +46,7 @@ size_t apl_tui_text_truncate_utf8(char *const value, const size_t max_bytes)
     if (value == nullptr) {
         return 0;
     }
-    size_t length = strlen(value);
+    const size_t length = strlen(value);
     if (length <= max_bytes) {
         return length;
     }
