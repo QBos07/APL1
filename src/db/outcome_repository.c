@@ -6,9 +6,14 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define COLUMNS                                                                                    \
-    "id,team_id,event_id,session_id,driver_id,start_position,finish_position,"                     \
+#define OUTCOME_TEAM                                                                               \
+    "(SELECT team_id FROM event_sessions_scoped WHERE id=driver_outcomes.session_id)"
+#define OUTCOME_EVENT "(SELECT event_id FROM event_sessions WHERE id=driver_outcomes.session_id)"
+#define OUTCOME_FIELDS                                                                             \
+    "session_id,driver_id,start_position,finish_position,"                                         \
     "laps,status,notes,created_at,updated_at"
+#define COLUMNS "id,team_id,event_id," OUTCOME_FIELDS
+#define RETURNING_COLUMNS "id," OUTCOME_TEAM "," OUTCOME_EVENT "," OUTCOME_FIELDS
 
 static void read_outcome(sqlite3_stmt *s, apl_outcome *o)
 {
@@ -46,11 +51,13 @@ static apl_status write_outcome(const apl_db_connection *connection, int64_t tea
     const char *sql =
         id ? "UPDATE driver_outcomes SET start_position=?6,finish_position=?7,laps=?8,status=?9,"
              "notes=?10,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
-             "WHERE team_id=?1 AND id=?2 RETURNING " COLUMNS
-           : "INSERT INTO driver_outcomes(team_id,event_id,session_id,driver_id,start_position,"
+             "WHERE " OUTCOME_TEAM "=?1 AND id=?2 RETURNING " RETURNING_COLUMNS
+           : "INSERT INTO driver_outcomes(session_id,driver_id,start_position,"
              "finish_position,laps,status,notes,created_at,updated_at) "
-             "VALUES(?1,?3,?4,?5,?6,?7,?8,?9,?10,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
-             "strftime('%Y-%m-%dT%H:%M:%fZ','now')) RETURNING " COLUMNS;
+             "SELECT ?4,?5,?6,?7,?8,?9,?10,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
+             "strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE EXISTS "
+             "(SELECT 1 FROM event_sessions_scoped WHERE id=?4 AND event_id=?3 AND team_id=?1) "
+             "RETURNING " RETURNING_COLUMNS;
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare outcome write: %s",
@@ -77,7 +84,7 @@ static apl_status write_outcome(const apl_db_connection *connection, int64_t tea
     if (rc == SQLITE_ROW)
         read_outcome(s, out);
     else if (rc == SQLITE_DONE) {
-        result = APL_ERR_NOT_FOUND;
+        result = id ? APL_ERR_NOT_FOUND : APL_ERR_INVALID_ARGUMENT;
         apl_error_set(error, result, "outcome not found for this team");
     } else {
         int extended = sqlite3_extended_errcode(db);
@@ -117,8 +124,9 @@ apl_status apl_outcome_repository_get(const apl_db_connection *connection, int64
     }
     sqlite3 *db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
-    if (sqlite3_prepare_v2(db, "SELECT " COLUMNS " FROM driver_outcomes WHERE team_id=?1 AND id=?2",
-                           -1, &s, nullptr) != SQLITE_OK) {
+    if (sqlite3_prepare_v2(
+            db, "SELECT " COLUMNS " FROM driver_outcomes_scoped WHERE team_id=?1 AND id=?2", -1, &s,
+            nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare outcome lookup: %s",
                       sqlite3_errmsg(db));
         return APL_ERR_DB_QUERY;
@@ -151,7 +159,7 @@ apl_status apl_outcome_repository_list(const apl_db_connection *connection, int6
     sqlite3 *db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
-                           "SELECT " COLUMNS " FROM driver_outcomes WHERE team_id=?1 "
+                           "SELECT " COLUMNS " FROM driver_outcomes_scoped WHERE team_id=?1 "
                            "AND event_id=?2 AND session_id=?3 ORDER BY id",
                            -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare outcome list: %s",

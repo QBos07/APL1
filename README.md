@@ -171,6 +171,9 @@ terminal never creates a database file.
 - Important changes must remain reviewable; posted financial records are corrected in a traceable way.
 - No sample team or official championship data is inserted unless explicitly offered as an opt-in sample.
 
+The current [database layout](docs/database-layout.md) documents normalized
+ownership paths and the automatic upgrade from earlier schemas.
+
 ## Contributing / implementation workflow
 
 Code conventions for this project are documented in [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -84,6 +84,7 @@ if(BUILD_TESTING)
         tests/integration/test_db_path.c
         tests/integration/test_db_foreign_keys.c
         tests/integration/test_db_migrations.c
+        tests/integration/test_db_normalization.c
         tests/integration/test_db_initial_migration.c
         tests/integration/test_db_migration_rollback.c
         tests/integration/test_driver_repository.c

@@ -6,9 +6,12 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define PART_UNIT_COLUMNS                                                                          \
-    "id, team_id, type_id, serial_number, part_number, condition_label, condition_key, notes, "    \
+#define UNIT_TEAM "(SELECT team_id FROM part_types WHERE part_types.id=part_units.type_id)"
+#define UNIT_FIELDS                                                                                \
+    "type_id, serial_number, part_number, condition_label, condition_key, notes, "                 \
     "archived, created_at, updated_at, archived_at"
+#define PART_UNIT_COLUMNS "id, team_id, " UNIT_FIELDS
+#define PART_UNIT_RETURNING "id, " UNIT_TEAM ", " UNIT_FIELDS
 
 static void read_unit(sqlite3_stmt *const statement, apl_part_unit *const unit)
 {
@@ -106,11 +109,12 @@ static apl_status write_and_read(sqlite3 *const handle, const char *const sql,
     }
 
     const int step_status = sqlite3_step(statement);
-    if (step_status == SQLITE_DONE && bind_id) {
+    if (step_status == SQLITE_DONE) {
         sqlite3_finalize(statement);
-        apl_error_set(error, APL_ERR_NOT_FOUND, "part unit %lld was not found for this team",
+        const apl_status missing = bind_id ? APL_ERR_NOT_FOUND : APL_ERR_INVALID_ARGUMENT;
+        apl_error_set(error, missing, "part unit %lld or its type was not found for this team",
                       (long long)id);
-        return APL_ERR_NOT_FOUND;
+        return missing;
     }
     if (step_status != SQLITE_ROW) {
         status = write_error(handle, error);
@@ -139,10 +143,11 @@ apl_status apl_part_unit_repository_create(const apl_db_connection *const connec
     *out_unit = (apl_part_unit){};
     return write_and_read(
         handle,
-        "INSERT INTO part_units (team_id, type_id, serial_number, part_number, condition_label, "
-        "condition_key, notes, archived, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, "
-        "?6, ?7, 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
-        "RETURNING " PART_UNIT_COLUMNS ";",
+        "INSERT INTO part_units (type_id, serial_number, part_number, condition_label, "
+        "condition_key, notes, archived, created_at, updated_at) SELECT ?2, ?3, ?4, ?5, "
+        "?6, ?7, 0, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
+        "WHERE EXISTS (SELECT 1 FROM part_types WHERE id=?2 AND team_id=?1) "
+        "RETURNING " PART_UNIT_RETURNING ";",
         unit->team_id, 0, false, unit, out_unit, error);
 }
 
@@ -162,9 +167,10 @@ apl_status apl_part_unit_repository_get(const apl_db_connection *const connectio
     *out_unit = (apl_part_unit){};
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(
-        handle, "SELECT " PART_UNIT_COLUMNS " FROM part_units WHERE id = ?1 AND team_id = ?2;",
-        &statement, error);
+    apl_status status = prepare(handle,
+                                "SELECT " PART_UNIT_COLUMNS
+                                " FROM part_units_scoped WHERE id = ?1 AND team_id = ?2;",
+                                &statement, error);
     if (status != APL_OK) {
         return status;
     }
@@ -207,7 +213,9 @@ apl_status apl_part_unit_repository_update(const apl_db_connection *const connec
         "UPDATE part_units SET type_id = ?3, serial_number = ?4, part_number = ?5, "
         "condition_label = ?6, condition_key = ?7, notes = ?8, "
         "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-        "WHERE id = ?2 AND team_id = ?1 RETURNING " PART_UNIT_COLUMNS ";",
+        "WHERE id = ?2 AND " UNIT_TEAM " = ?1 "
+        "AND EXISTS (SELECT 1 FROM part_types WHERE id=?3 AND team_id=?1) "
+        "RETURNING " PART_UNIT_RETURNING ";",
         unit->team_id, unit->id, true, unit, out_unit, error);
 }
 
@@ -232,7 +240,7 @@ apl_status apl_part_unit_repository_archive(const apl_db_connection *const conne
                 "UPDATE part_units SET archived = 1, "
                 "archived_at = COALESCE(archived_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')), "
                 "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') "
-                "WHERE id = ?2 AND team_id = ?1 RETURNING " PART_UNIT_COLUMNS ";",
+                "WHERE id = ?2 AND " UNIT_TEAM " = ?1 RETURNING " PART_UNIT_RETURNING ";",
                 &statement, error);
     if (status != APL_OK) {
         return status;
@@ -279,13 +287,14 @@ apl_status apl_part_unit_repository_list(const apl_db_connection *const connecti
     }
 
     sqlite3_stmt *statement = nullptr;
-    apl_status status = prepare(handle,
-                                "SELECT " PART_UNIT_COLUMNS " FROM part_units WHERE team_id = ?1 "
-                                "AND (?2 = 1 OR archived = 0) "
-                                "AND (?3 = 0 OR type_id = ?3) "
-                                "ORDER BY archived ASC, serial_number COLLATE NOCASE ASC, "
-                                "part_number COLLATE NOCASE ASC, id ASC;",
-                                &statement, error);
+    apl_status status =
+        prepare(handle,
+                "SELECT " PART_UNIT_COLUMNS " FROM part_units_scoped WHERE team_id = ?1 "
+                "AND (?2 = 1 OR archived = 0) "
+                "AND (?3 = 0 OR type_id = ?3) "
+                "ORDER BY archived ASC, serial_number COLLATE NOCASE ASC, "
+                "part_number COLLATE NOCASE ASC, id ASC;",
+                &statement, error);
     if (status != APL_OK) {
         return status;
     }

@@ -44,11 +44,12 @@ apl_status apl_outcome_correction_append(const apl_db_connection *connection,
     }
     sqlite3 *db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
-    const char *sql = "INSERT INTO outcome_corrections(team_id,outcome_id,actor,occurred_at,"
+    const char *sql = "INSERT INTO outcome_corrections(outcome_id,actor,occurred_at,"
                       "old_start,old_finish,old_laps,old_status,old_notes,"
                       "new_start,new_finish,new_laps,new_status,new_notes) "
-                      "VALUES(?1,?2,'local user',strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
-                      "?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)";
+                      "SELECT ?2,'local user',strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
+                      "?3,?4,?5,?6,?7,?8,?9,?10,?11,?12 WHERE EXISTS "
+                      "(SELECT 1 FROM driver_outcomes_scoped WHERE id=?2 AND team_id=?1)";
     if (sqlite3_prepare_v2(db, sql, -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare correction: %s", sqlite3_errmsg(db));
         return APL_ERR_DB_QUERY;
@@ -58,10 +59,11 @@ apl_status apl_outcome_correction_append(const apl_db_connection *connection,
     bind_values(s, 3, before);
     bind_values(s, 8, after);
     int rc = sqlite3_step(s);
-    if (rc != SQLITE_DONE)
+    const bool saved = rc == SQLITE_DONE && sqlite3_changes(db) == 1;
+    if (!saved)
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot record correction: %s", sqlite3_errmsg(db));
     sqlite3_finalize(s);
-    return rc == SQLITE_DONE ? APL_OK : APL_ERR_DB_QUERY;
+    return saved ? APL_OK : APL_ERR_DB_QUERY;
 }
 
 apl_status apl_outcome_correction_list(const apl_db_connection *connection, int64_t team_id,
@@ -77,10 +79,11 @@ apl_status apl_outcome_correction_list(const apl_db_connection *connection, int6
     *count = 0;
     sqlite3 *db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
-    const char *sql = "SELECT id,team_id,outcome_id,actor,occurred_at,"
-                      "old_start,old_finish,old_laps,old_status,old_notes,"
-                      "new_start,new_finish,new_laps,new_status,new_notes "
-                      "FROM outcome_corrections WHERE team_id=?1 AND outcome_id=?2 ORDER BY id";
+    const char *sql =
+        "SELECT id,team_id,outcome_id,actor,occurred_at,"
+        "old_start,old_finish,old_laps,old_status,old_notes,"
+        "new_start,new_finish,new_laps,new_status,new_notes "
+        "FROM outcome_corrections_scoped WHERE team_id=?1 AND outcome_id=?2 ORDER BY id";
     if (sqlite3_prepare_v2(db, sql, -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare correction list: %s",
                       sqlite3_errmsg(db));

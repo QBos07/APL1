@@ -6,7 +6,10 @@
 #include "core/util.h"
 #include "db/sqlite_util.h"
 
-#define SESSION_COLUMNS "id,team_id,event_id,label,created_at,updated_at"
+#define SESSION_TEAM "(SELECT team_id FROM events WHERE events.id=event_sessions.event_id)"
+#define SESSION_FIELDS "event_id,label,created_at,updated_at"
+#define SESSION_COLUMNS "id,team_id," SESSION_FIELDS
+#define SESSION_RETURNING "id," SESSION_TEAM "," SESSION_FIELDS
 
 static void read_session(sqlite3_stmt *s, apl_event_session *session)
 {
@@ -36,11 +39,13 @@ static apl_status write_session(const apl_db_connection *connection, int64_t tea
     sqlite3 *db = apl_db_handle(connection);
     const char *sql =
         id == 0
-            ? "INSERT INTO event_sessions(team_id,event_id,label,created_at,updated_at) "
-              "VALUES(?1,?2,?4,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
-              "strftime('%Y-%m-%dT%H:%M:%fZ','now')) RETURNING " SESSION_COLUMNS
+            ? "INSERT INTO event_sessions(event_id,label,created_at,updated_at) "
+              "SELECT ?2,?4,strftime('%Y-%m-%dT%H:%M:%fZ','now'),"
+              "strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+              "WHERE EXISTS (SELECT 1 FROM events WHERE id=?2 AND team_id=?1) "
+              "RETURNING " SESSION_RETURNING
             : "UPDATE event_sessions SET label=?4,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
-              "WHERE team_id=?1 AND event_id=?2 AND id=?3 RETURNING " SESSION_COLUMNS;
+              "WHERE " SESSION_TEAM "=?1 AND event_id=?2 AND id=?3 RETURNING " SESSION_RETURNING;
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare session write: %s",
@@ -56,7 +61,7 @@ static apl_status write_session(const apl_db_connection *connection, int64_t tea
     if (rc == SQLITE_ROW) {
         read_session(s, out);
     } else if (rc == SQLITE_DONE) {
-        status = APL_ERR_NOT_FOUND;
+        status = id ? APL_ERR_NOT_FOUND : APL_ERR_INVALID_ARGUMENT;
         apl_error_set(error, status, "session not found for this event and team");
     } else {
         status = (rc & 0xff) == SQLITE_CONSTRAINT ? APL_ERR_INVALID_ARGUMENT : APL_ERR_DB_QUERY;
@@ -96,7 +101,7 @@ apl_status apl_session_repository_get(const apl_db_connection *connection, int64
     sqlite3 *db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
-                           "SELECT " SESSION_COLUMNS " FROM event_sessions "
+                           "SELECT " SESSION_COLUMNS " FROM event_sessions_scoped "
                            "WHERE team_id=?1 AND event_id=?2 AND id=?3",
                            -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare session lookup: %s",
@@ -132,7 +137,7 @@ apl_status apl_session_repository_list(const apl_db_connection *connection, int6
     sqlite3 *db = apl_db_handle(connection);
     sqlite3_stmt *s = nullptr;
     if (sqlite3_prepare_v2(db,
-                           "SELECT " SESSION_COLUMNS " FROM event_sessions "
+                           "SELECT " SESSION_COLUMNS " FROM event_sessions_scoped "
                            "WHERE team_id=?1 AND event_id=?2 ORDER BY id",
                            -1, &s, nullptr) != SQLITE_OK) {
         apl_error_set(error, APL_ERR_DB_QUERY, "cannot prepare session list: %s",

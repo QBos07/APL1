@@ -24,8 +24,9 @@ apl_status apl_outcome_summary_query(const apl_app *app, const apl_outcome_summa
     sqlite3 *db = apl_db_handle(&app->db);
     sqlite3_stmt *stmt = nullptr;
     const char *sql = "SELECT count(*),count(o.laps),sum(o.laps) FROM driver_outcomes o "
-                      "JOIN events e ON e.id=o.event_id AND e.team_id=o.team_id "
-                      "WHERE o.team_id=?1 AND (?2=0 OR o.event_id=?2) "
+                      "JOIN event_sessions s ON s.id=o.session_id "
+                      "JOIN events e ON e.id=s.event_id "
+                      "WHERE e.team_id=?1 AND (?2=0 OR e.id=?2) "
                       "AND (?3=0 OR o.session_id=?3) AND (?4=0 OR e.season_id=?4) "
                       "AND (?5='' OR e.event_date>=?5) AND (?6='' OR e.event_date<=?6)";
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
